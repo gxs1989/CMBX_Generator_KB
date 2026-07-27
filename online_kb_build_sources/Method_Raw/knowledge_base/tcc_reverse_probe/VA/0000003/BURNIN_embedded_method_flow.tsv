@@ -1,0 +1,145 @@
+Method	Order	Level	Stage	Time	NodeType	Action	Target	Value	Comment	Condition
+BURNIN	1	0	InstrumentSetup	{Initial Time}	StageNode	STAGE		InstrumentSetup		
+BURNIN	2	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+BURNIN	3	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			IM to condition the temperature sensor and to test the Peltier aging of the Vanquish VH-C10-A, VC-C10-A and VA-C10-A	
+BURNIN	4	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+BURNIN	5	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			HPLC-System:	
+BURNIN	6	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			-----------	
+BURNIN	7	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			VH-C10-A, VC-C10-A or VA-C10-A	
+BURNIN	8	0	Equilibration	-0.700	StageNode	STAGE		Equilibration		
+BURNIN	9	0	Equilibration	-0.700	CommmentNode	COMMENT			=========================================================================================	
+BURNIN	10	0	Equilibration	-0.700	CommmentNode	COMMENT			Parameters valid for the whole test.	
+BURNIN	11	0	Equilibration	-0.700	CommmentNode	COMMENT			=========================================================================================	
+BURNIN	12	0	Equilibration	-0.700	CommmentNode	COMMENT			If the difference between nominal and actual temperature is larger than ReadyTempDelta, the VTCC is not ready.	
+BURNIN	13	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.CC.ReadyTempDelta	3.0 [°C]		
+BURNIN	14	0	Equilibration	-0.700	CommmentNode	COMMENT			The Ready property will become Ready only if the difference between the setpoint temperature and the nominal temperature will not exceed the ReadyTempDelta for the  time interval specified by EquilibrationTime.	
+BURNIN	15	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.CC.EquilibrationTime	0.5		
+BURNIN	16	0	Equilibration	-0.700	CommmentNode	COMMENT			The VTCC adjusts the temperature only, if TempCtrl is set to ON for each single unit.	
+BURNIN	17	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.CC.TempCtrl	On		
+BURNIN	18	0	Equilibration	-0.700	IfNode	IF				ColumnComp.ModelNo="VH-C10-A"
+BURNIN	19	1	Equilibration	-0.700	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PCC.TempCtrl=0"	String necessary, because otherwise a way more complicated solution would be needed for using this IM for both CC types. Is equivalent to ColumnComp.PCC.TempCtrl=Off	
+BURNIN	20	0	Equilibration	-0.700	ElseNode	ELSE				
+BURNIN	21	0	Equilibration	-0.700	IfBlockNode	END IF				
+BURNIN	22	0	Equilibration	-0.700	CommmentNode	COMMENT			Thermostatting Mode	
+BURNIN	23	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.CC.Mode	StillAir		
+BURNIN	24	0	Equilibration	-0.700	CommmentNode	COMMENT			Generic variables  for Triggers	
+BURNIN	25	0	Equilibration	-0.700	PropertyStepNode	SET	Variables.GenericFloat1	0		
+BURNIN	26	0	Equilibration	-0.700	CommmentNode	COMMENT			Variable for minimum and maximum temperature	
+BURNIN	27	0	Equilibration	-0.700	IfNode	IF				ColumnComp.ModelNo="VH-C10-A"
+BURNIN	28	1	Equilibration	-0.700	PropertyStepNode	SET	Variables.GenericDouble1	5.0	Minimum temperature for VH-C10-A	
+BURNIN	29	1	Equilibration	-0.700	PropertyStepNode	SET	Variables.GenericDouble2	120.0	Maximum temperature for VH-C10-A                            [Val_FOQ_CM7_ekugelma_07-Jul-2020]: OK	
+BURNIN	30	0	Equilibration	-0.700	ElseIfNode	ELSE IF				ColumnComp.ModelNo="VC-C10-A" OR ColumnComp.ModelNo="VA-C10-A"
+BURNIN	31	1	Equilibration	-0.700	PropertyStepNode	SET	Variables.GenericDouble1	5.0	Minimum temperature for VC-C10-A and VA-C10-A	
+BURNIN	32	1	Equilibration	-0.700	PropertyStepNode	SET	Variables.GenericDouble2	85.0	Maximum temperature for VC-C10-A and VA-C10-A                       [Val_FOQ_CM7_ekugelma_07-Jul-2020]: OK	
+BURNIN	33	0	Equilibration	-0.700	ElseNode	ELSE				
+BURNIN	34	1	Equilibration	-0.700	CommandStepNode	RUN	Message	"Invalid ModelNo! Please reinspect in production!"		
+BURNIN	35	1	Equilibration	-0.700	CommandStepNode	RUN	System.AbortQueue			
+BURNIN	36	0	Equilibration	-0.700	IfBlockNode	END IF				
+BURNIN	37	0	Equilibration	-0.700	CommmentNode	COMMENT			=========================================================================================	
+BURNIN	38	0	Equilibration	-0.700	CommmentNode	COMMENT			Leak Sensor State deactivated to avoide alarms caused by condensation due to fast heat up and cool down during IM	
+BURNIN	39	0	Equilibration	-0.700	CommmentNode	COMMENT			=========================================================================================	
+BURNIN	40	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.LiquidLeakSensor	Off		
+BURNIN	41	0	Equilibration	-0.700	CommmentNode	COMMENT			===================================================================================	
+BURNIN	42	0	Equilibration	-0.700	CommmentNode	COMMENT			Settings for all channels offered for the column compartment by the driver.	
+BURNIN	43	0	Equilibration	-0.700	CommmentNode	COMMENT			Also debug channels are aqcuired.	
+BURNIN	44	0	Equilibration	-0.700	CommmentNode	COMMENT			====================================================================================	
+BURNIN	45	0	Equilibration	-0.700	CommmentNode	COMMENT			Column commpartment	
+BURNIN	46	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.CC_U_Temp_Actual.Data_Collection_Rate	20		
+BURNIN	47	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.CC_L_Temp_Actual.Data_Collection_Rate	20		
+BURNIN	48	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.CC_UCTL_TempRear_Actual.Data_Collection_Rate	20		
+BURNIN	49	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.PWM_CCU_A.Data_Collection_Rate	20		
+BURNIN	50	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.PWM_CCU_B.Data_Collection_Rate	20		
+BURNIN	51	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.PWM_CCL_A.Data_Collection_Rate	20		
+BURNIN	52	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.PWM_CCL_B.Data_Collection_Rate	20		
+BURNIN	53	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.Fan_Rear_ActualRPM.Data_Collection_Rate	20		
+BURNIN	54	0	Equilibration	-0.700	CommmentNode	COMMENT			Leak Sensors	
+BURNIN	55	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.LEDBoard_LeakDiff.Data_Collection_Rate	20		
+BURNIN	56	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.LEDBoard_A13.Data_Collection_Rate	20		
+BURNIN	57	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.LEDBoard_A14.Data_Collection_Rate	20		
+BURNIN	58	0	Equilibration	-0.700	CommmentNode	COMMENT			===================================================================================	
+BURNIN	59	0	Equilibration	-0.700	CommmentNode	COMMENT			Start Temperature	
+BURNIN	60	0	Equilibration	-0.700	CommmentNode	COMMENT			===================================================================================	
+BURNIN	61	0	Equilibration	-0.700	PropertyStepNode	SET	ColumnComp.CC.Temperature.Nominal	15.0		
+BURNIN	62	0	InjectPreparation	0.000	StageNode	STAGE		InjectPreparation		
+BURNIN	63	0	InjectPreparation	0.000	CommandStepNode	RUN	Wait	CC.TempReady		
+BURNIN	64	0	StartRun	0.000	StageNode	STAGE		StartRun		
+BURNIN	65	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOn			
+BURNIN	66	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CC_U_Temp_Actual.AcqOn			
+BURNIN	67	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CC_L_Temp_Actual.AcqOn			
+BURNIN	68	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CC_UCTL_TempRear_Actual.AcqOn			
+BURNIN	69	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PWM_CCU_A.AcqOn			
+BURNIN	70	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PWM_CCU_B.AcqOn			
+BURNIN	71	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PWM_CCL_A.AcqOn			
+BURNIN	72	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PWM_CCL_B.AcqOn			
+BURNIN	73	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.Fan_Rear_ActualRPM.AcqOn			
+BURNIN	74	0	StartRun	0.000	CommmentNode	COMMENT			External measured temperatures	
+BURNIN	75	0	StartRun	0.000	CommandStepNode	RUN	Thermometer1.ExtTemp_UpperCC.AcqOn			
+BURNIN	76	0	StartRun	0.000	CommandStepNode	RUN	Thermometer1.ExtTemp_LowerCC.AcqOn			
+BURNIN	77	0	StartRun	0.000	CommandStepNode	RUN	Thermometer.Environment_Temperature.AcqOn			
+BURNIN	78	0	StartRun	0.000	CommmentNode	COMMENT			Leak Sensor Evaluation	
+BURNIN	79	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.LEDBoard_LeakDiff.AcqOn			
+BURNIN	80	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A13.AcqOn			
+BURNIN	81	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A14.AcqOn			
+BURNIN	82	0	Run	0.000	StageNode	STAGE		Run	Duration = 300.000 [min]	
+BURNIN	83	0	Run	0.100	PropertyStepNode	SET	ColumnComp.CC.Temperature.Nominal	Variables.GenericDouble2		
+BURNIN	84	0	Run	0.200	CommandStepNode	TRIGGER	System.Trigger	"T_Maximum", (CC.Temperature.Value>=(Variables.GenericDouble2-0.5)) AND (CC.Temperature.Nominal=Variables.GenericDouble2), Limit=2, Hysteresis=5.0 [%], AllowImmediateExecution=No		
+BURNIN	85	0	Run	0.200	PropertyStepNode	SET	ColumnComp.CC.Temperature.Nominal	Variables.GenericDouble1		
+BURNIN	86	0	Run	0.200	CommandStepNode	END TRIGGER				
+BURNIN	87	0	Run	0.200	CommandStepNode	TRIGGER	System.Trigger	"T_Minimum", (CC.Temperature.Value<=(Variables.GenericDouble1+5.0)) AND (CC.Temperature.Nominal=Variables.GenericDouble1), Limit=2, Hysteresis=5.0 [%], AllowImmediateExecution=No		
+BURNIN	88	0	Run	0.200	PropertyStepNode	SET	ColumnComp.CC.Temperature.Nominal	Variables.GenericDouble2		
+BURNIN	89	0	Run	0.200	PropertyStepNode	SET	Variables.GenericFloat1	Variables.GenericFloat1+1		
+BURNIN	90	0	Run	0.200	CommandStepNode	END TRIGGER				
+BURNIN	91	0	Run	0.200	CommandStepNode	TRIGGER	System.Trigger	"HoldTemp", (Variables.GenericFloat1=2), TrueTime=1, Limit=1, Hysteresis=0, AllowImmediateExecution=No		
+BURNIN	92	0	Run	0.200	PropertyStepNode	SET	ColumnComp.CC.Temperature.Nominal	Variables.GenericDouble2		
+BURNIN	93	0	Run	0.200	CommandStepNode	RUN	Delay	7200.0		
+BURNIN	94	0	Run	0.200	CommmentNode	COMMENT			Column commpartment	
+BURNIN	95	0	Run	0.200	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOff			
+BURNIN	96	0	Run	0.200	CommandStepNode	RUN	ColumnComp.CC_U_Temp_Actual.AcqOff			
+BURNIN	97	0	Run	0.200	CommandStepNode	RUN	ColumnComp.CC_L_Temp_Actual.AcqOff			
+BURNIN	98	0	Run	0.200	CommandStepNode	RUN	ColumnComp.CC_UCTL_TempRear_Actual.AcqOff			
+BURNIN	99	0	Run	0.200	CommandStepNode	RUN	ColumnComp.PWM_CCU_A.AcqOff			
+BURNIN	100	0	Run	0.200	CommandStepNode	RUN	ColumnComp.PWM_CCU_B.AcqOff			
+BURNIN	101	0	Run	0.200	CommandStepNode	RUN	ColumnComp.PWM_CCL_A.AcqOff			
+BURNIN	102	0	Run	0.200	CommandStepNode	RUN	ColumnComp.PWM_CCL_B.AcqOff			
+BURNIN	103	0	Run	0.200	CommandStepNode	RUN	ColumnComp.Fan_Rear_ActualRPM.AcqOff			
+BURNIN	104	0	Run	0.200	CommmentNode	COMMENT			External measured temperatures	
+BURNIN	105	0	Run	0.200	CommandStepNode	RUN	Thermometer1.ExtTemp_UpperCC.AcqOff			
+BURNIN	106	0	Run	0.200	CommandStepNode	RUN	Thermometer1.ExtTemp_LowerCC.AcqOff			
+BURNIN	107	0	Run	0.200	CommandStepNode	RUN	Thermometer.Environment_Temperature.AcqOff			
+BURNIN	108	0	Run	0.200	CommmentNode	COMMENT			Leak Sensor Evaluation	
+BURNIN	109	0	Run	0.200	CommandStepNode	RUN	ColumnComp.LEDBoard_LeakDiff.AcqOff			
+BURNIN	110	0	Run	0.200	CommandStepNode	RUN	ColumnComp.LEDBoard_A13.AcqOff			
+BURNIN	111	0	Run	0.200	CommandStepNode	RUN	ColumnComp.LEDBoard_A14.AcqOff			
+BURNIN	112	0	Run	0.200	CommandStepNode	RUN	End			
+BURNIN	113	0	Run	0.200	CommandStepNode	END TRIGGER				
+BURNIN	114	0	Run	3.000	CommmentNode	COMMENT			The following check ensures that the external thermometers are mounted properly and that they are configured correct in the instrument configuration manager (not in simmulation mode).	
+BURNIN	115	0	Run	3.000	CommmentNode	COMMENT			The queue is aborted automatically if the temperature of the external temperature sensors is not matching the temperature of the VTCC  withing T - 5 °C	
+BURNIN	116	0	Run	3.000	IfNode	IF				CC.Temperature.Value-Thermometer1.ExtTemp_LowerCC.Signal>5 OR CC.Temperature.Value-Thermometer1.ExtTemp_UpperCC>5
+BURNIN	117	1	Run	3.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="LedBar.ForceColor=1"		
+BURNIN	118	1	Run	3.000	CommandStepNode	RUN	Message	"***Temperature of at least one external thermometer is not increasing. Check for correct mounting of the sensors inside the VTCC and for correct configuration of the thermometers in the Instrument Configuration Manager. The queue will be aborted.***"		
+BURNIN	119	1	Run	3.000	CommandStepNode	RUN	Delay	1		
+BURNIN	120	1	Run	3.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="LedBar.ForceColor=0"		
+BURNIN	121	1	Run	3.000	CommandStepNode	RUN	Delay	1		
+BURNIN	122	1	Run	3.000	CommandStepNode	RUN	System.AbortQueue			
+BURNIN	123	0	Run	3.000	ElseNode	ELSE				
+BURNIN	124	0	Run	3.000	IfBlockNode	END IF				
+BURNIN	125	0	StopRun	300.000	StageNode	STAGE		StopRun		
+BURNIN	126	0	StopRun	300.000	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOff			
+BURNIN	127	0	StopRun	300.000	CommandStepNode	RUN	ColumnComp.CC_U_Temp_Actual.AcqOff			
+BURNIN	128	0	StopRun	300.000	CommandStepNode	RUN	ColumnComp.CC_L_Temp_Actual.AcqOff			
+BURNIN	129	0	StopRun	300.000	CommandStepNode	RUN	ColumnComp.CC_UCTL_TempRear_Actual.AcqOff			
+BURNIN	130	0	StopRun	300.000	CommandStepNode	RUN	ColumnComp.PWM_CCU_A.AcqOff			
+BURNIN	131	0	StopRun	300.000	CommandStepNode	RUN	ColumnComp.PWM_CCU_B.AcqOff			
+BURNIN	132	0	StopRun	300.000	CommandStepNode	RUN	ColumnComp.PWM_CCL_A.AcqOff			
+BURNIN	133	0	StopRun	300.000	CommandStepNode	RUN	ColumnComp.PWM_CCL_B.AcqOff			
+BURNIN	134	0	StopRun	300.000	CommandStepNode	RUN	ColumnComp.Fan_Rear_ActualRPM.AcqOff			
+BURNIN	135	0	PostRun	300.000	StageNode	STAGE		PostRun		
+BURNIN	136	0	PostRun	300.000	CommmentNode	COMMENT			External measured temperatures	
+BURNIN	137	0	PostRun	300.000	CommandStepNode	RUN	Thermometer1.ExtTemp_UpperCC.AcqOff			
+BURNIN	138	0	PostRun	300.000	CommandStepNode	RUN	Thermometer1.ExtTemp_LowerCC.AcqOff			
+BURNIN	139	0	PostRun	300.000	CommandStepNode	RUN	Thermometer.Environment_Temperature.AcqOff			
+BURNIN	140	0	PostRun	300.000	CommmentNode	COMMENT			Leak Sensor Evaluation	
+BURNIN	141	0	PostRun	300.000	CommandStepNode	RUN	ColumnComp.LEDBoard_LeakDiff.AcqOff			
+BURNIN	142	0	PostRun	300.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A13.AcqOff			
+BURNIN	143	0	PostRun	300.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A14.AcqOff			
+BURNIN	144	0	PostRun	300.000	EndNode	END				

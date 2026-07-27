@@ -1,0 +1,6 @@
+V1.4
+
+CMBX Data Explorer adds the first External Report Engine workflow, unified
+report MD contracts, report-template CMBX generation, and CM 7.2-compatible
+standalone method packaging. Generated data and machine-local configuration are
+kept outside the source repository.

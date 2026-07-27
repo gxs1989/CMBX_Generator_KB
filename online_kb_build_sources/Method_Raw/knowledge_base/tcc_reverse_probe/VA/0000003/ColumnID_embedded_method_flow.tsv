@@ -1,0 +1,59 @@
+Method	Order	Level	Stage	Time	NodeType	Action	Target	Value	Comment	Condition
+ColumnID	1	0	InstrumentSetup	{Initial Time}	StageNode	STAGE		InstrumentSetup		
+ColumnID	2	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+ColumnID	3	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			IM to check the correct electronic wiring of the column ID ports	
+ColumnID	4	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+ColumnID	5	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			HPLC-System:	
+ColumnID	6	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			-----------	
+ColumnID	7	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			VTCC	
+ColumnID	8	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+ColumnID	9	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			CM needs data from any channel to evaluate the audit trail in the report.	
+ColumnID	10	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+ColumnID	11	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			Different total pages counts are used for VH-C10-A and VC-C10-A (no PCC). This is set here	
+ColumnID	12	0	InstrumentSetup	{Initial Time}	IfNode	IF				ColumnComp.ModelNo="VH-C10-A"
+ColumnID	13	1	InstrumentSetup	{Initial Time}	PropertyStepNode	SET	Variables.GenericLong9	12		
+ColumnID	14	1	InstrumentSetup	{Initial Time}	CommandStepNode	RUN	Delay	1	[Val_FOQ_CM7_ekugelma_07-Jul-2020]: OK	
+ColumnID	15	1	InstrumentSetup	{Initial Time}	CommandStepNode	RUN	Log	GenericLong9		
+ColumnID	16	0	InstrumentSetup	{Initial Time}	ElseIfNode	ELSE IF				ColumnComp.ModelNo="VC-C10-A"
+ColumnID	17	1	InstrumentSetup	{Initial Time}	PropertyStepNode	SET	Variables.GenericLong9	10		
+ColumnID	18	1	InstrumentSetup	{Initial Time}	CommandStepNode	RUN	Delay	1	[Val_FOQ_CM7_ekugelma_07-Jul-2020]: OK	
+ColumnID	19	1	InstrumentSetup	{Initial Time}	CommandStepNode	RUN	Log	GenericLong9		
+ColumnID	20	0	InstrumentSetup	{Initial Time}	ElseNode	ELSE				
+ColumnID	21	1	InstrumentSetup	{Initial Time}	CommandStepNode	RUN	Message	"Column compartment model unknown, please reinspect in production!"		
+ColumnID	22	1	InstrumentSetup	{Initial Time}	CommandStepNode	RUN	System.AbortQueue			
+ColumnID	23	0	InstrumentSetup	{Initial Time}	IfBlockNode	END IF				
+ColumnID	24	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			Column commpartment	
+ColumnID	25	0	InstrumentSetup	{Initial Time}	PropertyStepNode	SET	ColumnComp.CC.TempCtrl	On		
+ColumnID	26	0	InstrumentSetup	{Initial Time}	PropertyStepNode	SET	ColumnComp.CC.Temperature.Nominal	15.00 [°C]	Equilibration for BurnIn	
+ColumnID	27	0	InstrumentSetup	{Initial Time}	PropertyStepNode	SET	ColumnComp.CC.Mode	StillAir		
+ColumnID	28	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+ColumnID	29	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			Settings for the all channels offered for the column compartment by the driver.	
+ColumnID	30	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			Also debug channels are aqcuired.	
+ColumnID	31	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+ColumnID	32	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			Settings for Trigger Commands	
+ColumnID	33	0	InstrumentSetup	{Initial Time}	PropertyStepNode	SET	Variables.GenericBool1	0		
+ColumnID	34	0	InstrumentSetup	{Initial Time}	CommandStepNode	RUN	Delay	2		
+ColumnID	35	0	InstrumentSetup	{Initial Time}	CommandStepNode	TRIGGER	System.Trigger	"END_RUN", Variables.GenericBool1=1, TrueTime=0, Limit=1, Hysteresis=0, AllowImmediateExecution=No		
+ColumnID	36	0	InstrumentSetup	{Initial Time}	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOff			
+ColumnID	37	0	InstrumentSetup	{Initial Time}	CommandStepNode	RUN	End			
+ColumnID	38	0	InstrumentSetup	{Initial Time}	CommandStepNode	END TRIGGER				
+ColumnID	39	0	StartRun	0.000	StageNode	STAGE		StartRun		
+ColumnID	40	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOn			
+ColumnID	41	0	Run	0.000	StageNode	STAGE		Run		
+ColumnID	42	0	Run	0.000	CommandStepNode	RUN	Message	"Please plug the column ID adapters in their designated positions. Please note the correct order!"		
+ColumnID	43	0	Run	0.000	CommandStepNode	RUN	Wait	Column_A.CardState=OK AND Column_B.CardState=OK AND Column_C.CardState=OK AND Column_D.CardState=OK , Timeout=2.00		
+ColumnID	44	0	Run	0.000	CommandStepNode	RUN	Log	Column_A.Description		
+ColumnID	45	0	Run	0.000	CommandStepNode	RUN	Log	Column_B.Description		
+ColumnID	46	0	Run	0.000	CommandStepNode	RUN	Log	Column_C.Description		
+ColumnID	47	0	Run	0.000	CommandStepNode	RUN	Log	Column_D.Description		
+ColumnID	48	0	Run	0.000	CommandStepNode	RUN	Delay	2		
+ColumnID	49	0	Run	0.000	IfNode	IF				Column_A.Description<>"A" OR Column_B.Description<>"B" OR Column_C.Description<>"C" OR Column_D.Description<>"D"
+ColumnID	50	1	Run	0.000	CommandStepNode	RUN	Message	"Either the cards are plugged into the wrong positions or the ports are electronically wrong connected! Check that the cards are in the correct position. If so, the device must be repaired!"		
+ColumnID	51	1	Run	0.000	CommandStepNode	RUN	System.AbortQueue			
+ColumnID	52	0	Run	0.000	IfBlockNode	END IF				
+ColumnID	53	0	Run	0.000	CommandStepNode	RUN	Delay	2		
+ColumnID	54	0	Run	0.000	PropertyStepNode	SET	Variables.GenericBool1	1	Enables Trigger "END_RUN" and thus stops sample	
+ColumnID	55	0	StopRun	120.000	StageNode	STAGE		StopRun		
+ColumnID	56	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOff			
+ColumnID	57	0	PostRun	120.000	StageNode	STAGE		PostRun		
+ColumnID	58	0	PostRun	120.000	EndNode	END				

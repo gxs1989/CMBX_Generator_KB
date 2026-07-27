@@ -1,0 +1,197 @@
+{
+  "version": "0.1",
+  "source": "Derived from TCC_METHOD_ROLE_CONTRACTS.md and decoded CMBX method flow TSV evidence.",
+  "families": {
+    "TCC": {
+      "methods": {
+        "TEMPERATURE_ACCURACY": {
+          "method_name": "TEMPERATURE_ACCURACY",
+          "test_intents": ["temperature_accuracy"],
+          "generation_mode": "role_map_required_preview",
+          "required_roles_for_generation": [
+            "device_branch",
+            "temperature_ladder_assignment",
+            "accuracy_measurement_setpoint",
+            "ret_time_anchor",
+            "final_reset"
+          ],
+          "roles": [
+            {
+              "id": "device_branch",
+              "label": "Device-specific model branch",
+              "special": "device_branch",
+              "edit_status": "locked",
+              "reason": "Selects VH/VC/VA ladder and report/page behavior."
+            },
+            {
+              "id": "temperature_ladder_assignment",
+              "label": "Accuracy temperature ladder variable",
+              "kind": "Command",
+              "command_regex": "Variables\\.GenericDouble\\d+",
+              "edit_status": "editable_by_role",
+              "reason": "Source value for a model-specific accuracy point; edit only as a ladder role."
+            },
+            {
+              "id": "accuracy_measurement_setpoint",
+              "label": "Accuracy measurement setpoint using ladder variable",
+              "kind": "Command",
+              "command_contains": "ColumnComp.CC.Temperature.Nominal",
+              "value_regex": "Variables\\.GenericDouble\\d+",
+              "edit_status": "editable_by_role",
+              "reason": "Physical measurement block target; linked to RetTime/report cell."
+            },
+            {
+              "id": "ret_time_anchor",
+              "label": "Report RetTime anchor",
+              "kind": "Command",
+              "command_regex": "RetTimes\\.RetTime\\d+",
+              "value_contains": "System.Retention",
+              "edit_status": "locked",
+              "reason": "Report formulas average raw/external channels around this anchor."
+            },
+            {
+              "id": "external_stability_gate",
+              "label": "External thermometer stability gate",
+              "kind": "Command",
+              "command_regex": "StabVars\\.TriggerStab\\d+|Wait",
+              "edit_status": "locked",
+              "reason": "Defines when the RetTime is valid for accuracy."
+            },
+            {
+              "id": "final_reset",
+              "label": "Final cleanup/reset setpoint",
+              "special": "final_reset",
+              "edit_status": "locked",
+              "reason": "Cleanup target, not a measured accuracy point."
+            }
+          ]
+        },
+        "TEMPERATURE_STABILITY_AND_PCC_70_H": {
+          "method_name": "TEMPERATURE_STABILITY_AND_PCC_70_H",
+          "test_intents": ["temperature_stability", "temperature_stability_and_pcc"],
+          "generation_mode": "role_map_required_preview",
+          "required_roles_for_generation": [
+            "cc_stability_target",
+            "report_window_support",
+            "pcc_branch"
+          ],
+          "roles": [
+            {
+              "id": "cc_stability_target",
+              "label": "CC stability hold target",
+              "kind": "Command",
+              "command_contains": "ColumnComp.CC.Temperature.Nominal",
+              "edit_status": "editable_by_role",
+              "reason": "Main CC hold temperature for stability evaluation."
+            },
+            {
+              "id": "pcc_branch",
+              "label": "VH PCC performance branch",
+              "text_regex": "ColumnComp\\.PCC|PCC",
+              "edit_status": "locked_unless_requested",
+              "reason": "VH-only PCC evidence; do not edit for ordinary CC stability target changes."
+            },
+            {
+              "id": "report_window_support",
+              "label": "Stability acquisition/report window support",
+              "text_regex": "AcqOn|AcqOff|Data_Collection_Rate|RetTimes\\.RetTime",
+              "edit_status": "locked",
+              "reason": "Existing report expects a fixed long-hold stability window."
+            }
+          ]
+        },
+        "TEMPERATURE_STABILITY_70_C": {
+          "method_name": "TEMPERATURE_STABILITY_70_C",
+          "test_intents": ["temperature_stability", "temperature_stability_no_pcc"],
+          "generation_mode": "role_map_required_preview",
+          "required_roles_for_generation": [
+            "cc_stability_target",
+            "report_window_support"
+          ],
+          "roles": [
+            {
+              "id": "cc_stability_target",
+              "label": "CC stability hold target",
+              "kind": "Command",
+              "command_contains": "ColumnComp.CC.Temperature.Nominal",
+              "edit_status": "editable_by_role",
+              "reason": "Main CC hold temperature for stability evaluation."
+            },
+            {
+              "id": "report_window_support",
+              "label": "Stability acquisition/report window support",
+              "text_regex": "AcqOn|AcqOff|Data_Collection_Rate|RetTimes\\.RetTime",
+              "edit_status": "locked",
+              "reason": "Existing report expects a fixed long-hold stability window."
+            }
+          ]
+        },
+        "TEMP_HEAT_UP_DOWN_20_50_20": {
+          "method_name": "TEMP_HEAT_UP_DOWN_20_50_20",
+          "test_intents": ["heatup_cooldown_20_50_20", "heatup_cooldown"],
+          "generation_mode": "role_map_required_preview",
+          "required_roles_for_generation": [
+            "transition_temperature",
+            "transition_ret_time_anchor"
+          ],
+          "roles": [
+            {
+              "id": "transition_temperature",
+              "label": "Heat/cool transition temperature",
+              "kind": "Command",
+              "command_contains": "ColumnComp.CC.Temperature.Nominal",
+              "edit_status": "editable_by_role",
+              "reason": "Endpoint in heat-up/cool-down transition; must move with trigger/report formula."
+            },
+            {
+              "id": "transition_ret_time_anchor",
+              "label": "Heat/cool RetTime anchor",
+              "kind": "Command",
+              "command_regex": "RetTimes\\.RetTime\\d+",
+              "value_contains": "System.Retention",
+              "edit_status": "locked",
+              "reason": "Report calculates heat/cool time from start/end anchors."
+            }
+          ]
+        },
+        "Stress test_5s_Preheater Box_pcc70c": {
+          "method_name": "Stress test_5s_Preheater Box_pcc70c",
+          "test_intents": ["valve_stress", "temperature_stability_with_valve_stress"],
+          "generation_mode": "role_map_required_preview",
+          "required_roles_for_generation": [
+            "periodic_trigger",
+            "valve_position_command",
+            "valve_position_log"
+          ],
+          "roles": [
+            {
+              "id": "periodic_trigger",
+              "label": "Periodic System.Trigger",
+              "kind": "Command",
+              "command_contains": "System.Trigger",
+              "edit_status": "editable_by_role",
+              "reason": "Controls repeated valve switching interval and retention window."
+            },
+            {
+              "id": "valve_position_command",
+              "label": "Valve position command",
+              "kind": "Command",
+              "command_contains": "Valve.CurrentPosition",
+              "edit_status": "editable_by_role",
+              "reason": "Sets upper/lower valve position inside a trigger action."
+            },
+            {
+              "id": "valve_position_log",
+              "label": "Valve position logging",
+              "kind": "Command",
+              "command_contains": "Log",
+              "value_contains": "Valve.CurrentPosition",
+              "edit_status": "required_when_requested",
+              "reason": "Required when user asks to log valve position."
+            }
+          ]
+        }
+      }
+    }
+  }
+}

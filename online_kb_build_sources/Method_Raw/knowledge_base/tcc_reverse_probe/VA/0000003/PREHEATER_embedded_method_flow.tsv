@@ -1,0 +1,219 @@
+Method	Order	Level	Stage	Time	NodeType	Action	Target	Value	Comment	Condition
+PREHEATER	1	0	InstrumentSetup	{Initial Time}	StageNode	STAGE		InstrumentSetup		
+PREHEATER	2	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	3	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			IM to measure the preheater connection ports of the Vanquish TCC.	
+PREHEATER	4	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	5	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			HPLC-System:	
+PREHEATER	6	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			-----------	
+PREHEATER	7	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			VTCC	
+PREHEATER	8	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	9	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			Parameters valid for the whole test.	
+PREHEATER	10	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	11	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			If the difference between the setpoint temperature and the actual temperature	
+PREHEATER	12	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			exeeds ReadyTempDelta, the VTCC is not ready.	
+PREHEATER	13	0	Equilibration	-0.500	StageNode	STAGE		Equilibration		
+PREHEATER	14	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.CC.ReadyTempDelta	1.0 [°C]		
+PREHEATER	15	0	Equilibration	-0.500	CommmentNode	COMMENT			The Ready property will become Ready only if the difference between the	
+PREHEATER	16	0	Equilibration	-0.500	CommmentNode	COMMENT			setpoint temperature and the nominal temperature will not exceed the ReadyTempDelta for	
+PREHEATER	17	0	Equilibration	-0.500	CommmentNode	COMMENT			the time interval specified by EquilibrationTime.	
+PREHEATER	18	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.CC.EquilibrationTime	0.5 [min]		
+PREHEATER	19	0	Equilibration	-0.500	CommmentNode	COMMENT			The VTCC controls the temperature only, if TempCtrl is set to ON.	
+PREHEATER	20	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.CC.TempCtrl	On		
+PREHEATER	21	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.CC.Temperature.Nominal	15 [°C]	Equilibration for Burn-In	
+PREHEATER	22	0	Equilibration	-0.500	CommmentNode	COMMENT			Adjusts FanSpeed and switches operating mode	
+PREHEATER	23	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.CC.Mode	StillAir		
+PREHEATER	24	0	Equilibration	-0.500	CommmentNode	COMMENT			Initialize gereric variables used during preheater triggers	
+PREHEATER	25	0	Equilibration	-0.500	CommmentNode	COMMENT			Values change during trigger execution and can be used as conditions to stop the sample "regularly"	
+PREHEATER	26	0	Equilibration	-0.500	PropertyStepNode	SET	Variables.GenericBool1	0		
+PREHEATER	27	0	Equilibration	-0.500	PropertyStepNode	SET	Variables.GenericBool2	0		
+PREHEATER	28	0	Equilibration	-0.500	CommmentNode	COMMENT			Initialize Retention Times used during preheater triggers	
+PREHEATER	29	0	Equilibration	-0.500	PropertyStepNode	SET	RetTimes.RetTime1	0		
+PREHEATER	30	0	Equilibration	-0.500	PropertyStepNode	SET	RetTimes.RetTime2	0		
+PREHEATER	31	0	Equilibration	-0.500	PropertyStepNode	SET	RetTimes.RetTime3	0		
+PREHEATER	32	0	Equilibration	-0.500	PropertyStepNode	SET	RetTimes.RetTime4	0		
+PREHEATER	33	0	Equilibration	-0.500	CommmentNode	COMMENT			Setting of regulation parameters for preheater simulator only	
+PREHEATER	34	0	Equilibration	-0.500	CommmentNode	COMMENT			setting are not persistent - after reboot default parameters for real preheaters are set again automatically. However they will be reset at the end of the IM	
+PREHEATER	35	0	Equilibration	-0.500	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.L.PID.Kp=10000"		
+PREHEATER	36	0	Equilibration	-0.500	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.L.PID.Ki=1200"		
+PREHEATER	37	0	Equilibration	-0.500	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.R.PID.Kp=10000"		
+PREHEATER	38	0	Equilibration	-0.500	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.R.PID.Ki=1200"		
+PREHEATER	39	0	Equilibration	-0.500	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	40	0	Equilibration	-0.500	CommmentNode	COMMENT			Preheater settings	
+PREHEATER	41	0	Equilibration	-0.500	CommmentNode	COMMENT			The settings for ReadyTempDelta and Equil.Time are relatively tight so that the signals	
+PREHEATER	42	0	Equilibration	-0.500	CommmentNode	COMMENT			are more stable at the beginning of the data aquisition	
+PREHEATER	43	0	Equilibration	-0.500	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	44	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PrehtLeft.TempCtrl	On		
+PREHEATER	45	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PrehtRight.TempCtrl	On		
+PREHEATER	46	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PrehtLeft.Temperature.Nominal	40.00 [°C]		
+PREHEATER	47	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PrehtLeft.ReadyTempDelta	0.05 [°C]		
+PREHEATER	48	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PrehtLeft.EquilibrationTime	0.5 [min]		
+PREHEATER	49	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PrehtRight.Temperature.Nominal	40.00 [°C]		
+PREHEATER	50	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PrehtRight.ReadyTempDelta	0.05 [°C]		
+PREHEATER	51	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PrehtRight.EquilibrationTime	0.5 [min]		
+PREHEATER	52	0	Equilibration	-0.500	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	53	0	Equilibration	-0.500	CommmentNode	COMMENT			Settings for the all channels offered for the column compartment by the driver.	
+PREHEATER	54	0	Equilibration	-0.500	CommmentNode	COMMENT			Also debug channels are aqcuired.	
+PREHEATER	55	0	Equilibration	-0.500	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	56	0	Equilibration	-0.500	CommmentNode	COMMENT			Preheater	
+PREHEATER	57	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PREH_L_HeaterTemp_Actual.Data_Collection_Rate	20		
+PREHEATER	58	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PREH_R_HeaterTemp_Actual.Data_Collection_Rate	20		
+PREHEATER	59	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PREH_L_Temp_Actual.Data_Collection_Rate	20		
+PREHEATER	60	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PREH_R_Temp_Actual.Data_Collection_Rate	20		
+PREHEATER	61	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PWM_LeftPreh.Data_Collection_Rate	20		
+PREHEATER	62	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.PWM_RightPreh.Data_Collection_Rate	20		
+PREHEATER	63	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.Fan_Rear_ActualRPM.Data_Collection_Rate	20		
+PREHEATER	64	0	Equilibration	-0.500	CommmentNode	COMMENT			Leak Sensors	
+PREHEATER	65	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.LEDBoard_LeakDiff.Data_Collection_Rate	20		
+PREHEATER	66	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.LEDBoard_A13.Data_Collection_Rate	20		
+PREHEATER	67	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.LEDBoard_A14.Data_Collection_Rate	20		
+PREHEATER	68	0	Equilibration	-0.500	PropertyStepNode	SET	ColumnComp.Oven_Gas_MuteTimeRemain.Data_Collection_Rate	20		
+PREHEATER	69	0	Equilibration	-0.500	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	70	0	Equilibration	-0.500	CommmentNode	COMMENT			Start	
+PREHEATER	71	0	Equilibration	-0.500	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	72	0	InjectPreparation	0.000	StageNode	STAGE		InjectPreparation		
+PREHEATER	73	0	InjectPreparation	0.000	CommandStepNode	RUN	Wait	PrehtLeft.TempReady AND PrehtRight.TempReady		
+PREHEATER	74	0	StartRun	0.000	StageNode	STAGE		StartRun		
+PREHEATER	75	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOn			
+PREHEATER	76	0	StartRun	0.000	CommmentNode	COMMENT			Preheater	
+PREHEATER	77	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PrehtLeft_Temp.AcqOn			
+PREHEATER	78	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PrehtRight_Temp.AcqOn			
+PREHEATER	79	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PREH_L_Temp_Actual.AcqOn			
+PREHEATER	80	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PREH_R_Temp_Actual.AcqOn			
+PREHEATER	81	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PREH_L_HeaterTemp_Actual.AcqOn			
+PREHEATER	82	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PREH_R_HeaterTemp_Actual.AcqOn			
+PREHEATER	83	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PWM_LeftPreh.AcqOn			
+PREHEATER	84	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PWM_RightPreh.AcqOn			
+PREHEATER	85	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.Fan_Rear_ActualRPM.AcqOn			
+PREHEATER	86	0	StartRun	0.000	CommmentNode	COMMENT			External measured temperatures	
+PREHEATER	87	0	StartRun	0.000	CommandStepNode	RUN	Thermometer1.ExtTemp_UpperCC.AcqOn			
+PREHEATER	88	0	StartRun	0.000	CommandStepNode	RUN	Thermometer1.ExtTemp_LowerCC.AcqOn			
+PREHEATER	89	0	StartRun	0.000	CommandStepNode	RUN	Thermometer.Environment_Temperature.AcqOn			
+PREHEATER	90	0	StartRun	0.000	CommmentNode	COMMENT			Leak Sensor Evaluation	
+PREHEATER	91	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.LEDBoard_LeakDiff.AcqOn			
+PREHEATER	92	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A13.AcqOn			
+PREHEATER	93	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A14.AcqOn			
+PREHEATER	94	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.Oven_Gas_MuteTimeRemain.AcqOn			
+PREHEATER	95	0	Run	0.000	StageNode	STAGE		Run	Duration = 10.100 [min]	
+PREHEATER	96	0	Run	0.000	CommmentNode	COMMENT			========================================================================================	
+PREHEATER	97	0	Run	0.000	CommmentNode	COMMENT			TempCtrl off/on while the signal is relatively stable to check for signal jumps	
+PREHEATER	98	0	Run	0.000	CommmentNode	COMMENT			========================================================================================	
+PREHEATER	99	0	Run	0.500	PropertyStepNode	SET	ColumnComp.PrehtLeft.TempCtrl	Off		
+PREHEATER	100	0	Run	0.500	PropertyStepNode	SET	ColumnComp.PrehtRight.TempCtrl	Off		
+PREHEATER	101	0	Run	0.600	PropertyStepNode	SET	ColumnComp.PrehtLeft.Temperature.Nominal	60.0 [°C]		
+PREHEATER	102	0	Run	0.600	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	103	0	Run	0.600	CommmentNode	COMMENT			Trigger for Heat Time measuring 45°C to 55°C (Preheater Temperature)	
+PREHEATER	104	0	Run	0.600	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	105	0	Run	0.600	CommandStepNode	TRIGGER	System.Trigger	"T_UP_Left", PrehtLeft.Temperature.Value>=45.0, TrueTime=1, Limit=1, Hysteresis=0, AllowImmediateExecution=No	if there is a short ciruit left, the trigger should never start	
+PREHEATER	106	0	Run	0.600	PropertyStepNode	SET	RetTimes.RetTime1	System.Retention	Retention time when start temperature was reached is "logged" for evaluating purposes	
+PREHEATER	107	0	Run	0.600	CommandStepNode	RUN	Log	PrehtLeft.Temperature.Value		
+PREHEATER	108	0	Run	0.600	CommandStepNode	RUN	Log	PrehtLeft.TempActual_Heater		
+PREHEATER	109	0	Run	0.600	CommandStepNode	RUN	Delay	1		
+PREHEATER	110	0	Run	0.600	IfNode	IF				PrehtLeft.Temperature.Value-PrehtRight.Temperature.Value<5
+PREHEATER	111	1	Run	0.600	CommandStepNode	RUN	Protocol	"***Temperature increase observed on right pre-heater although TempCtrl.Right is off. There is a short circuit on the pre-heater board. The batch will be aborted!***"		
+PREHEATER	112	1	Run	0.600	CommandStepNode	RUN	Delay	1		
+PREHEATER	113	1	Run	0.600	PropertyStepNode	SET	ColumnComp.PrehtLeft.TempCtrl	Off		
+PREHEATER	114	1	Run	0.600	PropertyStepNode	SET	ColumnComp.PrehtRight.TempCtrl	Off		
+PREHEATER	115	1	Run	0.600	CommandStepNode	RUN	Delay	1		
+PREHEATER	116	1	Run	0.600	CommandStepNode	RUN	System.AbortQueue			
+PREHEATER	117	0	Run	0.600	ElseNode	ELSE				
+PREHEATER	118	1	Run	0.600	PropertyStepNode	SET	ColumnComp.PrehtRight.Temperature.Nominal	60.0 [°C]		
+PREHEATER	119	0	Run	0.600	IfBlockNode	END IF				
+PREHEATER	120	0	Run	0.600	CommandStepNode	END TRIGGER				
+PREHEATER	121	0	Run	0.600	CommmentNode	COMMENT			Trigger T_UP_Right is similar to Trigger T_UP_Left, just the other side	
+PREHEATER	122	0	Run	0.600	CommandStepNode	TRIGGER	System.Trigger	"T_UP_Right", PrehtRight.Temperature.Value>=45.0 AND PrehtRight.TempCtrl=On, TrueTime=1, Limit=1, Hysteresis=0, AllowImmediateExecution=No		
+PREHEATER	123	0	Run	0.600	PropertyStepNode	SET	RetTimes.RetTime2	System.Retention		
+PREHEATER	124	0	Run	0.600	CommandStepNode	RUN	Log	PrehtRight.Temperature.Value		
+PREHEATER	125	0	Run	0.600	CommandStepNode	RUN	Log	PrehtRight.TempActual_Heater		
+PREHEATER	126	0	Run	0.600	CommandStepNode	END TRIGGER				
+PREHEATER	127	0	Run	0.600	CommandStepNode	TRIGGER	System.Trigger	"Reached_Left", PrehtLeft.Temperature.Value>=55.0, TrueTime=1, Limit=1, Hysteresis=0, AllowImmediateExecution=No		
+PREHEATER	128	0	Run	0.600	PropertyStepNode	SET	RetTimes.RetTime3	System.Retention	Retention time when end temperature was reached is "logged" for evaluating purposes	
+PREHEATER	129	0	Run	0.600	CommandStepNode	RUN	Log	PrehtLeft.Temperature.Value		
+PREHEATER	130	0	Run	0.600	CommandStepNode	RUN	Log	PrehtLeft.TempActual_Heater		
+PREHEATER	131	0	Run	0.600	CommandStepNode	RUN	Delay	1		
+PREHEATER	132	0	Run	0.600	PropertyStepNode	SET	ColumnComp.PrehtLeft.TempCtrl	Off		
+PREHEATER	133	0	Run	0.600	PropertyStepNode	SET	Variables.GenericBool1	1		
+PREHEATER	134	0	Run	0.600	CommandStepNode	RUN	Delay	10		
+PREHEATER	135	0	Run	0.600	CommandStepNode	END TRIGGER				
+PREHEATER	136	0	Run	0.600	CommandStepNode	TRIGGER	System.Trigger	"Reached_Right", PrehtRight.Temperature.Value>=55.0, TrueTime=1, Limit=1, Hysteresis=0, AllowImmediateExecution=No		
+PREHEATER	137	0	Run	0.600	PropertyStepNode	SET	RetTimes.RetTime4	System.Retention		
+PREHEATER	138	0	Run	0.600	CommandStepNode	RUN	Log	PrehtRight.Temperature.Value		
+PREHEATER	139	0	Run	0.600	CommandStepNode	RUN	Log	PrehtRight.TempActual_Heater		
+PREHEATER	140	0	Run	0.600	CommandStepNode	RUN	Delay	1		
+PREHEATER	141	0	Run	0.600	PropertyStepNode	SET	ColumnComp.PrehtRight.TempCtrl	Off		
+PREHEATER	142	0	Run	0.600	PropertyStepNode	SET	Variables.GenericBool2	1		
+PREHEATER	143	0	Run	0.600	CommandStepNode	RUN	Delay	10		
+PREHEATER	144	0	Run	0.600	CommandStepNode	END TRIGGER				
+PREHEATER	145	0	Run	0.600	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	146	0	Run	0.600	CommmentNode	COMMENT			End Trigger	
+PREHEATER	147	0	Run	0.600	CommmentNode	COMMENT			The commands in the trigger are only executed when the preheater temperatures exceeded certain values - see above triggers "Reached_Right/Left"	
+PREHEATER	148	0	Run	0.600	CommmentNode	COMMENT			These trigger set the variables GenericBool1 AND GenericBool2 to values different from the initial values	
+PREHEATER	149	0	Run	0.600	CommmentNode	COMMENT			Stopping the sample by the "end trigger" is the regular end of the sample	
+PREHEATER	150	0	Run	0.600	CommmentNode	COMMENT			=========================================================================================	
+PREHEATER	151	0	Run	0.600	CommandStepNode	TRIGGER	System.Trigger	"END_RUN", Variables.GenericBool1=1 AND Variables.GenericBool2=1, TrueTime=10, Limit=1, Hysteresis=0, AllowImmediateExecution=No		
+PREHEATER	152	0	Run	0.600	CommmentNode	COMMENT			Switching off the Pre-heater at the end of the IM	
+PREHEATER	153	0	Run	0.600	PropertyStepNode	SET	ColumnComp.PrehtLeft.TempCtrl	Off		
+PREHEATER	154	0	Run	0.600	PropertyStepNode	SET	ColumnComp.PrehtRight.TempCtrl	Off		
+PREHEATER	155	0	Run	0.600	CommmentNode	COMMENT			Column commpartment	
+PREHEATER	156	0	Run	0.600	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOff			
+PREHEATER	157	0	Run	0.600	CommmentNode	COMMENT			Preheater	
+PREHEATER	158	0	Run	0.600	CommandStepNode	RUN	ColumnComp.PrehtLeft_Temp.AcqOff			
+PREHEATER	159	0	Run	0.600	CommandStepNode	RUN	ColumnComp.PrehtRight_Temp.AcqOff			
+PREHEATER	160	0	Run	0.600	CommandStepNode	RUN	ColumnComp.PREH_L_Temp_Actual.AcqOff			
+PREHEATER	161	0	Run	0.600	CommandStepNode	RUN	ColumnComp.PREH_R_Temp_Actual.AcqOff			
+PREHEATER	162	0	Run	0.600	CommandStepNode	RUN	ColumnComp.PREH_L_HeaterTemp_Actual.AcqOff			
+PREHEATER	163	0	Run	0.600	CommandStepNode	RUN	ColumnComp.PREH_R_HeaterTemp_Actual.AcqOff			
+PREHEATER	164	0	Run	0.600	CommandStepNode	RUN	ColumnComp.PWM_LeftPreh.AcqOff			
+PREHEATER	165	0	Run	0.600	CommandStepNode	RUN	ColumnComp.PWM_RightPreh.AcqOff			
+PREHEATER	166	0	Run	0.600	CommandStepNode	RUN	ColumnComp.Fan_Rear_ActualRPM.AcqOff			
+PREHEATER	167	0	Run	0.600	CommmentNode	COMMENT			External measured temperatures	
+PREHEATER	168	0	Run	0.600	CommandStepNode	RUN	Thermometer1.ExtTemp_UpperCC.AcqOff			
+PREHEATER	169	0	Run	0.600	CommandStepNode	RUN	Thermometer1.ExtTemp_LowerCC.AcqOff			
+PREHEATER	170	0	Run	0.600	CommandStepNode	RUN	Thermometer.Environment_Temperature.AcqOff			
+PREHEATER	171	0	Run	0.600	CommmentNode	COMMENT			Leak Sensor Evaluation	
+PREHEATER	172	0	Run	0.600	CommandStepNode	RUN	ColumnComp.LEDBoard_LeakDiff.AcqOff			
+PREHEATER	173	0	Run	0.600	CommandStepNode	RUN	ColumnComp.LEDBoard_A13.AcqOff			
+PREHEATER	174	0	Run	0.600	CommandStepNode	RUN	ColumnComp.LEDBoard_A14.AcqOff			
+PREHEATER	175	0	Run	0.600	CommandStepNode	RUN	ColumnComp.Oven_Gas_MuteTimeRemain.AcqOff			
+PREHEATER	176	0	Run	0.600	CommmentNode	COMMENT			Reset of regulation parameters for preheater simulator	
+PREHEATER	177	0	Run	0.600	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.L.PID.Kp=600000"		
+PREHEATER	178	0	Run	0.600	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.L.PID.Ki=30000"		
+PREHEATER	179	0	Run	0.600	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.R.PID.Kp=600000"		
+PREHEATER	180	0	Run	0.600	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.R.PID.Ki=30000"		
+PREHEATER	181	0	Run	0.600	CommandStepNode	RUN	End			
+PREHEATER	182	0	Run	0.600	CommandStepNode	END TRIGGER				
+PREHEATER	183	0	Run	10.000	PropertyStepNode	SET	ColumnComp.PrehtLeft.TempCtrl	Off		
+PREHEATER	184	0	Run	10.000	PropertyStepNode	SET	ColumnComp.PrehtRight.TempCtrl	Off		
+PREHEATER	185	0	Run	10.000	CommmentNode	COMMENT			The following lines are only executed if trigger "END_RUN" was not executed, i.e. the preheaters did not heat up	
+PREHEATER	186	0	Run	10.100	CommandStepNode	RUN	Message	"The nominal temperature on either the left, right or both pre-heater was not reached. Check for loose connections or short circuits on the pre-heater board!"		
+PREHEATER	187	0	Run	10.100	CommandStepNode	RUN	Delay	1		
+PREHEATER	188	0	Run	10.100	CommandStepNode	RUN	System.AbortQueue			
+PREHEATER	189	0	Run	10.100	CommmentNode	COMMENT			The following lines are required to pass the ready check (each acquisition on command requires an acquistion off command).	
+PREHEATER	190	0	Run	10.100	CommmentNode	COMMENT			These lines are never executed, because the previous line will aborts the current sample and the running acquisition.	
+PREHEATER	191	0	StopRun	11.000	StageNode	STAGE		StopRun		
+PREHEATER	192	0	StopRun	11.000	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOff			
+PREHEATER	193	0	PostRun	11.000	StageNode	STAGE		PostRun		
+PREHEATER	194	0	PostRun	11.000	CommmentNode	COMMENT			Preheater	
+PREHEATER	195	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.PrehtLeft_Temp.AcqOff			
+PREHEATER	196	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.PrehtRight_Temp.AcqOff			
+PREHEATER	197	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.PREH_L_Temp_Actual.AcqOff			
+PREHEATER	198	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.PREH_R_Temp_Actual.AcqOff			
+PREHEATER	199	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.PREH_L_HeaterTemp_Actual.AcqOff			
+PREHEATER	200	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.PREH_R_HeaterTemp_Actual.AcqOff			
+PREHEATER	201	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.PWM_LeftPreh.AcqOff			
+PREHEATER	202	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.PWM_RightPreh.AcqOff			
+PREHEATER	203	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.Fan_Rear_ActualRPM.AcqOff			
+PREHEATER	204	0	PostRun	11.000	CommmentNode	COMMENT			External measured temperatures	
+PREHEATER	205	0	PostRun	11.000	CommandStepNode	RUN	Thermometer1.ExtTemp_UpperCC.AcqOff			
+PREHEATER	206	0	PostRun	11.000	CommandStepNode	RUN	Thermometer1.ExtTemp_LowerCC.AcqOff			
+PREHEATER	207	0	PostRun	11.000	CommandStepNode	RUN	Thermometer.Environment_Temperature.AcqOff			
+PREHEATER	208	0	PostRun	11.000	CommmentNode	COMMENT			Leak Sensor Evaluation	
+PREHEATER	209	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.LEDBoard_LeakDiff.AcqOff			
+PREHEATER	210	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A13.AcqOff			
+PREHEATER	211	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A14.AcqOff			
+PREHEATER	212	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.Oven_Gas_MuteTimeRemain.AcqOff			
+PREHEATER	213	0	PostRun	11.000	CommmentNode	COMMENT			Reset of regulation parameters for preheater simulator	
+PREHEATER	214	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.L.PID.Kp=600000"		
+PREHEATER	215	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.L.PID.Ki=30000"		
+PREHEATER	216	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.R.PID.Kp=600000"		
+PREHEATER	217	0	PostRun	11.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="PREH.R.PID.Ki=30000"		
+PREHEATER	218	0	PostRun	11.000	EndNode	END				

@@ -1,0 +1,134 @@
+Method	Order	Level	Stage	Time	NodeType	Action	Target	Value	Comment	Condition
+LIQUID LEAK	1	0	InstrumentSetup	{Initial Time}	StageNode	STAGE		InstrumentSetup		
+LIQUID LEAK	2	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+LIQUID LEAK	3	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			IM to measure the performance of the Vanquish VH-C10-A, VC-C10-A or VA-C10-A Liquid Leak Sensor	
+LIQUID LEAK	4	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			=========================================================================================	
+LIQUID LEAK	5	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			HPLC-System:	
+LIQUID LEAK	6	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			-----------	
+LIQUID LEAK	7	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			VH-C10-A, VC-C10-A or VA-C10-A	
+LIQUID LEAK	8	0	Equilibration	-0.250	StageNode	STAGE		Equilibration		
+LIQUID LEAK	9	0	Equilibration	-0.250	CommmentNode	COMMENT			=========================================================================================	
+LIQUID LEAK	10	0	Equilibration	-0.250	CommmentNode	COMMENT			Parameters valid for the whole test.	
+LIQUID LEAK	11	0	Equilibration	-0.250	CommmentNode	COMMENT			=========================================================================================	
+LIQUID LEAK	12	0	Equilibration	-0.250	CommmentNode	COMMENT			If the difference between nominal and actual temperature is larger than ReadyTempDelta, the VTCC is not ready.	
+LIQUID LEAK	13	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.CC.ReadyTempDelta	None		
+LIQUID LEAK	14	0	Equilibration	-0.250	CommmentNode	COMMENT			The Ready property will become Ready only if the difference between the setpoint temperature and the nominal temperature will not exceed the ReadyTempDelta for the  time interval specified by EquilibrationTime.	
+LIQUID LEAK	15	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.CC.EquilibrationTime	0.5		
+LIQUID LEAK	16	0	Equilibration	-0.250	CommmentNode	COMMENT			The VTCC adjusts the temperature only, if TempCtrl is set to ON for each single unit.	
+LIQUID LEAK	17	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.CC.TempCtrl	On		
+LIQUID LEAK	18	0	Equilibration	-0.250	CommmentNode	COMMENT			To ensure that the leak test is performed at 20°C (nominal temperature of previous run)	
+LIQUID LEAK	19	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.CC.Temperature.Nominal	20.0 [°C]		
+LIQUID LEAK	20	0	Equilibration	-0.250	CommmentNode	COMMENT			Adjusts FanSpeed and switches operating mode	
+LIQUID LEAK	21	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.CC.Mode	StillAir		
+LIQUID LEAK	22	0	Equilibration	-0.250	CommmentNode	COMMENT			=========================================================================================	
+LIQUID LEAK	23	0	Equilibration	-0.250	CommmentNode	COMMENT			CM needs data from any channel to evaluate the audit trail in the report.	
+LIQUID LEAK	24	0	Equilibration	-0.250	CommmentNode	COMMENT			=========================================================================================	
+LIQUID LEAK	25	0	Equilibration	-0.250	CommmentNode	COMMENT			Column commpartment	
+LIQUID LEAK	26	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.CC_U_Temp_Actual.Data_Collection_Rate	20		
+LIQUID LEAK	27	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.CC_L_Temp_Actual.Data_Collection_Rate	20		
+LIQUID LEAK	28	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.CC_UCTL_TempRear_Actual.Data_Collection_Rate	20		
+LIQUID LEAK	29	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.PWM_CCU_A.Data_Collection_Rate	20		
+LIQUID LEAK	30	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.PWM_CCU_B.Data_Collection_Rate	20		
+LIQUID LEAK	31	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.PWM_CCL_A.Data_Collection_Rate	20		
+LIQUID LEAK	32	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.PWM_CCL_B.Data_Collection_Rate	20		
+LIQUID LEAK	33	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.Fan_Rear_ActualRPM.Data_Collection_Rate	20		
+LIQUID LEAK	34	0	Equilibration	-0.250	CommmentNode	COMMENT			Leak Sensors	
+LIQUID LEAK	35	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.LEDBoard_LeakDiff.Data_Collection_Rate	20		
+LIQUID LEAK	36	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.LEDBoard_A13.Data_Collection_Rate	20		
+LIQUID LEAK	37	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.LEDBoard_A14.Data_Collection_Rate	20		
+LIQUID LEAK	38	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.Oven_Gas_MuteTimeRemain.Data_Collection_Rate	20		
+LIQUID LEAK	39	0	Equilibration	-0.250	CommmentNode	COMMENT			Settings for Trigger Commands	
+LIQUID LEAK	40	0	Equilibration	-0.250	PropertyStepNode	SET	Variables.GenericBool1	0		
+LIQUID LEAK	41	0	Equilibration	-0.250	CommandStepNode	TRIGGER	System.Trigger	"END_RUN", Variables.GenericBool1=1 AND System.Retention>0.01, TrueTime=10, Limit=1, Hysteresis=0, AllowImmediateExecution=No		
+LIQUID LEAK	42	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOff			
+LIQUID LEAK	43	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.CC_U_Temp_Actual.AcqOff			
+LIQUID LEAK	44	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.CC_L_Temp_Actual.AcqOff			
+LIQUID LEAK	45	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.CC_UCTL_TempRear_Actual.AcqOff			
+LIQUID LEAK	46	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.PWM_CCU_A.AcqOff			
+LIQUID LEAK	47	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.PWM_CCU_B.AcqOff			
+LIQUID LEAK	48	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.PWM_CCL_A.AcqOff			
+LIQUID LEAK	49	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.PWM_CCL_B.AcqOff			
+LIQUID LEAK	50	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.Fan_Rear_ActualRPM.AcqOff			
+LIQUID LEAK	51	0	Equilibration	-0.250	CommmentNode	COMMENT			External measured temperatures	
+LIQUID LEAK	52	0	Equilibration	-0.250	CommandStepNode	RUN	Thermometer1.ExtTemp_UpperCC.AcqOff			
+LIQUID LEAK	53	0	Equilibration	-0.250	CommandStepNode	RUN	Thermometer1.ExtTemp_LowerCC.AcqOff			
+LIQUID LEAK	54	0	Equilibration	-0.250	CommandStepNode	RUN	Thermometer.Environment_Temperature.AcqOff			
+LIQUID LEAK	55	0	Equilibration	-0.250	CommmentNode	COMMENT			Leak Sensor Evaluation	
+LIQUID LEAK	56	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.LEDBoard_LeakDiff.AcqOff			
+LIQUID LEAK	57	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.LEDBoard_A13.AcqOff			
+LIQUID LEAK	58	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.LEDBoard_A14.AcqOff			
+LIQUID LEAK	59	0	Equilibration	-0.250	CommandStepNode	RUN	ColumnComp.Oven_Gas_MuteTimeRemain.AcqOff			
+LIQUID LEAK	60	0	Equilibration	-0.250	CommandStepNode	RUN	End			
+LIQUID LEAK	61	0	Equilibration	-0.250	CommandStepNode	END TRIGGER				
+LIQUID LEAK	62	0	Equilibration	-0.250	PropertyStepNode	SET	ColumnComp.LiquidLeakSensor	On		
+LIQUID LEAK	63	0	StartRun	0.000	StageNode	STAGE		StartRun		
+LIQUID LEAK	64	0	StartRun	0.000	CommandStepNode	RUN	Wait	ColumnComp.CC.TempReady		
+LIQUID LEAK	65	0	StartRun	0.000	IfNode	IF				Door=Closed AND LiquidLeak=NoLeak
+LIQUID LEAK	66	1	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="LedBar.ForceColor=1"		
+LIQUID LEAK	67	1	StartRun	0.000	CommandStepNode	RUN	Message	"Press OK, open compartment door and then inject 5 mL water to bottom of compartment."		
+LIQUID LEAK	68	1	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="LedBar.ForceColor=0"		
+LIQUID LEAK	69	0	StartRun	0.000	ElseNode	ELSE				
+LIQUID LEAK	70	1	StartRun	0.000	CommandStepNode	RUN	System.AbortQueue			
+LIQUID LEAK	71	0	StartRun	0.000	IfBlockNode	END IF				
+LIQUID LEAK	72	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOn			
+LIQUID LEAK	73	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CC_U_Temp_Actual.AcqOn			
+LIQUID LEAK	74	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CC_L_Temp_Actual.AcqOn			
+LIQUID LEAK	75	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.CC_UCTL_TempRear_Actual.AcqOn			
+LIQUID LEAK	76	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PWM_CCU_A.AcqOn			
+LIQUID LEAK	77	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PWM_CCU_B.AcqOn			
+LIQUID LEAK	78	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PWM_CCL_A.AcqOn			
+LIQUID LEAK	79	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.PWM_CCL_B.AcqOn			
+LIQUID LEAK	80	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.Fan_Rear_ActualRPM.AcqOn			
+LIQUID LEAK	81	0	StartRun	0.000	CommmentNode	COMMENT			External measured temperatures	
+LIQUID LEAK	82	0	StartRun	0.000	CommandStepNode	RUN	Thermometer1.ExtTemp_UpperCC.AcqOn			
+LIQUID LEAK	83	0	StartRun	0.000	CommandStepNode	RUN	Thermometer1.ExtTemp_LowerCC.AcqOn			
+LIQUID LEAK	84	0	StartRun	0.000	CommandStepNode	RUN	Thermometer.Environment_Temperature.AcqOn			
+LIQUID LEAK	85	0	StartRun	0.000	CommmentNode	COMMENT			Leak Sensor Evaluation	
+LIQUID LEAK	86	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.LEDBoard_LeakDiff.AcqOn			
+LIQUID LEAK	87	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A13.AcqOn			
+LIQUID LEAK	88	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A14.AcqOn			
+LIQUID LEAK	89	0	StartRun	0.000	CommandStepNode	RUN	ColumnComp.Oven_Gas_MuteTimeRemain.AcqOn			
+LIQUID LEAK	90	0	Run	0.000	StageNode	STAGE		Run		
+LIQUID LEAK	91	0	Run	0.000	CommandStepNode	RUN	Wait	LiquidLeak=Leak, Continue, Timeout=2.00		
+LIQUID LEAK	92	0	Run	0.000	CommandStepNode	RUN	Delay	1		
+LIQUID LEAK	93	0	Run	0.000	CommandStepNode	RUN	Log	LiquidLeak		
+LIQUID LEAK	94	0	Run	0.000	CommandStepNode	RUN	Delay	1		
+LIQUID LEAK	95	0	Run	0.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="LedBar.ForceColor=1"		
+LIQUID LEAK	96	0	Run	0.000	CommandStepNode	RUN	Message	"Confirm the leak alarm by pressing 'MUTE ALARM' on the instruments keypad!"		
+LIQUID LEAK	97	0	Run	0.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="LedBar.ForceColor=0"		
+LIQUID LEAK	98	0	Run	0.000	CommandStepNode	RUN	Wait	ColumnComp.Alarm = NoAlarm		
+LIQUID LEAK	99	0	Run	0.000	IfNode	IF				ColumnComp.Alarm=NoAlarm
+LIQUID LEAK	100	1	Run	0.000	PropertyStepNode	SET	ColumnComp.LiquidLeakSensor	Off		
+LIQUID LEAK	101	1	Run	0.000	CommandStepNode	RUN	Delay	1		
+LIQUID LEAK	102	0	Run	0.000	ElseNode	ELSE				
+LIQUID LEAK	103	1	Run	0.000	CommandStepNode	RUN	System.AbortQueue			
+LIQUID LEAK	104	0	Run	0.000	IfBlockNode	END IF				
+LIQUID LEAK	105	0	Run	0.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="LedBar.ForceColor=1"		
+LIQUID LEAK	106	0	Run	0.000	CommandStepNode	RUN	Message	"With a cloth or tissue, thoroughly absorb all liquid that has collected under the leak sensor and in compartment. Close door again."		
+LIQUID LEAK	107	0	Run	0.000	CommandStepNode	RUN	Delay	5		
+LIQUID LEAK	108	0	Run	0.000	CommandStepNode	RUN	Message	"Please confirm that all liquid under the liquid leak sensor has been removed!"		
+LIQUID LEAK	109	0	Run	0.000	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="LedBar.ForceColor=0"		
+LIQUID LEAK	110	0	Run	0.000	CommandStepNode	RUN	Delay	5		
+LIQUID LEAK	111	0	Run	0.000	PropertyStepNode	SET	Variables.GenericBool1	1	Enables Trigger "END_RUN"	
+LIQUID LEAK	112	0	Run	0.000	CommandStepNode	RUN	Delay	1		
+LIQUID LEAK	113	0	StopRun	120.000	StageNode	STAGE		StopRun		
+LIQUID LEAK	114	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.CC_Temp.AcqOff			
+LIQUID LEAK	115	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.CC_U_Temp_Actual.AcqOff			
+LIQUID LEAK	116	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.CC_L_Temp_Actual.AcqOff			
+LIQUID LEAK	117	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.CC_UCTL_TempRear_Actual.AcqOff			
+LIQUID LEAK	118	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.PWM_CCU_A.AcqOff			
+LIQUID LEAK	119	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.PWM_CCU_B.AcqOff			
+LIQUID LEAK	120	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.PWM_CCL_A.AcqOff			
+LIQUID LEAK	121	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.PWM_CCL_B.AcqOff			
+LIQUID LEAK	122	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.Fan_Rear_ActualRPM.AcqOff			
+LIQUID LEAK	123	0	StopRun	120.000	CommmentNode	COMMENT			External measured temperatures	
+LIQUID LEAK	124	0	StopRun	120.000	CommandStepNode	RUN	Thermometer1.ExtTemp_UpperCC.AcqOff			
+LIQUID LEAK	125	0	StopRun	120.000	CommandStepNode	RUN	Thermometer1.ExtTemp_LowerCC.AcqOff			
+LIQUID LEAK	126	0	StopRun	120.000	CommandStepNode	RUN	Thermometer.Environment_Temperature.AcqOff			
+LIQUID LEAK	127	0	StopRun	120.000	CommmentNode	COMMENT			Leak Sensor Evaluation	
+LIQUID LEAK	128	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.LEDBoard_LeakDiff.AcqOff			
+LIQUID LEAK	129	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A13.AcqOff			
+LIQUID LEAK	130	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.LEDBoard_A14.AcqOff			
+LIQUID LEAK	131	0	StopRun	120.000	CommandStepNode	RUN	ColumnComp.Oven_Gas_MuteTimeRemain.AcqOff			
+LIQUID LEAK	132	0	PostRun	120.000	StageNode	STAGE		PostRun		
+LIQUID LEAK	133	0	PostRun	120.000	EndNode	END				

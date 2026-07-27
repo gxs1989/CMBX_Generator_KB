@@ -1,0 +1,42 @@
+Method	Order	Level	Stage	Time	NodeType	Action	Target	Value	Comment	Condition
+FACTORYDEFAULT	1	0	InstrumentSetup	{Initial Time}	StageNode	STAGE		InstrumentSetup		
+FACTORYDEFAULT	2	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			IM to set the predictive performance values and counters, which are visible for	
+FACTORYDEFAULT	3	0	InstrumentSetup	{Initial Time}	CommmentNode	COMMENT			the customer (Do not run for SERVICE instruments!)	
+FACTORYDEFAULT	4	0	Run	0.000	StageNode	STAGE		Run	Duration = 0.600 [min]	
+FACTORYDEFAULT	5	0	Run	0.100	CommmentNode	COMMENT			Commands to log the ErrorQueue	
+FACTORYDEFAULT	6	0	Run	0.100	CommandStepNode	RUN	ColumnComp.Disconnect			
+FACTORYDEFAULT	7	0	Run	0.100	CommandStepNode	RUN	ColumnComp.Connect			
+FACTORYDEFAULT	8	0	Run	0.110	CommandStepNode	RUN	Wait	ColumnComp.Ready		
+FACTORYDEFAULT	9	0	Run	0.110	CommandStepNode	RUN	ColumnComp.GetServiceCode			
+FACTORYDEFAULT	10	0	Run	0.110	CommandStepNode	RUN	Delay	2		
+FACTORYDEFAULT	11	0	Run	0.110	PropertyStepNode	SET	ColumnComp.ServiceCode	87794		
+FACTORYDEFAULT	12	0	Run	0.110	CommandStepNode	RUN	Delay	0.01		
+FACTORYDEFAULT	13	0	Run	0.120	CommmentNode	COMMENT			Set the Qualification parameters (Qualification date equal to FOQ date)	
+FACTORYDEFAULT	14	0	Run	0.120	PropertyStepNode	SET	ColumnComp.ColumnComp_Wellness.Qualification.Interval	None		
+FACTORYDEFAULT	15	0	Run	0.120	PropertyStepNode	SET	ColumnComp.ColumnComp_Wellness.Qualification.WarningPeriod	None		
+FACTORYDEFAULT	16	0	Run	0.120	PropertyStepNode	SET	ColumnComp.ColumnComp_Wellness.Qualification.GracePeriod	None		
+FACTORYDEFAULT	17	0	Run	0.120	CommandStepNode	RUN	Delay	0.01		
+FACTORYDEFAULT	18	0	Run	0.140	CommandStepNode	RUN	Log	ColumnComp_Wellness.Qualification.LastDate		
+FACTORYDEFAULT	19	0	Run	0.160	CommandStepNode	RUN	Log	ColumnComp_Wellness.Qualification.LastOperator		
+FACTORYDEFAULT	20	0	Run	0.160	CommmentNode	COMMENT			Set the Service parameters (Service date equal to FOQ date)	
+FACTORYDEFAULT	21	0	Run	0.160	PropertyStepNode	SET	ColumnComp.ColumnComp_Wellness.Service.Interval	None		
+FACTORYDEFAULT	22	0	Run	0.160	PropertyStepNode	SET	ColumnComp.ColumnComp_Wellness.Service.WarningPeriod	None		
+FACTORYDEFAULT	23	0	Run	0.210	CommandStepNode	RUN	Log	ColumnComp_Wellness.Service.LastDate		
+FACTORYDEFAULT	24	0	Run	0.290	CommandStepNode	RUN	Log	ColumnComp_Wellness.OperatingHours		
+FACTORYDEFAULT	25	0	Run	0.370	CommandStepNode	RUN	Log	ColumnComp.ColumnComp_Wellness.Workload_CC		
+FACTORYDEFAULT	26	0	Run	0.450	CommmentNode	COMMENT			Clear Error and Exception Log	
+FACTORYDEFAULT	27	0	Run	0.450	CommandStepNode	RUN	ColumnComp.ExceptionLogClear			
+FACTORYDEFAULT	28	0	Run	0.450	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="ErrorLog.Clear"		
+FACTORYDEFAULT	29	0	Run	0.500	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="CC.ThermoUnitRevision="		
+FACTORYDEFAULT	30	0	Run	0.500	CommandStepNode	RUN	Delay	3		
+FACTORYDEFAULT	31	0	Run	0.500	CommandStepNode	RUN	ColumnComp.CmdString	"ModuleRevision="		
+FACTORYDEFAULT	32	0	Run	0.600	CommmentNode	COMMENT			Final Temperature Setting	
+FACTORYDEFAULT	33	0	Run	0.600	PropertyStepNode	SET	ColumnComp.CC.Temperature.Nominal	20.00 [°C]		
+FACTORYDEFAULT	34	0	Run	0.600	PropertyStepNode	SET	ColumnComp.CC.TempCtrl	Off		
+FACTORYDEFAULT	35	0	Run	0.600	PropertyStepNode	SET	ColumnComp.LiquidLeakSensor	On		
+FACTORYDEFAULT	36	0	Run	0.600	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="LedBar.ForceColor=1"		
+FACTORYDEFAULT	37	0	Run	0.600	CommandStepNode	RUN	Message	"Please check, that no valves are installed any more, but the corresponding covers!"		
+FACTORYDEFAULT	38	0	Run	0.600	CommandStepNode	RUN	Delay	2		
+FACTORYDEFAULT	39	0	Run	0.600	CommandStepNode	RUN	Message	"Please check if you have choosen the correct serial number of the thermometer and the location from the Custom Sequence Variable list"		
+FACTORYDEFAULT	40	0	Run	0.600	CommandStepNode	RUN	ColumnComp.CmdString	Cmd="LedBar.ForceColor=0"		
+FACTORYDEFAULT	41	0	Run	0.600	EndNode	END				

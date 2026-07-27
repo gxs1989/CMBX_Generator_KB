@@ -1,0 +1,9 @@
+Method	Order	Level	Stage	Time	NodeType	Action	Target	Value	Comment	Condition
+CHECKERRORLOG	1	0	InstrumentSetup	{Initial Time}	StageNode	STAGE		InstrumentSetup		
+CHECKERRORLOG	2	0	InstrumentSetup	{Initial Time}	PropertyStepNode	SET	ColumnComp.CC.TempCtrl	Off		
+CHECKERRORLOG	3	0	InjectPreparation	0.000	StageNode	STAGE		InjectPreparation		
+CHECKERRORLOG	4	0	Run	0.000	StageNode	STAGE		Run	Duration = 0.300 [min]	
+CHECKERRORLOG	5	0	Run	0.300	CommandStepNode	RUN	ColumnComp.Disconnect			
+CHECKERRORLOG	6	0	Run	0.300	CommandStepNode	RUN	ColumnComp.Connect			
+CHECKERRORLOG	7	0	StopRun	0.500	StageNode	STAGE		StopRun		
+CHECKERRORLOG	8	0	StopRun	0.500	EndNode	END				
