@@ -222,6 +222,7 @@ def evaluate_foq_contract_values(
     report_template_name: str = "",
     db_field_filter: str | list[str] | tuple[str, ...] = "",
     sequence: CmbxElement | None = None,
+    selected_injection_ids: list[str] | tuple[str, ...] | set[str] | None = None,
 ) -> tuple[str, list]:
     _progress(progress, f"Reading FOQ contract mapping: {device_type}", 2)
     mapping_sheet, locations = locations_for_device_type(mapping_path, device_type)
@@ -229,6 +230,9 @@ def evaluate_foq_contract_values(
     if not locations:
         raise ValueError(f"No FOQ mapping rows matched DB field filter: {db_field_filter}")
     target_injections = [child for child in sequence.children if child.kind == "injection"] if sequence else package.injections
+    if selected_injection_ids is not None:
+        selected_ids = {str(value) for value in selected_injection_ids}
+        target_injections = [injection for injection in target_injections if injection.id in selected_ids]
     report_file_to_injection = _match_contract_injections(target_injections, locations)
     if not report_file_to_injection:
         raise ValueError("No CMBX injections matched the FOQ contract report files.")
@@ -246,7 +250,9 @@ def evaluate_foq_contract_values(
         formula_objects_by_sheet.setdefault(obj.sheet_name, []).append(obj)
 
     targets_by_injection: dict[str, set[str]] = {}
-    injection_by_name = {injection.name: injection for injection in target_injections}
+    injection_by_name = {}
+    for injection in target_injections:
+        injection_by_name.setdefault(injection.name, injection)
     for location in locations:
         injection_name = report_file_to_injection.get(_normalize_report_file(location.report_file))
         if not injection_name:

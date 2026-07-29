@@ -80,17 +80,17 @@ CENTERS: tuple[BusinessCenter, ...] = (
     ),
     BusinessCenter(
         "foq-check", 7, "FOQ Quick Check",
-        "Batch-calculate critical FOQ values, compare Definitions/SPEC and review failures.",
-        "Completed FOQ CMBX files, device identity, report template and FOQ mapping",
-        "Comparable critical values, pass/fail, exceptions and evidence trace",
-        "legacy", "migrating",
+        "One-click calculation of mapped FOQ values with SPEC decisions and historical comparison.",
+        "Completed FOQ CMBX files, FOQ Location workbook and optional historical database",
+        "Comparable metrics, pass/fail, history alerts, charts and report-cell evidence",
+        "foq_check", "native",
     ),
     BusinessCenter(
         "quality-data", 8, "Quality Data & Database",
-        "Compare historical production data, generate records, upload controlled results and monitor quality.",
-        "Completed CMBX, Report MD, DB mapping, SQL data sources",
-        "External reports, database records, upload audit and quality trends",
-        "external_report", "partial",
+        "Read production history, inspect metric distributions and monitor QC control limits.",
+        "SQL Server or DSN data source and a quality table",
+        "Historical records, summary statistics and QC control charts",
+        "quality_data", "native",
     ),
 )
 
@@ -382,6 +382,8 @@ class BusinessHubApp:
             elif action == "raw_export": self._launch_child("run_read_analyze.py", "Batch Raw Data Export", "--task", "raw")
             elif action == "chromatograms": self._launch_child("run_read_analyze.py", "Chromatograms & Integration", "--task", "plot")
             elif action == "direct_formulas": self._launch_child("run_read_analyze.py", "Direct CM Formula Results", "--task", "formula")
+            elif action == "foq_check": self._launch_child("run_foq_quality.py", "FOQ Quick Check", "--task", "foq")
+            elif action == "quality_data": self._launch_child("run_foq_quality.py", "Quality Data & Database", "--task", "quality")
             elif action == "legacy": self._launch_child("run_app.py", "Legacy CMBX Explorer")
             elif action == "external_report": self._launch_child("run_external_report.py", "External Report Engine")
             elif action == "appslab": webbrowser.open(APPSLAB_URL, new=2); self.status_var.set("Opened Thermo Scientific AppsLab")

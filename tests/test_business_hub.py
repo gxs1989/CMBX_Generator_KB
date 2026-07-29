@@ -35,7 +35,10 @@ def test_migrated_centers_are_marked_as_native() -> None:
     assert center_by_id("report-generation").action == "report_creation"
     assert task_by_id("chromatograms").action == "chromatograms"
     assert task_by_id("direct-formulas").status == "native"
-    assert task_by_id("quality-data").status == "partial"
+    assert task_by_id("foq-check").action == "foq_check"
+    assert task_by_id("foq-check").status == "native"
+    assert task_by_id("quality-data").action == "quality_data"
+    assert task_by_id("quality-data").status == "native"
 
 
 def test_business_center_selection_is_a_direct_action() -> None:

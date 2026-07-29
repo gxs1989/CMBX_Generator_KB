@@ -17,6 +17,7 @@ class DatabaseUploadConfig:
     table: str = "AUTO"
     driver: str = "ODBC Driver 17 for SQL Server"
     trust_server_certificate: bool = True
+    dsn: str = ""
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,42 @@ def test_database_connection(config: DatabaseUploadConfig) -> str:
         cursor.execute("SELECT DB_NAME(), SUSER_SNAME()")
         database_name, user_name = cursor.fetchone()
     return f"Connected to {database_name} as {user_name}"
+
+
+def list_database_tables(config: DatabaseUploadConfig) -> list[tuple[str, str]]:
+    """Return user tables available to the configured read connection."""
+    pyodbc = _import_pyodbc()
+    with pyodbc.connect(_connection_string(config), timeout=15) as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            SELECT s.name, t.name
+            FROM sys.tables t
+            JOIN sys.schemas s ON s.schema_id = t.schema_id
+            ORDER BY s.name, t.name
+            """
+        )
+        return [(str(row[0]), str(row[1])) for row in cursor.fetchall()]
+
+
+def fetch_table_rows(
+    config: DatabaseUploadConfig,
+    table: str | None = None,
+    schema: str | None = None,
+    limit: int = 5000,
+) -> list[dict[str, object]]:
+    """Read a bounded historical dataset using validated SQL identifiers."""
+    pyodbc = _import_pyodbc()
+    table_name = _validate_sql_identifier(table or config.table, "table")
+    schema_name = _validate_sql_identifier(schema or config.schema, "schema")
+    row_limit = max(1, min(int(limit), 100000))
+    with pyodbc.connect(_connection_string(config), timeout=30) as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            f"SELECT TOP ({row_limit}) * FROM {_quote_identifier(schema_name)}.{_quote_identifier(table_name)} ORDER BY 1 DESC"
+        )
+        columns = [str(item[0]) for item in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
 def upload_foq_db_workbooks(
@@ -138,6 +175,16 @@ def _sequence_name_from_workbook(path: Path) -> str:
 
 def _connection_string(config: DatabaseUploadConfig) -> str:
     trust = "yes" if config.trust_server_certificate else "no"
+    if config.dsn.strip():
+        dsn = config.dsn.strip()
+        dsn_key = "FILEDSN" if dsn.lower().endswith(".dsn") or "\\" in dsn or "/" in dsn else "DSN"
+        return (
+            f"{dsn_key}={dsn};"
+            f"UID={config.username};"
+            f"PWD={config.password};"
+            f"DATABASE={config.database};"
+            f"TrustServerCertificate={trust};"
+        )
     return (
         f"DRIVER={{{config.driver}}};"
         f"SERVER={config.server};"

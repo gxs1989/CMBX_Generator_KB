@@ -1416,3 +1416,86 @@ HPLC 应用与 FOQ 必须保持语义分离：FOQ 验证设备是否满足工厂
 - Prompt optimization 会把零散需求重写成可直接发送给网页模型的完整、有顺序生成请求，并强制要求按 SPEC/KB 返回完整 Markdown。
 - RID OQ 多 sequence 解析、Direct CM formula catalog、method/report generation 及相关构建文档纳入同一版本提交。
 - 自动验证：`190 passed`；关键 GUI 路由完成 Tk smoke test；Python 模块完成 `py_compile`。
+## 17. FOQ Quick Check and Quality Data native workflow (2026-07-29)
+
+- Status: first native implementation.
+- `FOQ Quick Check` now follows one evidence chain:
+  `FOQ Location -> report cell calculation -> RES_* SPEC decision -> historical database comparison`.
+- The FOQ Location workbook is the bridge contract. It identifies device-specific DB fields, report files,
+  report sheets, cells, value types and units. Device identity remains sourced from
+  `AUDIT.ColumnComp.ModelNo`; sequence names and folder names are not accepted as device evidence.
+- Completed CMBX files are evaluated in batches. Numeric metrics are displayed across sequences,
+  while the mapped `RES_*` cell on the same report sheet supplies the report/Definitions SPEC decision.
+  Missing calculations remain visible and are not silently converted to pass.
+- Historical comparison reads the corresponding SQL table through either a DSN or direct SQL Server
+  configuration. Each metric receives N, mean, standard deviation, delta, z-score and 2/3-sigma status.
+- `Quality Data & Database` can list database tables, load a bounded historical dataset, identify numeric
+  metrics and render an Individuals chart with mean, UCL and LCL (`mean +/- 3 sigma`).
+- Both workflows share `foq_quality_service.py`, so result identity, historical statistics and alert logic
+  cannot drift between the CMBX quick-check view and the database QC view.
+- First-version boundary: SPEC verdicts use the verified report result cells that already apply the
+  Definitions/workbook criteria. Extracting every human-readable threshold expression into a canonical
+  rule model remains a later extension; the UI does not invent limits from empty Location columns.
+- Support-only sequences such as `FOQ_VX-C10_V2_00_AdditionalInjections` are excluded from Quick Check
+  when they contain reusable injections/methods but no report template or completed audit evidence.
+  Their missing `ModelNo` must not block the completed FOQ sequence in the same CMBX package.
+- Quick Check exposes an expandable `CMBX -> Sequence` scope tree before calculation. Each sequence shows
+  its ModelNo, selected report template and eligibility; users explicitly check the result sequences to run.
+  Support/template sequences remain visible for explanation but cannot be selected as completed results.
+- The Quick Check command area uses two responsive rows so `Run check` remains visible at the minimum
+  supported window width. The sequence scope is height-bounded, and the result table plus comparison chart
+  remain present below it before and after calculation.
+- FOQ evaluation progress uses the exporter single-message protocol (`__PROGRESS__=<percent>|<message>`)
+  and is forwarded through a main-thread UI queue. This prevents a callback signature mismatch from
+  silently skipping selected sequences and prevents Tk calls from worker threads.
+- Database configuration accepts either a named system DSN, a browsed local `.dsn` file (`FILEDSN`), or a
+  direct SQL Server address. Username and the selected source are persisted. Password persistence uses
+  Windows DPAPI for the current user; no plaintext password is written to `database_config.json`.
+
+## 18. FOQ metric scope and filtered historical comparison (2026-07-29)
+
+- Status: Implemented.
+- Quick Check now separates three scopes explicitly: selected completed sequences, selected common metrics,
+  and the historical database comparison population. With multiple device models selected, the metric picker
+  exposes the intersection of measurable FOQ Location fields instead of silently calculating unrelated fields.
+- Metric selection is multi-select and searchable. Evaluation expands the selected fields internally only far
+  enough to calculate the mapped `RES_*` cells needed for SPEC evidence, then returns the requested metrics.
+- `Database comparison` opens a review dialog before reading history. Users can enable/disable history, confirm
+  the DSN/server and table, and filter by `ModelNo`, `ModelVariant`, `TimeBase`, and `TestDate` range. Comma-separated
+  model/variant/timebase values are supported for mixed populations.
+- Historical statistics are scoped independently for each current result's device model. A multi-sequence chart
+  draws the filtered historical population as neutral gray points and highlights every analyzed CMBX result as a
+  large blue or red point/bar, with mean/UCL/LCL retained as reference lines.
+- The Quick Check result identity is compressed into one `CMBX / Sequence` column so metric, value, SPEC and
+  historical comparison columns remain visible without excessive horizontal navigation.
+- Quality Data & Database adds metric-name filtering. Its history table always includes the selected metric next
+  to compact identity columns (`ID`, `TestDate`, `Serial`, `ModelNo`, `ModelVariant`, `TimeBase`) instead of showing
+  whichever database columns happen to occur first.
+- Historical comparison scope fields are database-driven selectors rather than free-text filters. Table is a
+  read-only catalog choice; `ModelNo`, `ModelVariant`, and `TimeBase` open multi-select lists populated from the
+  selected table; date boundaries use read-only values found in `TestDate`. A refresh action reloads all choices
+  after the table or connection changes.
+- Metric comparison uses one visual encoding for both populations. Filtered history is shown as small neutral
+  scatter points; current CMBX sequences are shown as larger outlined blue/red points in a separated current-result
+  region. No zero-based bar is mixed with the historical scatter, because that implied a magnitude comparison that
+  was unrelated to the historical distribution.
+
+## 19. FOQ Quick Check four-step guided flow (2026-07-29)
+
+- Status: Implemented.
+- Quick Check is gated as four explicit business steps:
+  `Choose CMBX & injections -> Choose metrics -> Filter database -> Review results`.
+  The active step advances only after its scope is confirmed; analysis cannot run while metric or database scope is
+  still unconfirmed.
+- The CMBX tree expands through package, sequence, and injection. Duplicate injection names are displayed as
+  occurrences and require an explicit single choice within that name before Step 2 can begin. The selected injection
+  IDs are passed into FOQ report evaluation, preventing the old name-only dictionary behavior from evaluating a
+  different duplicate row.
+- Metrics remain multi-select and searchable. Named metric sets can be saved to
+  `C:\ProgramData\CMBX Data Explorer Workspace\foq_metric_presets.json` and restored in later sessions.
+- Historical scope is confirmed before calculation. Users may explicitly disable database history for a SPEC-only
+  run; otherwise the chosen table/model/variant/timebase/date population is loaded first and reused by all selected
+  CMBX sequences in the result table and comparison chart.
+- Validation: the real VH sample exposes two duplicate groups (`Temperature Accuracy_H` and
+  `Temperature Stability_and_PCC_H`); both remain unresolved until one occurrence is selected. Automated regression:
+  `202 passed`.
