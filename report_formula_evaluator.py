@@ -89,11 +89,11 @@ def evaluate_external_report_formula(
     context: ReportFormulaEvaluationContext | None = None,
 ) -> tuple[str, str, str]:
     """Evaluate the verified formula subset used by the External Report Engine."""
-    context = context or build_report_formula_context(package, injection)
     expression = formula.strip()
     metadata = _eval_metadata_formula(package, injection, expression)
     if metadata is not None:
         return metadata, "ok", "Package/injection metadata."
+    context = context or build_report_formula_context(package, injection)
     audit_metadata = evaluate_audit_metadata_formula(expression, context.audit_records)
     if audit_metadata is not None:
         value, detail = audit_metadata

@@ -15,7 +15,7 @@ MODULE_ROOT = PROJECT_ROOT / "cmbx_data_explorer"
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from cmbx_container import extract_cmbx_entry, injection_for_element, iter_cmbx_entries, load_cmbx_package, safe_filename, split_cmbx_sequences, summarize_package
+from cmbx_container import extract_cmbx_entry, injection_for_element, iter_cmbx_entries, load_cmbx_package, report_templates_for_sequence, safe_filename, split_cmbx_sequences, summarize_package
 import export_service
 from export_service import export_element, export_foq_contract_report
 from instrument_method_parser import discover_external_instrument_methods, parse_instrument_method_txt
@@ -43,7 +43,7 @@ from tools.render_cm_method_md import parse_md_to_rows
 from report_template_md_compiler import compile_report_template_md_to_cmbx, parse_report_template_md
 from test_intent_contract import build_test_intent_contract_coverages, contract_coverages_tsv
 from chromeleon_runtime import chromeleon_bin
-from embedded_report_extractor import decode_report_template_xml, parse_report_sheet_objects, parse_report_sheets, report_sheet_objects_tsv, report_sheets_tsv
+from embedded_report_extractor import decode_report_template_xml, extract_embedded_report_template, parse_report_sheet_objects, parse_report_sheets, report_sheet_objects_tsv, report_sheets_tsv
 from foq_result_locations import (
     filter_locations_for_report,
     locations_for_device_type,
@@ -121,9 +121,9 @@ from external_report_engine import (
     safe_expression,
     write_external_report_workbook,
 )
-from formula_catalog import build_formula_catalog, external_scalar_block, filter_formula_catalog, unified_md_block
+from formula_catalog import build_formula_catalog, external_scalar_block, filter_formula_catalog, unified_md_block, useful_direct_formula_catalog
 from report_workbook_builder import build_accuracy_rows, build_heatup_cooldown_report, write_report_workbook
-from sequence_cmd_parser import build_embedded_object_summary, build_injection_method_links
+from sequence_cmd_parser import build_embedded_object_summary, build_injection_method_links, get_injection_method_link
 from processing_method_inspector import inspect_processing_method
 from sequence_cmd_probe import (
     sequence_cmd_hit_clusters,
@@ -216,6 +216,12 @@ def test_formula_catalog_search_and_insert_blocks():
     external = filter_formula_catalog(entries, "signalValue", external_only=True)
     assert formulaone
     assert external
+    useful = useful_direct_formula_catalog(entries)
+    assert useful
+    assert all(row.engine == "CM Report" and row.support == "External V1" and row.formula for row in useful)
+    assert not any("RetTimeN" in row.formula or "..." in row.formula for row in useful)
+    leak_calibration = next(row for row in useful if row.formula.casefold() == "precond.liquidleakcalibrationvalue")
+    assert "FORMULA_INVENTORY" in leak_calibration.source.upper()
     assert "### Workbook Formula:" in unified_md_block(formulaone[0])
     assert "### Scalar:" in external_scalar_block(external[0])
 
@@ -3545,6 +3551,54 @@ def test_injection_method_links_read_relative_urls(tmp_path):
 
     assert links["Injection A"].processing_method == "PROC_A"
     assert links["Injection A"].instrument_method == "METHOD_A"
+
+
+def test_multi_sequence_links_and_folder_report_scope(tmp_path):
+    cmbx = tmp_path / "multi.cmbx"
+    header = """<?xml version="1.0" encoding="UTF-8"?>
+<ChromeleonHeader>
+  <ChromeleonElement Id="f" Name="Folder" ItemType="Dionex.Chromeleon.Data.SubFolder">
+    <ChromeleonElement Id="s1" Name="Seq1" ItemType="Dionex.Chromeleon.Data.Sequence" Filename="Seq1.cmd">
+      <ChromeleonElement Id="i1" Name="Injection A" ItemType="Dionex.Chromeleon.Data.Injection" />
+    </ChromeleonElement>
+    <ChromeleonElement Id="s2" Name="Seq2" ItemType="Dionex.Chromeleon.Data.Sequence" Filename="Seq2.cmd">
+      <ChromeleonElement Id="i2" Name="Injection B" ItemType="Dionex.Chromeleon.Data.Injection" />
+    </ChromeleonElement>
+    <ChromeleonElement Id="r1" Name="Shared Report" ItemType="Dionex.Chromeleon.Data.ReportDefinition" Filename="Report1.cmd" />
+  </ChromeleonElement>
+  <ChromeleonElement Id="r2" Name="Shared Report" ItemType="Dionex.Chromeleon.Data.ReportDefinition" Filename="Report2.cmd" />
+</ChromeleonHeader>"""
+
+    def sequence_cmd(injection: str, processing: str, method: str) -> bytes:
+        return (
+            injection.encode() + b"\x12\x20\x12\x0d\x1a\x0bRelativeUrl*" + bytes([len(processing)]) + processing.encode()
+            + b"\x12\x20\x12\x0d\x1a\x0bRelativeUrl*" + bytes([len(method)]) + method.encode()
+        )
+
+    report_payload = b"report-prefix-CpXm-report-payload"
+    with zipfile.ZipFile(cmbx, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("header.xml", header)
+        archive.writestr("Seq1.cmd", sequence_cmd("Injection A", "PROC_A", "METHOD_A"))
+        archive.writestr("Seq2.cmd", sequence_cmd("Injection B", "PROC_B", "METHOD_B"))
+        archive.writestr("Report1.cmd", report_payload)
+        archive.writestr("Report2.cmd", report_payload)
+
+    package = load_cmbx_package(cmbx)
+    links = build_injection_method_links(package)
+    injection_b = next(item for item in package.injections if item.name == "Injection B")
+    link_b = get_injection_method_link(links, injection_b)
+    reports = report_templates_for_sequence(package, package.sequences[1])
+    embedded = extract_embedded_report_template(package, reports[0])
+
+    assert link_b is not None
+    assert link_b.processing_method == "PROC_B"
+    assert link_b.instrument_method == "METHOD_B"
+    assert link_b.sequence_name == "Seq2"
+    assert [report.name for report in reports] == ["Shared Report"]
+    assert summarize_package(package)["report_templates"] == 1
+    assert embedded is not None
+    assert embedded.sequence_name == "(standalone report template)"
+    assert embedded.sequence_entry == "Report1.cmd"
 
 
 def test_processing_method_inspector_extracts_xml_evidence(tmp_path):

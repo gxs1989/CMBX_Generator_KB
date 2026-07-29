@@ -130,7 +130,10 @@ def _sequence_for_report_element(package: CmbxPackage, element: CmbxElement) -> 
     for sequence in package.sequences:
         if any(child.id == element.id for child in sequence.children):
             return sequence
-    return package.sequences[0] if package.sequences else None
+    # A folder-level or root report is a standalone payload even when the
+    # package also contains sequences. Falling back to the first sequence
+    # decodes unrelated method/report bytes from that sequence command.
+    return None
 
 
 def _report_template_cpxm(data: bytes, element: CmbxElement) -> tuple[int, int, int, bytes] | None:

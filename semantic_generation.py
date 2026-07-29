@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from cmbx_container import CmbxPackage
-from sequence_cmd_parser import build_injection_method_links
+from sequence_cmd_parser import build_injection_method_links, get_injection_method_link
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -287,7 +287,7 @@ def validate_execution_plan_against_package(
         if _normalize_name(row.processing_method) not in package_processing_methods:
             missing_processing_methods.append(row.processing_method)
 
-        actual_link = links.get(row.injection_name)
+        actual_link = get_injection_method_link(links, row.injection_name)
         if actual_link is None:
             actual_link = _find_link_by_normalized_name(links, row.injection_name)
         if actual_link is None:

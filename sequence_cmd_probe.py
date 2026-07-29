@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from cmbx_container import CmbxPackage, extract_cmbx_entry
-from sequence_cmd_parser import build_injection_method_links
+from sequence_cmd_parser import build_injection_method_links, get_injection_method_link
 
 
 @dataclass(frozen=True)
@@ -148,7 +148,7 @@ def sequence_order_comparison(package: CmbxPackage) -> list[SequenceOrderCompari
     links = build_injection_method_links(package)
     rows: list[SequenceOrderComparison] = []
     for index, injection in enumerate(package.injections, 1):
-        link = links.get(injection.name)
+        link = get_injection_method_link(links, injection)
         rows.append(
             SequenceOrderComparison(
                 row_order=index,
@@ -189,7 +189,7 @@ def sequence_cmd_injection_record_probes(package: CmbxPackage) -> list[SequenceC
     }
     rows: list[SequenceCmdInjectionRecordProbe] = []
     for row_order, injection in enumerate(package.injections, 1):
-        link = links.get(injection.name)
+        link = get_injection_method_link(links, injection)
         if link is None:
             rows.append(
                 SequenceCmdInjectionRecordProbe(

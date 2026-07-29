@@ -286,7 +286,12 @@ def _compile_host(destination: Path) -> Path:
     csc = Path(r"C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe")
     if not csc.is_file():
         raise RuntimeError(f"The x86 .NET Framework compiler was not found: {csc}")
-    output = destination / "formulaone_writer_host.exe"
+    source_stamp = f"{_HOST_SOURCE.stat().st_mtime_ns:x}_{_HOST_SOURCE.stat().st_size:x}"
+    cache = Path(tempfile.gettempdir()) / "CmbxDataExplorer" / "tools"
+    cache.mkdir(parents=True, exist_ok=True)
+    output = cache / f"formulaone_writer_host_{source_stamp}.exe"
+    if output.is_file():
+        return output
     result = subprocess.run(
         [
             str(csc),

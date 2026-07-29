@@ -36,8 +36,19 @@ Feature and structure notes are split under `docs/`:
 - Method Script Generator compiles strict structural MD into standalone method CMBX packages and can target the older CM 7.2 serialization contract.
 - Instrument-method rendering preserves CM row kinds, stage times, trigger payloads, comments, and line alignment.
 - KB Index remains the single knowledge entry point, grouped by CMBX reading, CMBX generation, method-script knowledge, report knowledge, FOQ knowledge, and skills.
+- The native `Read & analyze` workflow now builds one shared multi-CMBX workset for hierarchical/reverse-match raw export, zoomable channel overlays, and cross-injection custom CM formula evaluation.
+- RID is available as a Method & Report Creation module; the RID OQ sequence-template regression package is recognized as four sequences and ten injections without being misreported as missing runtime data.
 - CMBX scanning, FOQ DB preview/export, report-display precision normalization, and multi-workbook SQL upload remain available.
 - Runtime outputs, caches, local database/AI configuration, and machine-specific Chromeleon dependencies are excluded from the source repository.
+
+## Launch Modes
+
+Two launchers are intentionally kept during the business-UI migration:
+
+- `launcher/启动CMBX工作台.bat`: opens the new guided business workspace with `Design & adapt`, `Read & analyze`, and `Verify & quality` workflows.
+- `launcher/启动CMBX数据浏览器.bat`: opens the complete classic Explorer and all existing tabs.
+
+The new workspace launches large tools in separate processes without a CMD window. The classic Explorer remains unchanged until each workflow has passed its own migration and acceptance tests.
 
 ## Application Scope
 

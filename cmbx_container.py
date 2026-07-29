@@ -247,9 +247,48 @@ def summarize_package(package: CmbxPackage) -> dict[str, int]:
         "audits": len(package.audits),
         "instrument_methods": len([m for m in package.methods_and_reports if m.kind == "instrument_method"]),
         "processing_methods": len([m for m in package.methods_and_reports if m.kind == "processing_method"]),
-        "report_templates": len([m for m in package.methods_and_reports if m.kind == "report_template"]),
+        "report_templates": len(logical_report_templates(package)),
         "entries": len(package.entries),
     }
+
+
+def report_templates_for_sequence(package: CmbxPackage, sequence: CmbxElement) -> list[CmbxElement]:
+    """Return reports in CM scope order: sequence, containing folder, package root."""
+    direct = [child for child in sequence.children if child.kind == "report_template"]
+    parent = package.elements_by_id.get(sequence.parent_id or "")
+    siblings = [child for child in parent.children if child.kind == "report_template"] if parent else []
+    roots = [element for element in package.root_elements if element.kind == "report_template"]
+    return _dedupe_report_templates(package, [*direct, *siblings, *roots])
+
+
+def logical_report_templates(package: CmbxPackage) -> list[CmbxElement]:
+    return _dedupe_report_templates(
+        package,
+        [element for element in package.elements_by_id.values() if element.kind == "report_template"],
+    )
+
+
+def _dedupe_report_templates(package: CmbxPackage, candidates: list[CmbxElement]) -> list[CmbxElement]:
+    results: list[CmbxElement] = []
+    signatures: set[tuple[str, str]] = set()
+    entry_cache: dict[str, str] = {}
+    for report in candidates:
+        entry_name = report.package_entry_name
+        digest = ""
+        if entry_name:
+            if entry_name not in entry_cache:
+                try:
+                    import hashlib
+                    entry_cache[entry_name] = hashlib.sha256(extract_cmbx_entry(package.path, entry_name)).hexdigest()
+                except (KeyError, ValueError):
+                    entry_cache[entry_name] = entry_name
+            digest = entry_cache[entry_name]
+        signature = (report.name.casefold(), digest or report.id)
+        if signature in signatures:
+            continue
+        signatures.add(signature)
+        results.append(report)
+    return results
 
 
 def split_cmbx_sequences(package: CmbxPackage, sequences: list[CmbxElement], output_folder: str | Path | None = None) -> list[Path]:

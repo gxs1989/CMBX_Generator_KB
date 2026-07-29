@@ -21,7 +21,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from chromeleon_method_decoder import decode_cpxm_method_xml
 from chromeleon_bridge import export_audit_raw, export_signal_raw
-from cmbx_container import CmbxElement, CmbxPackage, extract_cmbx_entry, injection_for_element, load_cmbx_package, rename_cmbx_header_element, split_cmbx_sequences, summarize_package
+from cmbx_container import CmbxElement, CmbxPackage, extract_cmbx_entry, injection_for_element, load_cmbx_package, rename_cmbx_header_element, report_templates_for_sequence, split_cmbx_sequences, summarize_package
 from chromeleon_runtime import runtime_status_text
 from db_upload_service import DatabaseUploadConfig, discover_foq_db_workbooks, test_database_connection, upload_foq_db_workbooks
 from embedded_method_extractor import extract_embedded_instrument_method
@@ -35,7 +35,7 @@ from method_semantic_analyzer import analyze_cm_method_rows, cm_method_variable_
 from method_md_linter import lint_error_rows, lint_method_rows
 from method_script_kb import MethodScriptKbEntry, find_method_script_kb_entry, flow_tsv_to_cm_preview_rows, load_method_script_rows_from_kb
 from report_formula_evaluator import build_report_formula_context, evaluate_report_formulas
-from sequence_cmd_parser import InjectionMethodLink, build_embedded_object_summary, build_injection_method_links
+from sequence_cmd_parser import InjectionMethodLink, build_embedded_object_summary, build_injection_method_links, get_injection_method_link
 from skills_catalog import SkillCatalogEntry, discover_skill_catalog_entries, skill_catalog_entry_markdown, skill_catalog_overview_markdown
 from foq_alignment_catalog import (
     FoqAlignmentRecord,
@@ -7166,7 +7166,7 @@ class CmbxExplorerApp:
         self._redraw_channel_plot()
         self._fill_table(self._table_widget(self.audit_table), audits, lambda e: (e.name, e.size or "", e.raw_filename, e.url))
         self._clear_audit_preview()
-        link = self.injection_method_links.get(injection.name)
+        link = get_injection_method_link(self.injection_method_links, injection)
         method_text = f"   IM: {link.instrument_method}   PM: {link.processing_method}" if link else ""
         self.summary_label.config(text=f"Injection: {injection.name}   Channels: {len(channels)}   Audit trails: {len(audits)}{method_text}")
         self._populate_method_context(injection)
@@ -7181,7 +7181,7 @@ class CmbxExplorerApp:
         table.delete(*table.get_children())
         if not self.package:
             return
-        link = self.injection_method_links.get(injection.name)
+        link = get_injection_method_link(self.injection_method_links, injection)
         if not link:
             table.insert("", "end", iid=f"context:none:{injection.id}", values=("Method link", "Not found", "", "sequence .cmd"))
             return
@@ -7212,7 +7212,7 @@ class CmbxExplorerApp:
     def _populate_processing_methods_for_injection(self, injection: CmbxElement) -> None:
         table = self._table_widget(self.processing_method_table)
         table.delete(*table.get_children())
-        link = self.injection_method_links.get(injection.name)
+        link = get_injection_method_link(self.injection_method_links, injection)
         if not link:
             table.insert("", "end", iid=f"context:none:pm:{injection.id}", values=("Processing Method", "Not found", "", "sequence .cmd"))
             return
@@ -7227,7 +7227,7 @@ class CmbxExplorerApp:
     def _populate_report_templates(self, sequence: CmbxElement) -> None:
         table = self._table_widget(self.report_template_table)
         table.delete(*table.get_children())
-        for report in [child for child in sequence.children if child.kind == "report_template"]:
+        for report in report_templates_for_sequence(self.package, sequence) if self.package else ():
             table.insert("", "end", iid=report.id, values=("Sequence Report Template", report.name, report.kind, report.url or report.filename or report.raw_filename))
 
     def _populate_report_templates_for_injection(self, injection: CmbxElement) -> None:
@@ -7595,7 +7595,10 @@ class CmbxExplorerApp:
         sequence = self.package.elements_by_id.get(injection.parent_id or "")
         if not sequence:
             return []
-        return [child for child in sequence.children if child.kind == "report_template" and "ReportDefinition" in child.item_type]
+        return [
+            report for report in report_templates_for_sequence(self.package, sequence)
+            if "ReportDefinition" in report.item_type
+        ]
 
     def _parent_injection_name(self, element: CmbxElement) -> str:
         if not self.package or not element.parent_id:
@@ -7692,7 +7695,7 @@ class CmbxExplorerApp:
             f"RawDataFileId: {element.raw_data_file_id}",
         ]
         if element.kind == "injection":
-            link = self.injection_method_links.get(element.name)
+            link = get_injection_method_link(self.injection_method_links, element)
             lines.append("")
             lines.append("Instrument Method Link")
             lines.append("---------------------")
@@ -8477,7 +8480,7 @@ class CmbxExplorerApp:
                     record["day_time"] = self._audit_day_time_from_retention(start_time, record["ret_time"])
         injection = self.package.elements_by_id.get(audit.parent_id or "")
         injection_name = injection.name if injection else self._parent_injection_name(audit)
-        link = self.injection_method_links.get(injection_name)
+        link = get_injection_method_link(self.injection_method_links, injection or injection_name)
         run_time = self._audit_run_time(records)
         injection_time = self._format_audit_injection_time(start_time)
         metadata = [

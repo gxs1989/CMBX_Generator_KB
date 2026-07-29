@@ -74,7 +74,7 @@ def build_formula_catalog(docs_root: str | Path) -> tuple[FormulaCatalogEntry, .
     for entry in entries:
         key = (entry.engine, entry.formula.casefold(), entry.name.casefold())
         existing = unique.get(key)
-        if existing is None or (existing.support == "Help index" and entry.support != "Help index"):
+        if existing is None or _evidence_rank(entry) > _evidence_rank(existing):
             unique[key] = entry
     return tuple(sorted(unique.values(), key=lambda item: (item.engine, item.category, item.name.casefold())))
 
@@ -93,6 +93,39 @@ def filter_formula_catalog(
         and (not external_only or entry.support == "External V1")
         and all(word in entry.searchable_text for word in words)
     )
+
+
+def useful_direct_formula_catalog(
+    entries: tuple[FormulaCatalogEntry, ...],
+) -> tuple[FormulaCatalogEntry, ...]:
+    """Return concrete, locally evaluable Direct CM formulas from observed evidence."""
+    rejected_tokens = ("...", "RetTimeN", "(time", "<", ">", "REPLACE_WITH", "AUDIT.path")
+    selected: dict[str, FormulaCatalogEntry] = {}
+    for entry in entries:
+        formula = entry.formula.strip()
+        if (
+            entry.engine != "CM Report"
+            or entry.support != "External V1"
+            or not formula
+            or any(token.casefold() in formula.casefold() for token in rejected_tokens)
+            or re.search(r"(?:^|\.)[A-Za-z0-9]*_$", formula.split("(", 1)[0])
+            or re.search(r"(?:^|[,+(\-])\s*(?:start|end|time|path)\s*(?=[,)+\-])", formula, flags=re.I)
+        ):
+            continue
+        selected.setdefault(formula.casefold(), entry)
+    return tuple(sorted(selected.values(), key=lambda item: (item.category.casefold(), item.name.casefold(), item.formula.casefold())))
+
+
+def _evidence_rank(entry: FormulaCatalogEntry) -> tuple[int, int]:
+    source = entry.source.upper()
+    if "FORMULA_INVENTORY" in source or "ORIGINAL_TEMPLATES" in source:
+        source_rank = 3
+    elif entry.support == "Help index":
+        source_rank = 0
+    else:
+        source_rank = 2
+    support_rank = {"External V1": 3, "Observed CM": 2, "Help index": 1}.get(entry.support, 0)
+    return source_rank, support_rank
 
 
 def unified_md_block(entry: FormulaCatalogEntry) -> str:

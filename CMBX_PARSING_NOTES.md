@@ -2,6 +2,10 @@
 
 This note documents the CMBX structures currently understood by CMBX Data Explorer.
 
+> KB Version: 1.5
+> Updated: 2026-07-28
+> Scope: CMBX container, multi-sequence relationships, embedded assets, raw/audit evidence, and parser boundaries
+
 ## Package Structure
 
 - A `.cmbx` file is a ZIP-like Chromeleon package.
@@ -15,6 +19,76 @@ This note documents the CMBX structures currently understood by CMBX Data Explor
   - Report templates
 - Signal and audit objects usually point to raw data entries through `RawDataFilename`.
 - The sequence object points to a `.seq_*.cmd` entry. This command object contains important relationship data that is not fully visible in `header.xml`.
+
+## Package Classification
+
+A missing raw channel or audit trail is not automatically a parse failure. The package must first be classified by the evidence it contains.
+
+| Package class | Typical evidence | Parser/UI interpretation |
+|---|---|---|
+| Runtime data | Sequence/injection plus acquired channel and/or audit raw entries | Raw plot, audit decoding, formula evaluation, and data export are available. |
+| Sequence template | Sequence/injection/method/report objects without acquired channel/audit raw entries | The package is valid but has not produced runtime data. Data-analysis actions are not applicable yet. |
+| Standalone asset | One exported Instrument Method or Report Template and its standalone `.cmd` payload | Inspect or compile the asset without inventing a sequence context. |
+| Mixed package | Multiple sequences, folder/root shared assets, and optionally runtime data | Resolve every relationship by scope; do not assign all objects to the first sequence. |
+
+The class is a user-facing interpretation, not a replacement for the complete element inventory. A mixed package may contain template-only sequences and completed sequences at the same time.
+
+## Multi-Sequence Relationship Rules
+
+`header.xml` provides the visible hierarchy, but injection-to-method bindings are stored in each sequence's own `.cmd` payload. The parser therefore applies these rules:
+
+1. Iterate every sequence in header order.
+2. For each sequence, inspect only its direct injection children.
+3. Read that sequence's `.cmd` payload and locate the injection's nearby `RelativeUrl` records.
+4. Interpret the first usable reference as Processing Method and the second as Instrument Method.
+5. Store sequence ID/name and injection ID with the resolved link.
+6. Use a sequence-scoped lookup key when injection names are duplicated across sequences; retain a simple name lookup only when it is unambiguous or needed for backward compatibility.
+
+This prevents a multi-sequence package from exposing only the first sequence's method links.
+
+## Report Template Scope And Logical Identity
+
+A Report Template can be located at three observed scopes:
+
+| Scope | Visibility |
+|---|---|
+| Sequence child | Visible to that sequence. |
+| Parent-folder child | Shared by sequences in that folder. |
+| Package-root child | Package-level fallback when no closer report is available. |
+
+Resolution order is sequence -> containing folder -> package root. Reports at a wider scope are fallback/shared assets; they must not be silently rewritten as children of the first sequence.
+
+Report extraction follows the physical payload owner:
+
+- A sequence-embedded report is decoded from the owning sequence `.cmd`.
+- A folder/root standalone report with `Filename` is decoded from its own report `.cmd`.
+- The extractor must never decode a folder/root report from `package.sequences[0]` merely because a sequence exists.
+
+Chromeleon exports can contain duplicate physical Report elements at folder and root scope. CMBX Data Explorer distinguishes:
+
+- **Physical report element**: one `header.xml` element and its source path.
+- **Logical report template**: the user-facing report after deduplication by normalized name and payload SHA-256.
+
+The UI and package summary use logical report count. Physical source elements remain available for provenance and review. A same-name report with a different payload is not deduplicated and must be marked for review.
+
+## Validated Multi-Sequence Sample
+
+Regression sample: `OQ 2026-07-28.cmbx` from the RID OQ sequence-template workspace.
+
+Validated inventory:
+
+| Evidence | Result |
+|---|---:|
+| Sequences | 4 |
+| Injections | 10 |
+| Instrument Methods | 6 |
+| Processing Methods | 4 |
+| Physical Report elements | 2 |
+| Logical Report Templates | 1 (`PQ_OQ_Report_9_7`) |
+| Acquired channels | 0 |
+| Audit trails | 0 |
+
+All ten injections resolve to the method bindings in their own sequence. All four sequences can see the folder-level shared logical report. The report is decoded from its own report payload. Because there are no acquired channels or audits, the package is classified as a valid **Sequence template**, not a failed runtime-data parse.
 
 ## Local Chromeleon Dependency
 
@@ -55,7 +129,8 @@ The current code does not bundle Thermo/Chromeleon DLLs. It calls DLLs from a lo
 - Sequence and injection names are read from `header.xml`.
 - Raw signal exports use the local Chromeleon raw-data DLL bridge.
 - Audit trail exports use the local Chromeleon audit decoder.
-- Injection-to-method links are discovered from the sequence `.cmd` object by scanning nearby relative URL/name records.
+- Injection-to-method links are discovered from each owning sequence `.cmd` object by scanning nearby relative URL/name records.
+- Sequence-scoped keys prevent duplicate injection names in different sequences from overwriting one another.
 
 ## Report Template And Audit Trail Relationship
 
@@ -136,6 +211,7 @@ Workbook report export:
 Report calculation layers:
 
 - Direct raw-data formulas are exposed as `SheetDescription/SheetObject` XML entries. These are the cells we already evaluate from audit trails and raw channels.
+- Large FormulaOne workbooks must not use the default `JavaScriptSerializer` JSON-length limit. The RID `PQ_OQ_Report_9_7` validation report contains a roughly 3.9 MB `SpreadSheetData` payload and 2,588 FormulaOne formula cells; the inventory host now sets `MaxJsonLength = Int32.MaxValue`, and the complete inventory is recovered.
 - Derived cells such as `HeatUp&CoolDown!D65` and summary/pass-fail cells such as `D26` are not exposed as `SheetObject` formulas. They live in the embedded FormulaOne workbook payload under `SpreadSheetData`.
 - The tool now reads the `SpreadSheetData` payload enough to recover known `Definitions` criteria, for example:
   - `Temperature Accuracy = 0.5`
@@ -282,6 +358,8 @@ CM-like preview rendering:
 ## Known Limits
 
 - Processing method decoding is still treated as generic embedded object/XML extraction.
+- Folder/root report visibility is based on observed Chromeleon package hierarchy. A package containing multiple different same-name report payloads remains `Review Required` until an explicit binding is proven.
+- Package classification currently derives from available structural/raw evidence; Chromeleon does not provide one universal header flag that reliably labels every package as runtime/template/mixed.
 - The method flow TSV is a readable reconstruction from decoded XML, not a guaranteed one-to-one Chromeleon script export.
 - Some condition expressions may still have editor-specific formatting not represented in decoded XML, but descendant command values are no longer folded into the condition line.
 - The `CpXm` decoder depends on local Chromeleon DLLs being installed.

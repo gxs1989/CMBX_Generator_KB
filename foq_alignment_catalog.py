@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 from typing import Any, Iterable
 
-from sequence_cmd_parser import build_injection_method_links
+from sequence_cmd_parser import build_injection_method_links, get_injection_method_link
 from processing_method_inspector import inspect_processing_method
 from tcc_project_generator import (
     build_single_point_temperature_accuracy_project,
@@ -7029,7 +7029,7 @@ def _enrich_with_loaded_packages(record: FoqAlignmentRecord, packages: Iterable[
             injection_name = getattr(injection, "name", "")
             if _same_name(injection_name, record.injection):
                 found_injection = True
-                link = injection_links.get(injection_name)
+                link = get_injection_method_link(injection_links, injection)
                 if link:
                     sources.append(
                         f"{Path(package_path).name}: link {link.injection_name} -> "

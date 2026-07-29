@@ -280,7 +280,9 @@ internal static class FormulaOneWriterHost
 
     private static Dictionary<string, object> ReadInstructions(string path)
     {
-        var serializer = new JavaScriptSerializer();
+        // Base64-encoded FormulaOne workbooks routinely exceed the default
+        // JavaScriptSerializer input limit for cross-module OQ reports.
+        var serializer = new JavaScriptSerializer { MaxJsonLength = Int32.MaxValue };
         return serializer.Deserialize<Dictionary<string, object>>(File.ReadAllText(path, Encoding.UTF8));
     }
 

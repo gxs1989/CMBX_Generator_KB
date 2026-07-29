@@ -59,6 +59,9 @@ class InjectionMethodLink:
     processing_method: str
     instrument_method: str
     occurrence: int
+    sequence_name: str = ""
+    sequence_id: str = ""
+    injection_id: str = ""
 
 
 def build_embedded_object_summary(package: CmbxPackage, element: CmbxElement) -> EmbeddedObjectSummary:
@@ -81,24 +84,59 @@ def build_embedded_object_summary(package: CmbxPackage, element: CmbxElement) ->
 
 
 def build_injection_method_links(package: CmbxPackage) -> dict[str, InjectionMethodLink]:
-    sequence = package.sequences[0] if package.sequences else None
-    if not sequence or not sequence.filename:
-        return {}
-    data = extract_cmbx_entry(package.path, sequence.filename)
     links: dict[str, InjectionMethodLink] = {}
+    name_counts: dict[str, int] = {}
     for injection in package.injections:
-        occurrence = data.find(injection.name.encode("utf-8"))
-        if occurrence < 0:
+        name_counts[injection.name] = name_counts.get(injection.name, 0) + 1
+    for sequence in package.sequences:
+        if not sequence.filename:
             continue
-        refs = _relative_urls_after(data, occurrence, 800)
-        if len(refs) >= 2:
-            links[injection.name] = InjectionMethodLink(
+        data = extract_cmbx_entry(package.path, sequence.filename)
+        for injection in (child for child in sequence.children if child.kind == "injection"):
+            occurrence, refs = _injection_reference_block(data, injection.name)
+            if occurrence < 0 or len(refs) < 2:
+                continue
+            key = injection.name if name_counts[injection.name] == 1 else f"{sequence.id}:{injection.name}"
+            links[key] = InjectionMethodLink(
                 injection_name=injection.name,
                 processing_method=refs[0],
                 instrument_method=refs[1],
                 occurrence=occurrence,
+                sequence_name=sequence.name,
+                sequence_id=sequence.id,
+                injection_id=injection.id,
             )
     return links
+
+
+def get_injection_method_link(
+    links: dict[str, InjectionMethodLink],
+    injection: CmbxElement | str,
+) -> InjectionMethodLink | None:
+    if isinstance(injection, str):
+        return links.get(injection)
+    parent_id = getattr(injection, "parent_id", None)
+    name = getattr(injection, "name", "")
+    if parent_id:
+        scoped = links.get(f"{parent_id}:{name}")
+        if scoped is not None:
+            return scoped
+    return links.get(name)
+
+
+def _injection_reference_block(data: bytes, injection_name: str) -> tuple[int, list[str]]:
+    needle = injection_name.encode("utf-8", errors="ignore")
+    if not needle:
+        return -1, []
+    start = 0
+    while True:
+        occurrence = data.find(needle, start)
+        if occurrence < 0:
+            return -1, []
+        refs = _relative_urls_after(data, occurrence, 1000)
+        if len(refs) >= 2:
+            return occurrence, refs
+        start = occurrence + 1
 
 
 def _sequence_for_element(package: CmbxPackage, element: CmbxElement) -> CmbxElement | None:

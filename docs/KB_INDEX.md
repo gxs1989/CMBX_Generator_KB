@@ -13,7 +13,7 @@ The workspace mirror lives under:
 C:\ProgramData\CMBX Data Explorer Workspace\KB\KB_INDEX.md
 ```
 
-Current date: 2026-07-17. Entries dated after this date are treated as planned
+Current date: 2026-07-28. Entries dated after this date are treated as planned
 target dates rather than completed updates.
 
 ## Knowledge Base Versions
@@ -24,6 +24,7 @@ target dates rather than completed updates.
 | TCC_KB | 1.0 | 2026-07-09 | VH/VC/VA-C10-A | Published | `FOQ/TCC/FOQ_TCC_VX_C10_A_TD_KNOWLEDGE_MANAGEMENT.md`, `FOQ/TCC/FOQ_TD_TEST_LOGIC_KNOWLEDGE_BASE.md` |
 | Pump_KB | 0.5 | 2026-07-10 target | Vanquish Pump / HPG-related FOQ | In development | `FOQ/Pump/FOQ_VPUMP_TD_KNOWLEDGE_MANAGEMENT.md`, `FOQ/Pump/FOQ_VPUMP_TEST_LOGIC_KNOWLEDGE_BASE.md` |
 | Autosampler_KB | 0.5 | 2026-07-09 | Vanquish Autosampler FOQ | Draft | `FOQ/Autosampler/FOQ_VAS_TD_KNOWLEDGE_MANAGEMENT.md`, `FOQ/Autosampler/FOQ_VAS_TEST_LOGIC_KNOWLEDGE_BASE.md` |
+| RID_OQ_KB | 1.0 | 2026-07-28 | VC-D60-A and generic `$RI` OQ template; warm-up, linearity, noise/drift, stop/restore, method and report contracts | Published / processing-method partial | `FOQ/RID/RID_OQ_TEST_KNOWLEDGE_BASE.md`, `FOQ/RID/RID_OQ_METHOD_REPORT_EVIDENCE.md`, `cmbx_data_explorer/docs/RID_OQ_TEST_KNOWLEDGE_BASE.md`, `cmbx_data_explorer/docs/RID_OQ_METHOD_REPORT_EVIDENCE.md` |
 | CMBX_Methods_Inventory | 2.3 | 2026-06-15 | TCC decoded methods, expandable to all modules | Published / partial local mirror | `knowledge_base/tcc_reverse_probe/**/_embedded_method_flow.tsv`, `cmbx_data_explorer/docs/TCC_METHOD_COMMAND_CONTRACTS.md` |
 | CMBX_Reports_Inventory | 2.1 | 2026-06-10 | TCC report templates, expandable to all modules | Published / partial local mirror | `cmbx_data_explorer/docs/TCC_METHOD_REPORT_ALIGNMENT.md`, report template tabs/docs |
 | CMBX_Formulas | 1.2 | 2026-06-20 | Report formula and workbook-derived rules | Published / partial local mirror | `cmbx_data_explorer/docs/CM_FORMULA_KNOWLEDGE_BASE.md`, `cmbx_data_explorer/CM_FORMULA_REVERSE_ENGINEERING.md` |
@@ -32,7 +33,7 @@ target dates rather than completed updates.
 | MD_To_Standalone_Method_CMBX_Packaging | 1.1 | 2026-07-17 | Structural MD -> standalone instrument-method CMBX packaging, linter, and roundtrip acceptance | Published / structural prototype | `cmbx_data_explorer/docs/MD_TO_STANDALONE_METHOD_CMBX_PACKAGING.md`, `C:\ProgramData\CMBX Data Explorer Workspace\KB\FOQ Template\MD_TO_STANDALONE_METHOD_CMBX_PACKAGING.md` |
 | CM_CompilerRules | 1.1 | 2026-07-17 | Method Script Generator compiler-facing reminders; strict SPEC wins on conflict | Published | `C:\ProgramData\CMBX Data Explorer Workspace\KB\FOQ Template\CM Compiler Rules.MD`, `C:\ProgramData\CMBX Data Explorer Workspace\KB\Method Script Generator\Generator Spec\CM Compiler Rules.MD` |
 | CM_MethodRenderingContract | 1.0 | 2026-07-17 | CM-like method table rendering, row categories, and stage-time preservation | Published | `cmbx_data_explorer/docs/CM_METHOD_RENDERING_CONTRACT.md` |
-| CMBX_ParsingNotes | 1.3 | 2026-07-17 | CMBX container, embedded method/report extraction, and validated parsing boundaries | Published | `cmbx_data_explorer/CMBX_PARSING_NOTES.md` |
+| CMBX_ParsingNotes | 1.5 | 2026-07-28 | CMBX container, multi-sequence method links, shared report scope/deduplication, package classification, embedded extraction, large FormulaOne inventories, and validated parsing boundaries | Published | `cmbx_data_explorer/CMBX_PARSING_NOTES.md`, `CMBX读取/CMBX_PARSING_NOTES.md` |
 | TCC_TestKnowledgeNodes | 0.2 | 2026-07-09 | TCC FOQ injection/method/report/DB node model | In development | `FOQ/TCC/TCC_TEST_KNOWLEDGE_NODE_MODEL.md`, `cmbx_data_explorer/docs/TCC_TEST_KNOWLEDGE_NODE_MODEL.md` |
 | TCC_BlackBox_Decompositions | 1.3 | 2026-07-10 | Temperature Accuracy, Calibration, Precision/Fan, Stability/PCC, HeatUp/CoolDown, BurnIn, Preheater, Column ID, Valve/Keypad, Liquid Leak, Qualification Service, Factory Default, Error Log Check contracts | In development | `cmbx_data_explorer/docs/TCC_ACCURACY_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_CALIBRATION_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_PRECISION_FAN_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_STABILITY_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_HEATUP_COOLDOWN_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_BURNIN_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_PREHEATER_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_COLUMN_ID_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_VALVE_KEYPAD_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_LIQUID_LEAK_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_QUALIFICATION_SERVICE_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_FACTORY_DEFAULT_BLACK_BOX_DECOMPOSITION.md`, `cmbx_data_explorer/docs/TCC_ERROR_LOG_BLACK_BOX_DECOMPOSITION.md` |
 | TCC_MethodRoleContracts | 0.2 | 2026-07-13 | Role-level TCC method-script edit contracts for all TCC FOQ methods and Test Plan generation | Draft | `FOQ/TCC/TCC_METHOD_ROLE_CONTRACTS.md`, `cmbx_data_explorer/docs/TCC_METHOD_ROLE_CONTRACTS.md` |
@@ -62,7 +63,7 @@ technical origin.
 
 ```mermaid
 flowchart TD
-    FOQ_KB["FOQ KB (TCC + VDAD + Pump + Autosampler)"] --> GEN_STRAT["Generation Strategy"]
+    FOQ_KB["FOQ KB (TCC + VDAD + Pump + Autosampler + RID)"] --> GEN_STRAT["Generation Strategy"]
     CM_CMD["CM Instrument Command KB"] --> GEN_STRAT
     CMBX_METHOD["CMBX Method KB"] --> GEN_STRAT
     CMBX_REPORT["CMBX Report KB"] --> GEN_STRAT
@@ -156,12 +157,15 @@ timed comment prohibition / linter errors and warnings / roundtrip acceptance
 ### CMBX Parsing And Extraction
 
 - Project parsing notes: `cmbx_data_explorer/CMBX_PARSING_NOTES.md`
+- Workspace functional mirror: `CMBX读取/CMBX_PARSING_NOTES.md`
 - CMBX reverse-engineering docs under `cmbx_data_explorer/docs`
 
 Purpose:
 
 ```text
-Document what the app can decode from CMBX and which boundaries still require
+Document what the app can decode from CMBX, including package classification,
+multi-sequence method bindings, folder/root shared report scope, logical report
+deduplication, embedded payload ownership, and boundaries that still require
 Chromeleon import/editor validation.
 ```
 
