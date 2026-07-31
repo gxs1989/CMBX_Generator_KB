@@ -1499,3 +1499,44 @@ HPLC 应用与 FOQ 必须保持语义分离：FOQ 验证设备是否满足工厂
 - Validation: the real VH sample exposes two duplicate groups (`Temperature Accuracy_H` and
   `Temperature Stability_and_PCC_H`); both remain unresolved until one occurrence is selected. Automated regression:
   `202 passed`.
+
+## 20. Home mind-map focus navigation (2026-07-29)
+
+- Status: Implemented for the Home mind map only.
+- Home task boxes use a two-stage interaction instead of opening a workflow immediately. The first click selects
+  a branch or leaf, animates its complete path from `CMBX Workspace` into a focused left-hand journey, and opens a
+  right-hand explanation panel. Clicking the already-focused task again opens the real workflow.
+- The explanation panel states the task purpose, expected input, produced output, and current functional boundary.
+  This makes limitations visible before the user enters a workflow and avoids presenting planned or partial behavior
+  as complete functionality.
+- Journey headings can also be focused. Their detail panel lists the available child tasks; selecting a child updates
+  the focused path without navigating away. `CMBX Workspace` and `Back to all tasks` restore the complete map.
+- Focus transitions use a short eased animation and preserve the established blue, green, and orange business-branch
+  colors. The animation moves only canvas content and does not create a second application window.
+- Branch-specific workflow maps retain their existing direct behavior. The preview-first contract is intentionally
+  limited to Home so established workflow controls are not changed unexpectedly.
+- Regression coverage verifies that Home supplies the preview callback, that focus/animation methods exist, and that
+  every routable task has a documented limitation. GUI smoke validation covers first-click preview, second-click open,
+  and return-to-full-map behavior.
+
+## 21. Optional and persistent FOQ history filter (2026-07-31)
+
+- Status: Implemented.
+- Step 3 is now `Filter database (optional)`. A completed metric selection can proceed directly to the formal SPEC
+  calculation; database connectivity, a confirmed history population, and a completed history query are no longer
+  prerequisites for Step 4.
+- Opening the history filter never queries SQL automatically. It immediately displays the last saved table, model,
+  variant, timebase, date range and row limit. `Refresh database` is the only action that updates the available database
+  choices, and that refresh runs on a worker thread.
+- Historical settings and their last known choice catalog are persisted in
+  `C:\ProgramData\CMBX Data Explorer Workspace\foq_history_scope.json`. `Save` writes the filter without querying the
+  database. `Apply` saves it and starts a background history refresh when comparison is enabled.
+- Date boundaries use a dependency-free calendar picker and can be chosen before any database rows are loaded.
+  `All dates` clears either boundary; an inverted start/end range is rejected before saving.
+- FOQ calculation and historical loading are independent. If history is still loading or unavailable, mapped values and
+  report/Definitions SPEC decisions are produced first. A later successful history refresh attaches the historical
+  population and redraws the comparison without rerunning CMBX formulas.
+- Changing, clearing or rescanning the Step 1 CMBX scope preserves the confirmed metric set and history filter. Metrics
+  are intersected with the newly selected devices; confirmation is cleared only when none of the former metrics remains
+  valid. Database filters and cached history remain unchanged.
+- Regression coverage verifies history-filter persistence and preservation of Step 2/3 state across a new CMBX inventory.

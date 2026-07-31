@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import calendar
 import csv
 import json
 import queue
 import threading
 import time
 import tkinter as tk
+from datetime import date, datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
@@ -32,6 +34,98 @@ DEFAULT_WORKSPACE = Path(r"C:\ProgramData\CMBX Data Explorer Workspace")
 DEFAULT_CONFIG = DEFAULT_WORKSPACE / "database_config.json"
 DEFAULT_EXPORT = DEFAULT_WORKSPACE / "exports" / "foq_quick_check"
 DEFAULT_METRIC_PRESETS = DEFAULT_WORKSPACE / "foq_metric_presets.json"
+DEFAULT_HISTORY_SCOPE = DEFAULT_WORKSPACE / "foq_history_scope.json"
+
+
+class CalendarDatePicker:
+    """Small dependency-free calendar used by the optional history filter."""
+
+    def __init__(self, parent: tk.Misc, initial: str, colors: dict[str, str]):
+        self.result: str | None = None
+        try:
+            selected = datetime.strptime(initial, "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            selected = date.today()
+        self.year = selected.year
+        self.month = selected.month
+        self.colors = colors
+        self.window = tk.Toplevel(parent)
+        self.window.title("Choose date")
+        self.window.transient(parent)
+        self.window.grab_set()
+        self.window.resizable(False, False)
+        self.window.configure(bg=colors["bg"])
+        self.month_label = tk.Label(
+            self.window,
+            bg=colors["bg"],
+            fg=colors["text"],
+            font=("Segoe UI", 11, "bold"),
+        )
+        tk.Button(
+            self.window,
+            text="<",
+            command=lambda: self._move(-1),
+            relief="flat",
+            bg=colors["alt"],
+            font=("Segoe UI", 10, "bold"),
+            width=3,
+        ).grid(row=0, column=0, padx=(14, 4), pady=12)
+        self.month_label.grid(row=0, column=1, columnspan=5, pady=12)
+        tk.Button(
+            self.window,
+            text=">",
+            command=lambda: self._move(1),
+            relief="flat",
+            bg=colors["alt"],
+            font=("Segoe UI", 10, "bold"),
+            width=3,
+        ).grid(row=0, column=6, padx=(4, 14), pady=12)
+        self.day_frame = tk.Frame(self.window, bg=colors["bg"])
+        self.day_frame.grid(row=1, column=0, columnspan=7, padx=14)
+        actions = tk.Frame(self.window, bg=colors["bg"])
+        actions.grid(row=2, column=0, columnspan=7, sticky="ew", padx=14, pady=14)
+        tk.Button(actions, text="All dates", command=self._clear, relief="flat", bg=colors["alt"], padx=12, pady=6).pack(side="left")
+        tk.Button(actions, text="Cancel", command=self.window.destroy, relief="flat", bg=colors["alt"], padx=12, pady=6).pack(side="right")
+        self._render()
+
+    def _move(self, offset: int) -> None:
+        month = self.month + offset
+        self.year += (month - 1) // 12
+        self.month = (month - 1) % 12 + 1
+        self._render()
+
+    def _render(self) -> None:
+        self.month_label.configure(text=f"{self.year:04d}-{self.month:02d}")
+        for child in self.day_frame.winfo_children():
+            child.destroy()
+        for column, label in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
+            tk.Label(self.day_frame, text=label, width=4, bg=self.colors["bg"], fg=self.colors["muted"], font=("Segoe UI", 8, "bold")).grid(row=0, column=column, pady=(0, 5))
+        weeks = calendar.Calendar(firstweekday=0).monthdayscalendar(self.year, self.month)
+        for row, week in enumerate(weeks, start=1):
+            for column, day in enumerate(week):
+                if not day:
+                    continue
+                tk.Button(
+                    self.day_frame,
+                    text=str(day),
+                    width=4,
+                    relief="flat",
+                    bg="#FFFFFF",
+                    activebackground=self.colors["soft"],
+                    command=lambda value=day: self._choose(value),
+                ).grid(row=row, column=column, padx=2, pady=2)
+
+    def _choose(self, day: int) -> None:
+        self.result = f"{self.year:04d}-{self.month:02d}-{day:02d}"
+        self.window.destroy()
+
+    def _clear(self) -> None:
+        self.result = ""
+        self.window.destroy()
+
+    def show(self) -> str | None:
+        self.window.wait_window()
+        return self.result
 
 
 class FoqQualityWindow:
@@ -67,6 +161,7 @@ class FoqQualityWindow:
         self.selected_metric_fields: set[str] = set()
         self.metric_scope_confirmed = False
         self.history_scope_confirmed = False
+        self.history_loading = False
         self.history_use_var = tk.BooleanVar(value=True)
         self.history_table_var = tk.StringVar(value="dbo.VTCC")
         self.history_model_var = tk.StringVar()
@@ -78,9 +173,12 @@ class FoqQualityWindow:
         self.history_selected_variants: set[str] = set()
         self.history_selected_timebases: set[str] = set()
         self.history_scope_rows: list[dict[str, object]] = []
+        self.history_scope_table = ""
+        self.history_cached_choices = {"model": [], "variant": [], "timebase": []}
         self.table_var = tk.StringVar(value="dbo.VTCC")
         self.history_limit_var = tk.StringVar(value="5000")
         self.db_vars = self._database_defaults()
+        self._load_history_scope_defaults()
         self._setup()
         self._build_shell()
         self.root.after(50,self._drain_ui_queue)
@@ -170,8 +268,8 @@ class FoqQualityWindow:
 
     def _show_foq(self) -> None:
         page = self._page()
-        active_step=3 if self.metrics else 2 if self.history_scope_confirmed else 1 if self.metric_scope_confirmed else 0
-        self._heading(page, *self.TASKS["foq"], ("Choose CMBX & injections", "Choose metrics", "Filter database", "Review results"), active_step)
+        active_step = 0 if not self.inventory else 3 if self.metrics else 2 if self.metric_scope_confirmed else 1
+        self._heading(page, *self.TASKS["foq"], ("Choose CMBX & injections", "Choose metrics", "Filter database (optional)", "Review results"), active_step)
         page.rowconfigure(5, weight=1)
         controls = tk.Frame(page, bg=self.colors["alt"], highlightthickness=1, highlightbackground=self.colors["border"])
         controls.grid(row=3, column=0, sticky="ew", pady=(0, 12))
@@ -182,7 +280,7 @@ class FoqQualityWindow:
         self._button(action_group, "Add folder", self._add_folder, neutral=True, width=112).pack(side="left",padx=5)
         self._button(action_group, "Clear", self._clear_sources, neutral=True, width=78).pack(side="left",padx=5)
         self._button(action_group, "Choose metrics", self._choose_metrics, neutral=True, width=130).pack(side="left",padx=5)
-        self._button(action_group, "Database scope", self._history_comparison_dialog, neutral=True, width=145).pack(side="left",padx=5)
+        self._button(action_group, "History filter", self._history_comparison_dialog, neutral=True, width=130).pack(side="left",padx=5)
         self._button(action_group, "Run analysis", self._run_foq, width=130).pack(side="left",padx=(14,0))
         tk.Label(controls, text="FOQ Location", font=self._font(9, "bold"), bg=self.colors["alt"], fg=self.colors["text"]).grid(row=1, column=0, padx=(14, 6), pady=(0,12),sticky="w")
         location_row=tk.Frame(controls,bg=self.colors["alt"]);location_row.grid(row=1,column=1,sticky="ew",padx=(0,14),pady=(0,12));location_row.columnconfigure(0,weight=1)
@@ -289,7 +387,7 @@ class FoqQualityWindow:
         self._log(self.status_var.get()); self._scan_source_inventory()
 
     def _clear_sources(self):
-        self.source_paths=[];self.candidates=[];self.inventory=[];self.selected_sequence_ids=set();self.selected_injection_ids={};self.metrics=[];self.history_rows=[];self.metric_scope_confirmed=False;self.history_scope_confirmed=False;self.show_task()
+        self.source_paths=[];self.candidates=[];self.inventory=[];self.selected_sequence_ids=set();self.selected_injection_ids={};self.metrics=[];self.show_task()
 
     def _scan_source_inventory(self):
         mapping=Path(self.mapping_var.get())
@@ -303,6 +401,7 @@ class FoqQualityWindow:
         threading.Thread(target=work,daemon=True).start()
 
     def _finish_source_inventory(self,inventory,errors):
+        metric_was_confirmed = self.metric_scope_confirmed
         self.inventory=inventory
         self.selected_sequence_ids={self._sequence_key(item) for item in inventory if item.eligible}
         self.selected_injection_ids={}
@@ -317,9 +416,10 @@ class FoqQualityWindow:
             self.selected_metric_fields=set(catalog)
         else:
             self.selected_metric_fields.intersection_update(catalog)
-        self.history_selected_models={item.device for item in inventory if item.eligible}
-        self.history_selected_variants=set();self.history_selected_timebases=set();self.history_date_from_var.set("");self.history_date_to_var.set("")
-        self.metric_scope_confirmed=False;self.history_scope_confirmed=False;self.metrics=[]
+        if not self.history_selected_models:
+            self.history_selected_models={item.device for item in inventory if item.eligible}
+        self.metric_scope_confirmed = metric_was_confirmed and bool(self.selected_metric_fields)
+        self.metrics=[]
         ready=sum(item.eligible for item in inventory);support=len(inventory)-ready
         self._log(f"Sequence scope ready: {ready} checkable, {support} support/unresolved, {len(errors)} package error(s).")
         for path,detail in errors:self._log(f"  {path.name}: {detail}")
@@ -381,8 +481,10 @@ class FoqQualityWindow:
             else:self.selected_sequence_ids|=keys
         catalog=set(self._metric_catalog())
         self.selected_metric_fields.intersection_update(catalog)
-        if catalog and not self.selected_metric_fields:self.selected_metric_fields=set(catalog)
-        self.metric_scope_confirmed=False;self.history_scope_confirmed=False;self.metrics=[]
+        if catalog and not self.selected_metric_fields:
+            self.selected_metric_fields=set(catalog)
+            self.metric_scope_confirmed = False
+        self.metrics=[]
         self._fill_source_tree()
 
     def _metric_catalog(self):
@@ -436,7 +538,7 @@ class FoqQualityWindow:
         def apply():
             remember()
             if not chosen:return messagebox.showwarning("Choose metrics","Select at least one metric.",parent=dialog)
-            self.selected_metric_fields=set(chosen);self.metric_scope_confirmed=True;self.history_scope_confirmed=False;self.metrics=[];self._log(f"Metric scope updated: {len(chosen)} selected.");dialog.destroy();self.show_task()
+            self.selected_metric_fields=set(chosen);self.metric_scope_confirmed=True;self.metrics=[];self._log(f"Metric scope updated: {len(chosen)} selected.");dialog.destroy();self.show_task()
         search_var.trace_add("write",change_filter);refill()
         self._button(preset_row,"Use set",load_preset,neutral=True,width=88).grid(row=0,column=1,padx=3);self._button(preset_row,"Save set",save_preset,neutral=True,width=92).grid(row=0,column=2,padx=(3,0))
         buttons=tk.Frame(dialog,bg=self.colors["bg"]);buttons.grid(row=5,column=0,sticky="ew",padx=22,pady=(0,18))
@@ -491,8 +593,10 @@ class FoqQualityWindow:
         if unresolved:return messagebox.showwarning("FOQ Quick Check",f"Choose duplicate injection occurrences before analysis:\n\n"+"\n".join(unresolved),parent=self.root)
         if not self.metric_scope_confirmed or not self.selected_metric_fields:
             return messagebox.showwarning("FOQ Quick Check","Choose at least one metric before running the check.",parent=self.root)
-        if not self.history_scope_confirmed:
-            return messagebox.showwarning("FOQ Quick Check","Confirm the database comparison scope before running the analysis.",parent=self.root)
+        if self.history_use_var.get() and self.history_scope_confirmed and not self.history_rows and not self.history_loading:
+            self._load_filtered_history()
+        elif not self.history_scope_confirmed:
+            self._log("No historical filter confirmed; continuing with the formal SPEC check only.")
         fields=sorted(self.selected_metric_fields)
         self._log(f"Starting FOQ calculation for {len(selected)} selected sequence(s) and {len(fields)} metric(s)...")
         self.status_var.set("FOQ calculation running")
@@ -535,75 +639,98 @@ class FoqQualityWindow:
         self._scope_row_label(dialog,3,"Table")
         table_combo=ttk.Combobox(dialog,textvariable=self.history_table_var,values=table_values,state="readonly",style="Quality.TCombobox")
         table_combo.grid(row=3,column=1,columnspan=2,sticky="ew",padx=(0,22),pady=7)
-        displays={"model":tk.StringVar(value="Loading..."),"variant":tk.StringVar(value="Loading..."),"timebase":tk.StringVar(value="Loading...")}
-        choices={"model":[],"variant":[],"timebase":[]}
+        displays={"model":tk.StringVar(),"variant":tk.StringVar(),"timebase":tk.StringVar()}
+        choices={key:list(self.history_cached_choices.get(key,[])) for key in ("model","variant","timebase")}
+        choices["model"]=sorted(set(choices["model"])|set(devices)|set(self.history_selected_models),key=str.lower)
+        choices["variant"]=sorted(set(choices["variant"])|set(self.history_selected_variants),key=str.lower)
+        choices["timebase"]=sorted(set(choices["timebase"])|set(self.history_selected_timebases),key=str.lower)
         selected={"model":self.history_selected_models,"variant":self.history_selected_variants,"timebase":self.history_selected_timebases}
         labels={"model":"ModelNo","variant":"ModelVariant","timebase":"TimeBase"};choice_buttons={}
         for row,key in enumerate(("model","variant","timebase"),start=4):
+            self._update_scope_display(displays[key],selected[key])
             self._scope_row_label(dialog,row,labels[key])
-            choice_buttons[key]=tk.Button(dialog,textvariable=displays[key],command=lambda key=key:self._select_scope_values(dialog,labels[key],choices[key],selected[key],displays[key]),anchor="w",font=self._font(9),bg="#FFFFFF",fg=self.colors["text"],relief="solid",bd=1,padx=9,pady=7,state="disabled")
+            choice_buttons[key]=tk.Button(dialog,textvariable=displays[key],command=lambda key=key:self._select_scope_values(dialog,labels[key],choices[key],selected[key],displays[key]),anchor="w",font=self._font(9),bg="#FFFFFF",fg=self.colors["text"],relief="solid",bd=1,padx=9,pady=7)
             choice_buttons[key].grid(row=row,column=1,columnspan=2,sticky="ew",padx=(0,22),pady=7)
         self._scope_row_label(dialog,7,"TestDate from")
-        date_from=ttk.Combobox(dialog,textvariable=self.history_date_from_var,values=("All",),state="readonly",style="Quality.TCombobox");date_from.grid(row=7,column=1,columnspan=2,sticky="ew",padx=(0,22),pady=7)
+        date_from=self._calendar_field(dialog,self.history_date_from_var);date_from.grid(row=7,column=1,columnspan=2,sticky="ew",padx=(0,22),pady=7)
         self._scope_row_label(dialog,8,"TestDate to")
-        date_to=ttk.Combobox(dialog,textvariable=self.history_date_to_var,values=("All",),state="readonly",style="Quality.TCombobox");date_to.grid(row=8,column=1,columnspan=2,sticky="ew",padx=(0,22),pady=7)
+        date_to=self._calendar_field(dialog,self.history_date_to_var);date_to.grid(row=8,column=1,columnspan=2,sticky="ew",padx=(0,22),pady=7)
         self._scope_row_label(dialog,9,"Maximum rows")
         tk.Spinbox(dialog,textvariable=self.history_limit_var,from_=100,to=100000,increment=100,width=12,font=self._font(9),relief="solid",bd=1).grid(row=9,column=1,sticky="w",pady=7,ipady=5)
-        scope_status=tk.StringVar(value="Loading database choices...")
+        cache_message="Saved filter is ready. Refresh database only when you need updated choices."
+        if not any(choices.values()):cache_message="No cached database catalog. SPEC analysis is still available; refresh in the background when needed."
+        scope_status=tk.StringVar(value=cache_message)
         tk.Label(dialog,textvariable=scope_status,font=self._font(9),bg=self.colors["bg"],fg=self.colors["primary"],wraplength=610,justify="left").grid(row=10,column=0,columnspan=3,sticky="w",padx=22,pady=(7,8))
         def settings():self._database_dialog()
-        def apply():
-            dialog.destroy()
-            if not self.history_use_var.get():
-                self.history_rows=[];self.history_scope_confirmed=True;self._log("Historical comparison disabled; SPEC-only analysis selected.");self.show_task();return
+        def sync_scope():
             self.history_model_var.set(",".join(sorted(self.history_selected_models)))
             self.history_variant_var.set(",".join(sorted(self.history_selected_variants)))
             self.history_timebase_var.set(",".join(sorted(self.history_selected_timebases)))
-            if self.history_date_from_var.get()=="All":self.history_date_from_var.set("")
-            if self.history_date_to_var.get()=="All":self.history_date_to_var.set("")
+            self.history_scope_confirmed=True
+            self.history_cached_choices={key:list(values) for key,values in choices.items()}
+            self._save_history_scope_defaults()
+        def save():
+            sync_scope();scope_status.set("Settings saved. No database query was started.");self._log("Historical comparison settings saved.")
+        def apply():
+            start=self.history_date_from_var.get().strip();end=self.history_date_to_var.get().strip()
+            if start and end and start>end:
+                return messagebox.showwarning("Historical comparison","The start date must not be after the end date.",parent=dialog)
+            sync_scope();dialog.destroy()
+            if not self.history_use_var.get():
+                self.history_rows=[];self._log("Historical comparison disabled; SPEC-only analysis selected.");self.show_task();return
             self._load_filtered_history()
         footer=tk.Frame(dialog,bg=self.colors["bg"]);footer.grid(row=11,column=0,columnspan=3,sticky="ew",padx=22,pady=(12,20))
         self._button(footer,"Database settings",settings,neutral=True,width=155).pack(side="left")
-        refresh=self._button(footer,"Refresh choices",lambda:self._load_history_scope_choices(dialog,table_combo,choices,selected,displays,choice_buttons,date_from,date_to,scope_status),neutral=True,width=140);refresh.pack(side="left",padx=6)
+        self._button(footer,"Refresh database",lambda:self._load_history_scope_choices(dialog,table_combo,choices,selected,displays,choice_buttons,scope_status),neutral=True,width=145).pack(side="left",padx=6)
+        self._button(footer,"Save",save,neutral=True,width=82).pack(side="left")
         self._button(footer,"Cancel",dialog.destroy,neutral=True,width=90).pack(side="right",padx=(6,0));self._button(footer,"Apply",apply,width=100).pack(side="right")
-        table_combo.bind("<<ComboboxSelected>>",lambda _event:self._load_history_scope_choices(dialog,table_combo,choices,selected,displays,choice_buttons,date_from,date_to,scope_status))
-        dialog.after(80,lambda:self._load_history_scope_choices(dialog,table_combo,choices,selected,displays,choice_buttons,date_from,date_to,scope_status))
+        table_combo.bind("<<ComboboxSelected>>",lambda _event:scope_status.set("Table changed. Click Refresh database to update available choices."))
 
     def _scope_row_label(self,parent,row,text):
         tk.Label(parent,text=text,font=self._font(9,"bold"),bg=self.colors["bg"],fg=self.colors["text"]).grid(row=row,column=0,sticky="w",padx=(22,10),pady=7)
 
-    def _load_history_scope_choices(self,dialog,table_combo,choices,selected,displays,buttons,date_from,date_to,status):
-        status.set("Loading available database values...")
-        for button in buttons.values():button.configure(state="disabled")
-        table_name=self.history_table_var.get().strip()
+    def _calendar_field(self, parent, variable):
+        shell=tk.Frame(parent,bg=self.colors["bg"]);shell.columnconfigure(0,weight=1)
+        display=tk.StringVar(value=variable.get() or "All dates")
+        entry=tk.Entry(shell,textvariable=display,state="readonly",readonlybackground="#FFFFFF",font=self._font(9),relief="solid",bd=1)
+        entry.grid(row=0,column=0,sticky="ew",ipady=7,padx=(0,6))
+        def choose():
+            result=CalendarDatePicker(parent,variable.get(),self.colors).show()
+            if result is None:return
+            variable.set(result);display.set(result or "All dates")
+        self._button(shell,"Calendar",choose,neutral=True,width=92).grid(row=0,column=1)
+        return shell
+
+    def _load_history_scope_choices(self,dialog,table_combo,choices,selected,displays,buttons,status):
+        status.set("Refreshing database choices in the background...")
+        table_name=self.history_table_var.get().strip();config=self._db_config();limit=self._limit()
         def work():
             try:
-                config=self._db_config();tables=list_database_tables(config)
+                tables=list_database_tables(config)
                 schema=config.schema;table=table_name
                 if "." in table:schema,table=table.split(".",1)
-                rows=fetch_table_rows(config,table=table,schema=schema,limit=self._limit())
-                self._call_ui(lambda:self._finish_history_scope_choices(dialog,tables,rows,table_combo,choices,selected,displays,buttons,date_from,date_to,status))
+                rows=fetch_table_rows(config,table=table,schema=schema,limit=limit)
+                self._call_ui(lambda:self._finish_history_scope_choices(dialog,table_name,tables,rows,table_combo,choices,selected,displays,buttons,status))
             except Exception as exc:self._call_ui(lambda exc=exc:status.set(f"Could not load choices: {exc}"))
         threading.Thread(target=work,daemon=True).start()
 
-    def _finish_history_scope_choices(self,dialog,tables,rows,table_combo,choices,selected,displays,buttons,date_from,date_to,status):
+    def _finish_history_scope_choices(self,dialog,table_name,tables,rows,table_combo,choices,selected,displays,buttons,status):
         if not dialog.winfo_exists():return
-        self.database_tables=tables;self.history_scope_rows=rows
+        if self.history_table_var.get().strip()!=table_name:
+            status.set("The table changed while refreshing. Click Refresh database for the current table.");return
+        self.database_tables=tables;self.history_scope_rows=rows;self.history_scope_table=table_name.lower()
         table_values=[f"{schema}.{table}" for schema,table in tables]
         if self.history_table_var.get() not in table_values:table_values.insert(0,self.history_table_var.get())
         table_combo.configure(values=table_values)
         field_names={"model":("ModelNo","Device","DeviceType"),"variant":("ModelVariant",),"timebase":("TimeBase",)}
         for key,candidates in field_names.items():
-            values=sorted({str(value).strip() for row in rows if (value:=self._first_row_value(row,candidates)) not in (None,"")},key=str.lower)
-            choices[key][:]=values;selected[key].intersection_update(values)
+            values={str(value).strip() for row in rows if (value:=self._first_row_value(row,candidates)) not in (None,"")}
+            values.update(selected[key]);choices[key][:]=sorted(values,key=str.lower)
             current_devices={item.device for item in self.inventory if item.eligible and self._sequence_key(item) in self.selected_sequence_ids}
             if key=="model" and not selected[key]:selected[key].update(value for value in values if value in current_devices)
             self._update_scope_display(displays[key],selected[key]);buttons[key].configure(state="normal")
-        dates=sorted({str(value)[:10] for row in rows if (value:=self._first_row_value(row,("TestDate",))) not in (None,"")})
-        date_values=["All",*dates]
-        date_from.configure(values=date_values);date_to.configure(values=date_values)
-        if self.history_date_from_var.get() not in date_values:self.history_date_from_var.set("All")
-        if self.history_date_to_var.get() not in date_values:self.history_date_to_var.set("All")
+        self.history_cached_choices={key:list(values) for key,values in choices.items()}
+        self._save_history_scope_defaults()
         status.set(f"{len(rows)} row(s) inspected. Choose one or more values, then Apply.")
 
     def _select_scope_values(self,parent,title,choices,selected,display_var):
@@ -628,24 +755,30 @@ class FoqQualityWindow:
         variable.set("All" if not values else ", ".join(values[:3])+(f" +{len(values)-3}" if len(values)>3 else ""))
 
     def _load_filtered_history(self):
-        self._save_database_defaults();self._log("Reading and filtering historical database rows...")
+        if self.history_loading:return
+        self._save_database_defaults();self._save_history_scope_defaults();self.history_loading=True
+        self._log("Historical database refresh started in the background; SPEC analysis remains available.")
+        table_name=self.history_table_var.get().strip();filters={"model":self.history_model_var.get(),"variant":self.history_variant_var.get(),"timebase":self.history_timebase_var.get(),"date_from":self.history_date_from_var.get(),"date_to":self.history_date_to_var.get()}
+        config=self._db_config();limit=self._limit();cached_rows=list(self.history_scope_rows) if self.history_scope_table==table_name.lower() else []
         def work():
             try:
-                config=self._db_config()
-                table=self.history_table_var.get().strip();schema=config.schema
+                table=table_name;schema=config.schema
                 if "." in table:schema,table=table.split(".",1)
-                rows=fetch_table_rows(config,table=table,schema=schema,limit=self._limit())
-                filters={"model":self.history_model_var.get(),"variant":self.history_variant_var.get(),"timebase":self.history_timebase_var.get(),"date_from":self.history_date_from_var.get(),"date_to":self.history_date_to_var.get()}
+                rows=cached_rows or fetch_table_rows(config,table=table,schema=schema,limit=limit)
                 filtered=filter_database_rows(rows,filters)
                 scope="; ".join(f"{key}={value}" for key,value in filters.items() if value.strip()) or "all fetched rows"
                 self._call_ui(lambda:self._finish_history(filtered,scope))
-            except Exception as exc:self._call_ui(lambda exc=exc:self._fail(str(exc)))
+            except Exception as exc:self._call_ui(lambda exc=exc:self._history_load_failed(str(exc)))
         threading.Thread(target=work,daemon=True).start()
 
     def _finish_history(self,rows,scope):
-        self.history_rows=rows;self.history_scope_confirmed=True
+        self.history_loading=False;self.history_rows=rows;self.history_scope_confirmed=True
         if self.metrics:self.metrics=attach_history(self.metrics,rows)
         self._log(f"Loaded {len(rows)} historical database row(s); baseline scope: {scope}.");self.show_task()
+
+    def _history_load_failed(self,message):
+        self.history_loading=False
+        self._log(f"Historical database refresh failed: {message}. SPEC analysis is still available.")
 
     def _fill_foq_tree(self):
         if not hasattr(self,"foq_tree"):return
@@ -779,6 +912,43 @@ class FoqQualityWindow:
         for i,value in enumerate(points):
             x=left+(usable*i/max(len(points)-1,1));color=self.colors["danger"] if value>summary.ucl or value<summary.lcl else self.colors["primary"];self.chart.create_oval(x-2,y(value)-2,x+2,y(value)+2,fill=color,outline="")
         self.chart.create_text(left,10,anchor="w",text=f"{field} | last {len(points)} records",font=self._font(11,"bold"),fill=self.colors["text"])
+
+    def _load_history_scope_defaults(self) -> None:
+        try:
+            saved=json.loads(DEFAULT_HISTORY_SCOPE.read_text(encoding="utf-8"))
+            self.history_use_var.set(bool(saved.get("use_history",True)))
+            self.history_table_var.set(str(saved.get("table","dbo.VTCC")))
+            self.history_limit_var.set(str(saved.get("limit","5000")))
+            self.history_selected_models=set(map(str,saved.get("models",[])))
+            self.history_selected_variants=set(map(str,saved.get("variants",[])))
+            self.history_selected_timebases=set(map(str,saved.get("timebases",[])))
+            self.history_model_var.set(",".join(sorted(self.history_selected_models)))
+            self.history_variant_var.set(",".join(sorted(self.history_selected_variants)))
+            self.history_timebase_var.set(",".join(sorted(self.history_selected_timebases)))
+            self.history_date_from_var.set(str(saved.get("date_from","")))
+            self.history_date_to_var.set(str(saved.get("date_to","")))
+            cached=saved.get("choices",{})
+            self.history_cached_choices={key:[str(value) for value in cached.get(key,[])] for key in ("model","variant","timebase")}
+            self.database_tables=[(str(item[0]),str(item[1])) for item in saved.get("tables",[]) if isinstance(item,list) and len(item)==2]
+            self.history_scope_confirmed=True
+        except Exception:
+            return
+
+    def _save_history_scope_defaults(self) -> None:
+        data={
+            "use_history":bool(self.history_use_var.get()),
+            "table":self.history_table_var.get().strip(),
+            "limit":self.history_limit_var.get().strip(),
+            "models":sorted(self.history_selected_models),
+            "variants":sorted(self.history_selected_variants),
+            "timebases":sorted(self.history_selected_timebases),
+            "date_from":self.history_date_from_var.get().strip(),
+            "date_to":self.history_date_to_var.get().strip(),
+            "choices":self.history_cached_choices,
+            "tables":[list(item) for item in self.database_tables],
+        }
+        DEFAULT_HISTORY_SCOPE.parent.mkdir(parents=True,exist_ok=True)
+        DEFAULT_HISTORY_SCOPE.write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding="utf-8")
 
     def _database_defaults(self):
         data={"server":"10.68.178.52","database":"QCLab","username":"QCUser","password":"","schema":"dbo","table":"AUTO","driver":"ODBC Driver 17 for SQL Server","dsn":"","trust_server_certificate":True}

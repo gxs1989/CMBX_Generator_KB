@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tkinter as tk
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -177,3 +178,71 @@ def test_metric_sets_can_be_saved_and_loaded(tmp_path, monkeypatch) -> None:
     foq_quality_window.FoqQualityWindow._save_metric_presets(expected)
 
     assert foq_quality_window.FoqQualityWindow._load_metric_presets() == expected
+
+
+def _history_scope_window(master: tk.Tcl):
+    window = object.__new__(foq_quality_window.FoqQualityWindow)
+    window.history_use_var = tk.BooleanVar(master=master, value=True)
+    window.history_table_var = tk.StringVar(master=master, value="dbo.VTCC")
+    window.history_limit_var = tk.StringVar(master=master, value="5000")
+    window.history_model_var = tk.StringVar(master=master)
+    window.history_variant_var = tk.StringVar(master=master)
+    window.history_timebase_var = tk.StringVar(master=master)
+    window.history_date_from_var = tk.StringVar(master=master)
+    window.history_date_to_var = tk.StringVar(master=master)
+    window.history_selected_models = set()
+    window.history_selected_variants = set()
+    window.history_selected_timebases = set()
+    window.history_cached_choices = {"model": [], "variant": [], "timebase": []}
+    window.database_tables = []
+    window.history_scope_confirmed = False
+    return window
+
+
+def test_history_filter_settings_are_persisted_without_loading_database(tmp_path, monkeypatch) -> None:
+    path = tmp_path / "history_scope.json"
+    monkeypatch.setattr(foq_quality_window, "DEFAULT_HISTORY_SCOPE", path)
+    master = tk.Tcl()
+    saved = _history_scope_window(master)
+    saved.history_selected_models = {"VH-C10-A"}
+    saved.history_selected_timebases = {"Line 1"}
+    saved.history_date_from_var.set("2025-01-01")
+    saved.history_date_to_var.set("2025-12-31")
+    saved.history_cached_choices = {"model": ["VH-C10-A", "VC-C10-A"], "variant": ["03"], "timebase": ["Line 1"]}
+    saved.database_tables = [("dbo", "VTCC")]
+    saved._save_history_scope_defaults()
+
+    loaded = _history_scope_window(master)
+    loaded._load_history_scope_defaults()
+
+    assert loaded.history_scope_confirmed
+    assert loaded.history_selected_models == {"VH-C10-A"}
+    assert loaded.history_selected_timebases == {"Line 1"}
+    assert loaded.history_date_from_var.get() == "2025-01-01"
+    assert loaded.history_date_to_var.get() == "2025-12-31"
+    assert loaded.history_cached_choices["model"] == ["VH-C10-A", "VC-C10-A"]
+    assert loaded.database_tables == [("dbo", "VTCC")]
+
+
+def test_new_cmbx_inventory_keeps_confirmed_metric_and_history_scope(tmp_path) -> None:
+    window = object.__new__(foq_quality_window.FoqQualityWindow)
+    window.metric_scope_confirmed = True
+    window.history_scope_confirmed = True
+    window.selected_metric_fields = {"TempStability"}
+    window.history_selected_models = {"VH-C10-A"}
+    window.selected_sequence_ids = set()
+    window.selected_injection_ids = {}
+    window.metrics = [metric()]
+    window._metric_catalog = lambda: ["TempStability", "TempAcc40"]
+    window._log = lambda _message: None
+    window.show_task = lambda: None
+    sequence = CmbxElement("seq-1", "FOQ", "Sequence")
+    package = CmbxPackage(tmp_path / "sample.cmbx", [], [sequence], {})
+    item = SimpleNamespace(eligible=True, device="VH-C10-A", sequence=sequence, package=package)
+
+    window._finish_source_inventory([item], [])
+
+    assert window.metric_scope_confirmed
+    assert window.history_scope_confirmed
+    assert window.selected_metric_fields == {"TempStability"}
+    assert window.history_selected_models == {"VH-C10-A"}

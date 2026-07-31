@@ -8,7 +8,7 @@ MODULE_ROOT = Path(__file__).resolve().parents[1]
 if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
-from business_hub import BusinessHubApp, CENTERS, JOURNEYS, child_command, center_by_id, task_by_id, workflow_by_id
+from business_hub import BusinessHubApp, BusinessMindMap, CENTER_LIMITATIONS, CENTERS, JOURNEYS, child_command, center_by_id, task_by_id, workflow_by_id
 
 
 def test_business_hub_exposes_three_journeys_and_eight_direct_tasks() -> None:
@@ -41,9 +41,31 @@ def test_migrated_centers_are_marked_as_native() -> None:
     assert task_by_id("quality-data").status == "native"
 
 
-def test_business_center_selection_is_a_direct_action() -> None:
+def test_home_map_supports_preview_before_direct_action() -> None:
     assert hasattr(BusinessHubApp, "open_center")
     assert not hasattr(BusinessHubApp, "show_center")
+    assert hasattr(BusinessMindMap, "_select_preview")
+    assert hasattr(BusinessMindMap, "_animate_focus")
+    assert set(CENTER_LIMITATIONS) == {center.id for center in CENTERS}
+
+    opened: list[str] = []
+    previewed: list[tuple[str, str]] = []
+    mind_map = object.__new__(BusinessMindMap)
+    mind_map.on_preview = lambda kind, item_id: previewed.append((kind, item_id))
+    mind_map.on_center = opened.append
+    mind_map.on_journey = opened.append
+    mind_map.focus_kind = ""
+    mind_map.focus_id = ""
+    mind_map.animation_progress = 1.0
+    mind_map._animate_focus = lambda: None
+
+    mind_map._select_preview("center", "quality-data")
+    assert previewed == [("center", "quality-data")]
+    assert opened == []
+
+    mind_map.animation_progress = 1.0
+    mind_map._select_preview("center", "quality-data")
+    assert opened == ["quality-data"]
 
 
 def test_child_command_uses_existing_script_and_no_shell(tmp_path: Path, monkeypatch) -> None:

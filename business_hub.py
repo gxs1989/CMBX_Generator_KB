@@ -103,6 +103,17 @@ JOURNEYS: tuple[Journey, ...] = (
 # Compatibility alias for callers from the first preview.
 WORKFLOWS = JOURNEYS
 
+CENTER_LIMITATIONS = {
+    "method-generation": "Requires a reviewed Method MD. Final execution still depends on matching Chromeleon instrument configuration.",
+    "report-generation": "Compiles supported report structures and formulas. Complex processing-method integration remains a separate workflow.",
+    "hplc-applications": "Application discovery is available through AppsLab; the managed local application library is still planned.",
+    "raw-export": "Exports collected raw signals only; it does not reinterpret processing-method results.",
+    "chromatograms": "External integration is available for review, but it is not yet a complete replacement for every Chromeleon integration event.",
+    "direct-formulas": "Focuses on Direct CM formulas. FormulaOne workbook logic is intentionally excluded from the fast formula catalog.",
+    "foq-check": "Requires a completed CMBX and supported FOQ Location/report contract. Missing mappings remain visible for review.",
+    "quality-data": "Provides historical filtering and QC statistics. Predictive failure models and Power BI publishing are not yet included.",
+}
+
 
 def center_by_id(center_id: str) -> BusinessCenter:
     return next(center for center in CENTERS if center.id == center_id)
@@ -131,7 +142,7 @@ def child_command(script_name: str, executable: str | Path | None = None, *args:
 
 
 class BusinessMindMap(tk.Canvas):
-    """Responsive business map whose leaf nodes launch real workflows directly."""
+    """Responsive business map with optional preview-first Home navigation."""
 
     JOURNEY_COLORS = {
         "design": ("#EAF4FE", "#267DCC"),
@@ -139,61 +150,138 @@ class BusinessMindMap(tk.Canvas):
         "quality": ("#FFF4E5", "#A45B00"),
     }
 
-    def __init__(self, parent: tk.Misc, journeys: tuple[Journey, ...], on_journey, on_center, colors: dict[str, str]):
+    def __init__(self, parent: tk.Misc, journeys: tuple[Journey, ...], on_journey, on_center, colors: dict[str, str], on_preview=None):
         super().__init__(parent, bg=colors["bg"], highlightthickness=0, bd=0, height=475)
         self.journeys = journeys
         self.on_journey = on_journey
         self.on_center = on_center
         self.colors = colors
+        self.on_preview = on_preview
+        self.focus_kind = ""
+        self.focus_id = ""
+        self.animation_progress = 1.0
+        self.animation_job = None
         self.bind("<Configure>", self._draw)
 
     def _draw(self, _event=None) -> None:
         self.delete("all")
         width = max(720, self.winfo_width())
-        root_w, root_h = 210, 54
-        category_h, task_h = 62, 58
-        margin, gap = 20, 22
-        branch_count = max(1, len(self.journeys))
-        column_w = min(330, max(210, (width - margin * 2 - gap * (branch_count - 1)) // branch_count))
-        total_w = column_w * branch_count + gap * (branch_count - 1)
-        start_x = (width - total_w) // 2
-        root_x = width // 2
-        root_top = 12
-        category_top = 128
-        first_task_top = 246
-        connector = "#C9CDD3"
+        if not self.on_preview or not self.focus_kind:
+            self._draw_full(width)
+        else:
+            self._draw_focus(width)
 
-        self._node(
-            "root", root_x - root_w // 2, root_top, root_x + root_w // 2, root_top + root_h,
-            "CMBX Workspace", self.colors["thermo_red"], "#FFFFFF", None, bold=True,
-        )
-        junction_y = 98
-        centers = [start_x + i * (column_w + gap) + column_w // 2 for i in range(branch_count)]
-        self.create_line(root_x, root_top + root_h, root_x, junction_y, fill=connector, width=2)
-        self.create_line(centers[0], junction_y, centers[-1], junction_y, fill=connector, width=2)
+    def _full_layout(self, width: int):
+        root_w,root_h,category_h,task_h=210,54,62,58
+        margin,gap=20,22;branch_count=max(1,len(self.journeys))
+        column_w=min(330,max(210,(width-margin*2-gap*(branch_count-1))//branch_count))
+        total_w=column_w*branch_count+gap*(branch_count-1);start_x=(width-total_w)//2
+        layout={"root":(width//2-root_w//2,12,width//2+root_w//2,12+root_h)}
+        for index,journey in enumerate(self.journeys):
+            x1=start_x+index*(column_w+gap);x2=x1+column_w
+            layout[f"journey:{journey.id}"]=(x1,128,x2,128+category_h)
+            for task_index,center_id in enumerate(journey.center_ids):
+                top=246+task_index*84;layout[f"center:{center_id}"]=(x1+12,top,x2-12,top+task_h)
+        return layout
 
-        for index, journey in enumerate(self.journeys):
-            x1 = start_x + index * (column_w + gap)
-            x2 = x1 + column_w
-            center_x = (x1 + x2) // 2
-            soft, accent = self.JOURNEY_COLORS[journey.id]
-            self.create_line(center_x, junction_y, center_x, category_top, fill=connector, width=2)
-            self._node(
-                f"journey:{journey.id}", x1, category_top, x2, category_top + category_h,
-                journey.title, soft, accent, lambda jid=journey.id: self.on_journey(jid), bold=True,
-            )
-            previous_y = category_top + category_h
-            for task_index, center_id in enumerate(journey.center_ids):
-                task_top = first_task_top + task_index * 84
-                self.create_line(center_x, previous_y, center_x, task_top, fill=connector, width=2)
-                center = center_by_id(center_id)
-                label = center.title
-                self._node(
-                    f"center:{center_id}", x1 + 12, task_top, x2 - 12, task_top + task_h,
-                    label, "#FFFFFF", self.colors["text"], lambda cid=center_id: self.on_center(cid),
-                    outline=accent,
-                )
-                previous_y = task_top + task_h
+    def _draw_full(self,width: int) -> None:
+        layout=self._full_layout(width);connector="#C9CDD3";root=layout["root"];root_x=(root[0]+root[2])//2;junction_y=98
+        self._node("root",*root,"CMBX Workspace",self.colors["thermo_red"],"#FFFFFF",None,bold=True)
+        journey_centers=[]
+        for journey in self.journeys:
+            box=layout[f"journey:{journey.id}"];journey_centers.append((box[0]+box[2])//2)
+        self.create_line(root_x,root[3],root_x,junction_y,fill=connector,width=2)
+        if journey_centers:self.create_line(journey_centers[0],junction_y,journey_centers[-1],junction_y,fill=connector,width=2)
+        for journey in self.journeys:
+            box=layout[f"journey:{journey.id}"];center_x=(box[0]+box[2])//2;soft,accent=self.JOURNEY_COLORS[journey.id]
+            self.create_line(center_x,junction_y,center_x,box[1],fill=connector,width=2)
+            self._node(f"journey:{journey.id}",*box,journey.title,soft,accent,lambda jid=journey.id:self._select_preview("journey",jid),bold=True)
+            previous=box[3]
+            for center_id in journey.center_ids:
+                task_box=layout[f"center:{center_id}"];self.create_line(center_x,previous,center_x,task_box[1],fill=connector,width=2)
+                center=center_by_id(center_id)
+                self._node(f"center:{center_id}",*task_box,center.title,"#FFFFFF",self.colors["text"],lambda cid=center_id:self._select_preview("center",cid),outline=accent)
+                previous=task_box[3]
+
+    def _draw_focus(self,width: int) -> None:
+        progress=self._ease(self.animation_progress);full=self._full_layout(width);left_width=max(370,int(width*.47));center_x=left_width//2
+        root_target=(center_x-105,28,center_x+105,82)
+        journey=self._focused_journey();journey_target=(center_x-150,142,center_x+150,204)
+        nodes=[("root",full["root"],root_target)]
+        journey_key=f"journey:{journey.id}";nodes.append((journey_key,full[journey_key],journey_target))
+        if self.focus_kind=="center":
+            center_ids=(self.focus_id,);tops=(276,)
+        else:
+            center_ids=journey.center_ids;tops=tuple(260+index*84 for index in range(len(center_ids)))
+        for center_id,top in zip(center_ids,tops):
+            key=f"center:{center_id}";nodes.append((key,full[key],(center_x-140,top,center_x+140,top+58)))
+        current={key:self._interpolate(source,target,progress) for key,source,target in nodes}
+        root=current["root"];jbox=current[journey_key];connector="#C9CDD3"
+        self.create_line((root[0]+root[2])//2,root[3],(jbox[0]+jbox[2])//2,jbox[1],fill=connector,width=2)
+        previous=jbox[3]
+        for center_id in center_ids:
+            box=current[f"center:{center_id}"];self.create_line((jbox[0]+jbox[2])//2,previous,(box[0]+box[2])//2,box[1],fill=connector,width=2);previous=box[3]
+        self._node("root",*root,"CMBX Workspace",self.colors["thermo_red"],"#FFFFFF",self._clear_preview,bold=True)
+        soft,accent=self.JOURNEY_COLORS[journey.id]
+        self._node(journey_key,*jbox,journey.title,soft,accent,lambda jid=journey.id:self._select_preview("journey",jid),bold=True)
+        for center_id in center_ids:
+            center=center_by_id(center_id);box=current[f"center:{center_id}"]
+            self._node(f"center:{center_id}",*box,center.title,"#FFFFFF",self.colors["text"],lambda cid=center_id:self._select_preview("center",cid),outline=accent)
+        if progress>.25:self._draw_details(width,left_width,progress,journey)
+
+    def _draw_details(self,width: int,left_width: int,progress: float,journey: Journey) -> None:
+        panel_left=int(width+(left_width+28-width)*progress);panel_right=width-22;top,bottom=28,max(430,self.winfo_height()-28)
+        _rounded_polygon(self,panel_left,top,panel_right,bottom,12,fill="#F8F9FA",outline=self.colors["border"],width=1)
+        x=panel_left+28;text_width=max(260,panel_right-x-26)
+        if self.focus_kind=="center":
+            center=center_by_id(self.focus_id);eyebrow=journey.title.upper();title=center.title;description=center.description
+            sections=(("INPUT",center.inputs),("OUTPUT",center.outputs),("CURRENT BOUNDARY",CENTER_LIMITATIONS.get(center.id,"No additional boundary recorded.")))
+            action_text="Click the highlighted task again to open"
+        else:
+            eyebrow="BUSINESS BRANCH";title=journey.title;description=journey.description
+            sections=(("AVAILABLE TASKS","\n".join(f"• {center_by_id(cid).title}" for cid in journey.center_ids)),("HOW TO CONTINUE","Choose a task in the focused branch, or click the branch again to open its task page."))
+            action_text="Click a task to inspect it"
+        self.create_text(x,top+25,anchor="nw",text=eyebrow,fill=self.colors["muted"],font=("Segoe UI",8,"bold"),width=text_width)
+        self.create_text(x,top+55,anchor="nw",text=title,fill=self.colors["text"],font=("Segoe UI",18,"bold"),width=text_width)
+        self.create_text(x,top+103,anchor="nw",text=description,fill=self.colors["muted"],font=("Segoe UI",10),width=text_width)
+        y=top+165
+        for label,value in sections:
+            self.create_text(x,y,anchor="nw",text=label,fill=self.colors["muted"],font=("Segoe UI",8,"bold"),width=text_width);y+=24
+            item=self.create_text(x,y,anchor="nw",text=value,fill=self.colors["text"],font=("Segoe UI",10),width=text_width);bounds=self.bbox(item);y=(bounds[3] if bounds else y+40)+24
+        self.create_text(x,bottom-38,anchor="sw",text=action_text,fill=self.colors["primary"],font=("Segoe UI",9,"bold"),width=text_width)
+        back_tag="preview-back";self.create_text(panel_right-24,top+24,anchor="ne",text="Back to all tasks",fill=self.colors["primary"],font=("Segoe UI",9,"bold"),tags=(back_tag,));self.tag_bind(back_tag,"<Button-1>",lambda _event:self._clear_preview());self.tag_bind(back_tag,"<Enter>",lambda _event:self.configure(cursor="hand2"));self.tag_bind(back_tag,"<Leave>",lambda _event:self.configure(cursor=""))
+
+    def _select_preview(self,kind: str,item_id: str) -> None:
+        if not self.on_preview:
+            (self.on_center(item_id) if kind=="center" else self.on_journey(item_id));return
+        if self.focus_kind==kind and self.focus_id==item_id and self.animation_progress>=1:
+            (self.on_center(item_id) if kind=="center" else self.on_journey(item_id));return
+        self.focus_kind=kind;self.focus_id=item_id;self.animation_progress=0.0
+        self.on_preview(kind,item_id);self._animate_focus()
+
+    def _clear_preview(self) -> None:
+        if self.animation_job:
+            try:self.after_cancel(self.animation_job)
+            except tk.TclError:pass
+        self.animation_job=None;self.focus_kind="";self.focus_id="";self.animation_progress=1.0;self._draw()
+        if self.on_preview:self.on_preview("","")
+
+    def _animate_focus(self) -> None:
+        self.animation_progress=min(1.0,self.animation_progress+.075);self._draw()
+        if self.animation_progress<1.0:self.animation_job=self.after(16,self._animate_focus)
+        else:self.animation_job=None
+
+    def _focused_journey(self) -> Journey:
+        if self.focus_kind=="journey":return workflow_by_id(self.focus_id)
+        return next(journey for journey in self.journeys if self.focus_id in journey.center_ids)
+
+    @staticmethod
+    def _interpolate(source,target,progress):
+        return tuple(int(a+(b-a)*progress) for a,b in zip(source,target))
+
+    @staticmethod
+    def _ease(value: float) -> float:
+        return 1-(1-value)**3
 
     def _node(
         self,
@@ -351,10 +439,20 @@ class BusinessHubApp:
             "Select a branch, then open the task you need. Each task starts its real workflow directly.",
             icon="🦎",
         )
-        mind_map = BusinessMindMap(page, JOURNEYS, self.show_journey, self.open_center, self.colors)
+        mind_map = BusinessMindMap(page, JOURNEYS, self.show_journey, self.open_center, self.colors, self._preview_home_node)
         mind_map.grid(row=3, column=0, sticky="nsew")
         page.rowconfigure(3, weight=1)
         self.status_var.set("Ready - choose a task from the business map")
+
+    def _preview_home_node(self,kind: str,item_id: str) -> None:
+        if not kind:
+            self.status_var.set("Ready - choose a task from the business map");return
+        if kind=="center":
+            title=center_by_id(item_id).title
+            self.status_var.set(f"Previewing {title} - click the highlighted task again to open")
+        else:
+            title=workflow_by_id(item_id).title
+            self.status_var.set(f"Previewing {title} - choose a task or click the branch again")
 
     def show_journey(self, journey_id: str) -> None:
         journey = workflow_by_id(journey_id)
