@@ -28,7 +28,7 @@ Feature and structure notes are split under `docs/`:
 
 ## Current Version
 
-`V1.4` establishes the report-generation and external-evaluation foundation before the UI is reorganized around business workflows:
+`V1.41` adds the authenticated LAN Web Workspace and guided business workflows on top of the V1.4 report-generation and external-evaluation foundation:
 
 - External Report Engine V1 loads one report MD contract and evaluates it against one or more CMBX packages, with compatibility preflight, report preview, dynamic-table, plot, and log surfaces.
 - Formula Finder indexes supported external formulas, formulas observed in CMBX reports, and locally extracted Chromeleon Help topics.
@@ -40,6 +40,8 @@ Feature and structure notes are split under `docs/`:
 - RID is available as a Method & Report Creation module; the RID OQ sequence-template regression package is recognized as four sequences and ten injections without being misreported as missing runtime data.
 - CMBX scanning, FOQ DB preview/export, report-display precision normalization, and multi-workbook SQL upload remain available.
 - Runtime outputs, caches, local database/AI configuration, and machine-specific Chromeleon dependencies are excluded from the source repository.
+- The authenticated Web Workspace provides owner-scoped CMBX/Method MD/Report MD libraries, four-step Method and Report generation, FOQ quick checks, quality-history comparison, raw export, chromatogram/integration review, and Direct CM formula evaluation.
+- Administrators can grant each workflow independently, manage automatic-generation quotas, and provide a controlled workspace AI credential without exposing its key to authorized users.
 
 ## Launch Modes
 
@@ -49,6 +51,20 @@ Two launchers are intentionally kept during the business-UI migration:
 - `launcher/启动CMBX数据浏览器.bat`: opens the complete classic Explorer and all existing tabs.
 
 The new workspace launches large tools in separate processes without a CMD window. The classic Explorer remains unchanged until each workflow has passed its own migration and acceptance tests.
+
+### Web Workspace (First Release)
+
+The browser workspace is a separate service and does not import Tkinter UI state.
+
+1. Install `requirements-web.txt`.
+2. Run `Start_CMBX_Web_Workspace.bat`, or run `python run_web_workspace.py`.
+3. Open `http://127.0.0.1:8765/`.
+
+The Web workspace supports controlled CMBX upload, persistent jobs, FOQ checks, Method and Report Template generation, batch raw-data export, chromatogram comparison and external integration, Direct CM formula evaluation, read-only quality-database analysis, per-user quotas, and administrator approval. Personal API keys are protected with Windows DPAPI. AppsLab discovery and controlled production-database writes remain planned. Do not expose trusted identity headers through the Uvicorn port: production identity should enter through IIS Windows Authentication/HTTPS as described in `docs/WEB_WORKSPACE_BUILD_PLAN.md`.
+
+The existing desktop GPT configuration is used once to initialize the designated Web administrator account. Open the Web workspace locally as `xiaoshu.guan`, then choose **Admin** under **OPERATIONS** to review quota requests and usage.
+
+Web sessions use administrator-authorized email/password accounts. Windows sign-in and self-registration are disabled by default. Create, enable, reset, or disable accounts in **Admin Console > Developer accounts**. The owner fallback is `xiaoshu.guan@thermofisher.com` with temporary password `000000` and remains the default administrator.
 
 ## Application Scope
 

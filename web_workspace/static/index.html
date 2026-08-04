@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CMBX Workspace</title>
+  <link rel="stylesheet" href="/static/app.css?v=20260804-live-permissions">
+</head>
+<body>
+  <div class="login-gate" id="loginGate">
+    <section class="login-card">
+      <div class="login-brand">CMBX Workspace<span>Controlled method, data and quality workspace</span></div>
+      <h1>Sign in</h1>
+      <p class="lead">Sign in with an account created and enabled by the CMBX Workspace administrator.</p>
+      <label class="field-label">Email<input id="developerEmail" type="email" autocomplete="username" placeholder="name@thermofisher.com"></label>
+      <label class="field-label">Password<input id="developerPassword" type="password" autocomplete="current-password" placeholder="Temporary password"></label>
+      <button class="primary-button" id="developerLogin">Sign in</button>
+      <p class="login-status" id="loginStatus">Enter your authorized account and password.</p>
+    </section>
+  </div>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">CMBX Workspace<span>Method, data and quality</span></div>
+      <nav aria-label="Main navigation">
+        <button class="nav-item active" data-view="home">Home</button>
+        <button class="nav-item" data-branch="design">Design &amp; Generate</button>
+        <button class="nav-item" data-branch="results">Chromatograms &amp; Results</button>
+        <button class="nav-item" data-branch="quality">Quality Control &amp; Database</button>
+        <span class="nav-label">OPERATIONS</span>
+        <button class="nav-item" data-view="jobs">Jobs</button>
+        <button class="nav-item admin-only" data-view="admin" hidden>Admin</button>
+      </nav>
+      <div class="identity" id="identity">Connecting...</div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div id="breadcrumb">Workspace / Home</div>
+        <div class="topbar-actions">
+          <button class="admin-shortcut admin-only" data-view="admin" hidden>Admin Console</button>
+          <button class="logout-button" id="logoutButton">Sign out</button>
+          <div class="service-state"><span id="healthDot"></span><span id="healthText">Checking service</span></div>
+        </div>
+      </header>
+
+      <section class="view active" id="view-home">
+        <p class="eyebrow">WORKSPACE</p>
+        <h1>Choose a task <span class="chameleon" aria-hidden="true">⌁</span></h1>
+        <p class="lead">Select a branch, then open the task you need. Each task starts its real workflow directly.</p>
+        <div class="workflow-map" aria-label="CMBX business workflow map">
+          <div class="map-root">CMBX Workspace</div>
+          <div class="map-trunk" aria-hidden="true"></div>
+          <div class="map-branches">
+            <section class="map-branch blue" data-map-branch="design">
+              <button class="map-heading" data-branch="design">Design &amp; Generate</button>
+              <div class="map-line" aria-hidden="true"></div>
+              <button class="map-task available" data-view="method" data-module-permission="instrument_method_generation">Instrument Method Generation <span>Available</span></button>
+              <button class="map-task available" data-view="report" data-module-permission="report_generate">Report Template Generation <span>Available</span></button>
+              <button class="map-task planned" data-module-permission="hplc_applications">HPLC Applications &amp; Workflows <span>Planned</span></button>
+            </section>
+            <section class="map-branch green" data-map-branch="results">
+              <button class="map-heading" data-branch="results">Chromatograms &amp; Results</button>
+              <div class="map-line" aria-hidden="true"></div>
+              <button class="map-task available" data-view="raw" data-module-permission="raw_export">Batch Raw Data Export <span>Available</span></button>
+              <button class="map-task available" data-view="chrom" data-module-permission="chromatogram_plot">Chromatograms &amp; Integration <span>Available</span></button>
+              <button class="map-task available" data-view="formula" data-module-permission="direct_cm_formula">Direct CM Formula Results <span>Available</span></button>
+            </section>
+            <section class="map-branch amber" data-map-branch="quality">
+              <button class="map-heading" data-branch="quality">Quality Control &amp; Database</button>
+              <div class="map-line" aria-hidden="true"></div>
+              <button class="map-task available" data-view="foq" data-module-permission="foq_check">FOQ Quick Check <span>Available</span></button>
+              <button class="map-task available" data-view="quality" data-module-permission="database_read">Quality Data &amp; Database <span>Available</span></button>
+            </section>
+          </div>
+        </div>
+        <section class="file-library" id="fileLibrary">
+          <div class="section-heading"><div><h2>My files</h2><p>One personal source library for every workflow. Analysis pages use the CMBX files listed here.</p></div><button class="text-button" id="refreshFileLibrary">Refresh</button></div>
+          <div class="library-tabs" role="tablist">
+            <button class="library-tab active" data-library-kind="cmbx_source">CMBX files</button>
+            <button class="library-tab" data-library-kind="method_md">Method MD</button>
+            <button class="library-tab" data-library-kind="report_md">Report MD</button>
+          </div>
+          <div class="library-toolbar">
+            <label class="primary-button" for="homeFileUpload" id="homeFileUploadLabel">Add CMBX</label>
+            <input id="homeFileUpload" type="file" accept=".cmbx" multiple hidden>
+            <span id="homeFileStatus">Files are visible only to the signed-in account.</span>
+          </div>
+          <div class="table-wrap"><table class="compact-table"><thead><tr><th>File</th><th>Type</th><th>Size</th><th>Added</th><th>Actions</th></tr></thead><tbody id="homeFileRows"><tr><td colspan="5" class="empty">Loading your files...</td></tr></tbody></table></div>
+        </section>
+      </section>
+
+      <section class="view" id="view-method">
+        <p class="eyebrow">DESIGN &amp; GENERATE</p>
+        <h1>Instrument Method Generation</h1>
+        <p class="lead">Use a web model manually, or let GPT/DeepSeek create, check, and compile the candidate Method CMBX in one guided run.</p>
+
+        <div class="workflow-steps" id="methodSteps">
+          <div class="step active" data-method-step="1"><b>1</b><span>Choose modules</span></div>
+          <div class="step" data-method-step="2"><b>2</b><span>Describe test</span></div>
+          <div class="step" data-method-step="3"><b>3</b><span>Generate preview</span></div>
+          <div class="step" data-method-step="4"><b>4</b><span>Review &amp; compile</span></div>
+        </div>
+        <div class="flow-message" id="methodMessage">Step 1: choose every hardware module used by the test.</div>
+
+        <section class="workflow-panel active" data-method-panel="1">
+          <div class="panel-heading">
+            <div><h2>1. Choose related modules</h2><p>The selected modules determine which controlled Method SPEC and KB evidence the AI receives.</p></div>
+          </div>
+          <div class="module-picker" id="methodModuleList"><div class="empty-block">Loading modules...</div></div>
+          <div class="panel-footer"><span>Select all modules referenced by commands, channels, or configuration.</span><button class="primary-button" id="methodToIntent">Continue</button></div>
+        </section>
+
+        <section class="workflow-panel" data-method-panel="2">
+          <div class="panel-heading"><div><h2>2. Describe the required test</h2><p>State the device, timing, conditions, channels, triggers, and logs in natural language.</p></div></div>
+          <label class="field-label" for="methodIntent">Test requirement<textarea id="methodIntent" rows="9" placeholder="Example: Hold the column compartment at 20 C for 60 minutes. After 1 minute, switch both valves every 6 seconds for 30 minutes and log both valve positions."></textarea></label>
+          <div class="panel-footer"><button class="secondary-button" data-method-back="1">Back</button><span>The request remains editable until generation starts.</span><button class="primary-button" id="methodToOptions">Continue</button></div>
+        </section>
+
+        <section class="workflow-panel" data-method-panel="3">
+          <div class="panel-heading"><div><h2>3. Choose output options and generate preview</h2><p>The AI writes Method MD. The server then runs structural preflight and opens the review step.</p></div></div>
+          <div class="route-picker" id="methodRoutePicker">
+            <label class="route-option"><input type="radio" name="methodRoute" value="manual"><span><b>Manual web AI</b><small>Administrator-authorized package workflow.</small></span></label>
+            <label class="route-option active"><input type="radio" name="methodRoute" value="gpt" checked><span><b>GPT automatic</b><small>Generate and validate Method MD automatically.</small></span></label>
+            <label class="route-option"><input type="radio" name="methodRoute" value="deepseek"><span><b>DeepSeek automatic</b><small>Use the configured DeepSeek endpoint.</small></span></label>
+          </div>
+          <div class="generation-form">
+            <label>Method name<input id="autoMethodAssetName" placeholder="AI Instrument Method"></label>
+            <label>Target CM<select id="autoMethodTargetVersion"><option>7.2 compatible</option><option>7.3</option></select></label>
+          </div>
+          <label class="toggle-row compact-toggle"><input id="methodSmallContext" type="checkbox"><span>Use the under-200-KB evidence package</span></label>
+          <label class="toggle-row compact-toggle"><input id="autoMethodMdOnly" type="checkbox"><span>Keep a downloadable Method MD copy</span></label>
+          <label class="toggle-row compact-toggle manual-method-only"><input id="methodOptimizePrompt" type="checkbox"><span>Rewrite fragmented notes into one web-AI prompt</span></label>
+          <div class="package-summary manual-method-only" id="methodPackageSummary"><div class="empty-block">Selected module evidence will be packaged here.</div></div>
+          <div class="api-method-panel" id="methodApiPanel">
+            <div class="quota-summary" id="methodQuotaSummary">Loading daily allowance...</div>
+            <div class="api-setting-summary"><span id="methodApiSettingSummary">API settings are loading.</span><button class="secondary-button" id="openAiSettings">API settings</button></div>
+            <div class="run-progress"><div class="progress-track wide"><div class="progress-bar" id="autoMethodProgressBar"></div></div><span id="autoMethodRunStatus">Ready.</span></div>
+            <div class="generation-result" id="autoMethodGenerationResult"></div>
+          </div>
+          <div class="panel-footer"><button class="secondary-button" data-method-back="2">Back</button><span id="methodPackageStatus">Choose options, then generate the Method MD preview.</span><div class="button-row manual-method-only"><button class="secondary-button" id="buildMethodPackage">Build package</button><a class="primary-button disabled-link" id="downloadMethodPackage" href="#">Download ZIP</a><label class="primary-button" for="methodMdFile">Choose returned MD</label></div><div class="button-row" id="automaticMethodActions"><button class="secondary-button" id="requestMethodQuota">Request extra use</button><button class="primary-button" id="autoGenerateMethod">Generate preview</button></div></div>
+        </section>
+
+        <section class="workflow-panel" data-method-panel="4">
+          <div class="panel-heading">
+            <div><h2>4. Review Method MD and generate CMBX</h2><p>Errors are highlighted and block compilation. Warnings remain visible for review.</p></div>
+            <label class="secondary-button" for="methodMdFile">Replace MD</label><input id="methodMdFile" type="file" accept=".md,.markdown,text/markdown" hidden>
+          </div>
+          <div class="inline-status" id="methodPreflightStatus">Choose the generated Method MD.</div>
+          <div class="method-issues" id="methodIssues"></div>
+          <div class="table-wrap method-preview-wrap">
+            <table class="method-preview-table">
+              <thead><tr><th>#</th><th>Kind</th><th>Time</th><th>Command</th><th>Value</th><th>Comment</th></tr></thead>
+              <tbody id="methodPreviewRows"><tr><td colspan="6" class="empty">No Method MD loaded.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="generation-form">
+            <label>Method name<input id="methodAssetName" placeholder="Instrument Method"></label>
+            <label>Target CM<select id="methodTargetVersion"><option>7.2 compatible</option><option>7.3</option></select></label>
+          </div>
+          <div class="configuration-list" id="methodConfiguration"><div class="empty-block">Configuration requirements appear after Method MD preflight.</div></div>
+          <div class="run-progress"><div class="progress-track wide"><div class="progress-bar" id="methodProgressBar"></div></div><span id="methodRunStatus">Ready.</span></div>
+          <div class="generation-result" id="methodGenerationResult"></div>
+          <div class="panel-footer"><button class="secondary-button" data-method-back="3">Back</button><span id="methodPreviewFooter">Preflight has not run.</span><button class="primary-button" id="generateMethod" disabled>Generate CMBX</button></div>
+        </section>
+        <section class="progress-log"><h3>Progress log</h3><div id="methodLog">Ready.</div></section>
+      </section>
+
+      <section class="view" id="view-foq">
+        <p class="eyebrow">QUALITY CONTROL &amp; DATABASE</p>
+        <h1>FOQ Quick Check</h1>
+        <p class="lead">Calculate mapped report results from completed CMBX sequences, review SPEC status, and optionally compare production history.</p>
+
+        <div class="workflow-steps" id="foqSteps">
+          <div class="step active" data-foq-step="1"><b>1</b><span>Choose CMBX &amp; injections</span></div>
+          <div class="step" data-foq-step="2"><b>2</b><span>Choose metrics</span></div>
+          <div class="step" data-foq-step="3"><b>3</b><span>Filter database</span></div>
+          <div class="step" data-foq-step="4"><b>4</b><span>Review results</span></div>
+        </div>
+        <div class="flow-message" id="foqMessage">Step 1: choose completed CMBX files, then inspect their FOQ sequences.</div>
+
+        <section class="workflow-panel active" data-foq-panel="1">
+          <div class="panel-heading">
+            <div><h2>1. Completed CMBX scope</h2><p>Select one or more packages. Support-only sequences remain visible but cannot be checked as results.</p></div>
+            <div class="button-row"><label class="secondary-button" for="foqFiles">Add CMBX</label><input id="foqFiles" type="file" accept=".cmbx" multiple hidden><button class="primary-button" id="inspectFoq">Inspect sequences</button></div>
+          </div>
+          <div class="selection-list" id="foqArtifactList"><div class="empty-block">No CMBX source is available.</div></div>
+          <div class="table-wrap foq-scope-wrap">
+            <table class="compact-table">
+              <thead><tr><th>Use</th><th>CMBX / Sequence / Injection</th><th>Device</th><th>Report template</th><th>Status</th></tr></thead>
+              <tbody id="foqScopeRows"><tr><td colspan="5" class="empty">Inspect selected CMBX files to reveal sequences and injections.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="panel-footer"><span id="foqScopeStatus">Waiting for CMBX selection.</span><button class="primary-button" id="confirmFoqScope" disabled>Continue to metrics</button></div>
+        </section>
+
+        <section class="workflow-panel" data-foq-panel="2">
+          <div class="panel-heading"><div><h2>2. Metrics to calculate</h2><p>For mixed device models, only numeric FOQ fields common to all selected models are shown.</p></div></div>
+          <div class="metric-toolbar"><input id="foqMetricSearch" type="search" placeholder="Filter metrics"><select id="foqMetricPreset"><option value="">Saved metric set</option></select><button class="secondary-button" id="loadMetricPreset">Use set</button><button class="secondary-button" id="saveMetricPreset">Save set</button><button class="text-button" id="selectAllMetrics">All</button><button class="text-button" id="clearAllMetrics">Clear</button></div>
+          <div class="metric-picker" id="foqMetricList"><div class="empty-block">Confirm a CMBX scope first.</div></div>
+          <div class="panel-footer"><button class="secondary-button" data-foq-back="1">Back</button><span id="foqMetricStatus">No metric selected.</span><button class="primary-button" id="confirmFoqMetrics" disabled>Continue to history</button></div>
+        </section>
+
+        <section class="workflow-panel" data-foq-panel="3">
+          <div class="panel-heading"><div><h2>3. Historical comparison</h2><p>History is optional. SPEC evaluation can run without waiting for a database query.</p></div></div>
+          <label class="toggle-row"><input id="foqUseHistory" type="checkbox"><span>Compare current CMBX values with configured production history</span></label>
+          <div class="history-grid">
+              <label>Database source<select id="foqDbSource"></select></label>
+            <label>Table<input id="foqDbTable" value="AUTO"></label>
+            <label>ModelNo<input id="foqDbModels" readonly></label>
+            <label>TestDate from<input id="foqDateFrom" type="date"></label>
+            <label>TestDate to<input id="foqDateTo" type="date"></label>
+            <label>Maximum rows<input id="foqHistoryLimit" type="number" min="100" max="100000" step="100" value="5000"></label>
+          </div>
+          <div class="inline-status" id="foqDbStatus">Database history is disabled; the check will use report/Definitions SPEC only.</div>
+          <div class="panel-footer"><button class="secondary-button" data-foq-back="2">Back</button><span>Settings are used only when the check runs.</span><button class="primary-button" id="confirmFoqHistory">Continue to review</button></div>
+        </section>
+
+        <section class="workflow-panel" data-foq-panel="4">
+          <div class="panel-heading"><div><h2>4. Run and review</h2><p>Every value keeps its CMBX, sequence, report cell and SPEC evidence.</p></div><button class="primary-button" id="runFoqCheck">Run check</button></div>
+          <div class="run-progress"><div class="progress-track wide"><div class="progress-bar" id="foqProgressBar"></div></div><span id="foqRunStatus">Ready.</span></div>
+          <div class="summary-grid foq-summary" id="foqSummary"><div class="empty-block">Run the check to display results.</div></div>
+          <div class="result-toolbar"><label>Chart metric <select id="foqChartMetric"><option value="">Choose a result metric</option></select></label></div>
+          <div class="foq-chart" id="foqChart"><div class="empty-block">The selected metric comparison will appear here.</div></div>
+          <div class="table-wrap">
+            <table class="compact-table result-table">
+              <thead><tr><th>CMBX / Sequence</th><th>Metric</th><th>Value</th><th>SPEC</th><th>History</th><th>Report evidence</th><th>Injection</th></tr></thead>
+              <tbody id="foqResultRows"><tr><td colspan="7" class="empty">No result yet.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="panel-footer"><button class="secondary-button" data-foq-back="3">Back</button><span id="foqResultStatus">No check has run.</span></div>
+        </section>
+      </section>
+
+      <section class="view" id="view-report">
+        <p class="eyebrow">DESIGN &amp; GENERATE</p><h1>Report Template Generation</h1>
+        <p class="lead">Start from a reviewed Method MD, let the backend AI design its matching Report MD, then review and compile the report-template CMBX.</p>
+        <div class="workflow-steps" id="reportSteps"><div class="step active" data-report-step="1"><b>1</b><span>Choose Method MD</span></div><div class="step" data-report-step="2"><b>2</b><span>Describe report</span></div><div class="step" data-report-step="3"><b>3</b><span>Generate preview</span></div><div class="step" data-report-step="4"><b>4</b><span>Review &amp; compile</span></div></div>
+        <div class="flow-message" id="reportMessage">Step 1: choose one of your reviewed Method MD files.</div>
+        <section class="workflow-panel active" data-report-panel="1">
+          <div class="panel-heading"><div><h2>1. Choose the Method MD basis</h2><p>The report contract is generated from the channels, RetTimes, audit properties, and variables created by this method.</p></div></div>
+          <div class="panel-heading compact-heading"><span>Choose from My files, or add a local Method MD.</span><label class="secondary-button" for="reportMethodMdFile">Add local MD</label><input id="reportMethodMdFile" type="file" accept=".md,.markdown" hidden></div>
+          <div class="selection-list" id="reportMethodList"><div class="empty-block">Loading your Method MD files...</div></div>
+          <div id="reportMethodBasis" class="method-basis-note">No Method MD selected.</div>
+          <div class="panel-footer"><span>Only Method MD files owned by the signed-in user are listed.</span><button class="primary-button" id="reportToDesign" disabled>Continue</button></div>
+        </section>
+        <section class="workflow-panel" data-report-panel="2">
+          <div class="panel-heading"><div><h2>2. Choose modules and describe the report</h2><p>The report design remains bound to the selected Method MD runtime contract.</p></div></div>
+          <div class="method-prepare-grid"><div><h3>Related modules</h3><div id="reportModuleList" class="module-picker"></div></div><div><label class="field-label">Report requirement<textarea id="reportIntent" rows="8" placeholder="Describe required sheets, Direct CM formulas, cell calculations, tables, and presentation."></textarea></label></div></div>
+          <div class="panel-footer"><button class="secondary-button" data-report-back="1">Back</button><span>Include every module that provides channels or audit properties.</span><button class="primary-button" id="reportToOptions">Continue</button></div>
+        </section>
+        <section class="workflow-panel" data-report-panel="3">
+          <div class="panel-heading"><div><h2>3. Choose output options and generate preview</h2><p>GPT generates Report MD from the Method MD and controlled Report SPEC/KB.</p></div></div>
+          <div class="generation-form"><label>Template name<input id="reportAssetName" placeholder="Report Template"></label><label>Target CM<select id="reportOptionTargetVersion"><option>7.2 compatible</option><option>7.3</option></select></label></div>
+          <label class="toggle-row compact-toggle"><input id="reportSmallContext" type="checkbox"><span>Use the under-200-KB evidence package</span></label>
+          <label class="toggle-row compact-toggle"><input id="reportKeepMd" type="checkbox"><span>Keep a downloadable Report MD copy</span></label>
+          <div class="api-method-panel"><div class="quota-summary" id="reportQuotaSummary">Loading automatic generation allowance...</div><div class="api-setting-summary"><span id="reportApiSettingSummary">GPT settings are loading.</span><button class="secondary-button" id="openReportAiSettings">API settings</button></div><div class="run-progress"><div class="progress-track wide"><div class="progress-bar" id="reportAiProgressBar"></div></div><span id="reportAiRunStatus">Ready.</span></div><div id="reportAiResult"></div></div>
+          <details class="manual-report-only" hidden><summary>Manual Web AI (administrator-authorized)</summary><div class="manual-report-actions"><button class="secondary-button" id="buildReportPackage">Build AI package</button><a class="primary-button disabled-link" id="downloadReportPackage" href="#">Download ZIP</a><label class="secondary-button" for="reportMdFile">Choose returned MD</label><input id="reportMdFile" type="file" accept=".md,.markdown" hidden></div></details>
+          <div class="panel-footer"><button class="secondary-button" data-report-back="2">Back</button><span>Manual Web AI is hidden unless the administrator grants it.</span><button class="primary-button" id="autoGenerateReport">Generate preview</button></div>
+        </section>
+        <section class="workflow-panel" data-report-panel="4">
+          <div class="panel-heading"><div><h2>4. Review Report MD and generate CMBX</h2><p>Structural errors block compilation. Review warnings before importing the candidate into Chromeleon.</p></div></div>
+          <div id="reportPreflight" class="report-preflight empty-block">No Report MD generated.</div>
+          <div class="generation-form"><label>Template name<input id="reportFinalAssetName" placeholder="Report Template"></label><label>Target CM<select id="reportTargetVersion"><option>7.2 compatible</option><option>7.3</option></select></label></div>
+          <div id="reportGenerationResult"></div>
+          <div class="panel-footer"><button class="secondary-button" data-report-back="3">Back</button><span id="reportReviewStatus">Waiting for Report MD.</span><button class="primary-button" id="generateReport" disabled>Generate CMBX</button></div>
+        </section>
+        <section class="progress-log"><h3>Progress log</h3><div id="reportLog">Ready.</div></section>
+      </section>
+
+      <section class="view" id="view-raw">
+        <p class="eyebrow">CHROMATOGRAMS &amp; RESULTS</p><h1>Batch Raw Data Export</h1><p class="lead">Filter package, sequence, injection and channel together, or find every injection that contains a selected channel.</p>
+        <div class="workflow-steps"><div class="step active" data-raw-step="1"><b>1</b><span>Choose CMBX</span></div><div class="step" data-raw-step="2"><b>2</b><span>Filter channels</span></div><div class="step" data-raw-step="3"><b>3</b><span>Preview &amp; export</span></div></div>
+        <section class="workflow-panel active" data-raw-panel="1"><div class="analysis-source" data-analysis-source="raw"></div><div class="panel-footer"><span>Select only your own CMBX sources.</span><button class="primary-button" id="rawLoadCatalog">Continue</button></div></section>
+        <section class="workflow-panel" data-raw-panel="2"><div class="filter-row"><label>Package<select data-filter="package"></select></label><label>Sequence<select data-filter="sequence"></select></label><label>Injection<select data-filter="injection"></select></label><label>Channel<select data-filter="channel"></select></label></div><div class="analysis-actions"><button class="secondary-button" data-select-visible="raw">Select visible</button><button class="secondary-button" data-clear-channels="raw">Clear</button></div><div class="channel-picker" id="rawChannelList"><div class="empty-block">Choose CMBX sources and continue.</div></div><div class="panel-footer"><button class="secondary-button" data-raw-back="1">Back</button><span id="rawSelectionStatus">No channel selected.</span><button class="primary-button" id="rawReview">Review selection</button></div></section>
+        <section class="workflow-panel" data-raw-panel="3"><div class="table-wrap"><table class="compact-table"><thead><tr><th>Package</th><th>Sequence</th><th>Injection</th><th>Channel</th></tr></thead><tbody id="rawPreviewRows"><tr><td colspan="4" class="empty">No selected channel.</td></tr></tbody></table></div><div id="rawResult"></div><div class="panel-footer"><button class="secondary-button" data-raw-back="2">Back</button><span>Full-resolution data will be exported.</span><button class="primary-button" id="exportRaw">Export ZIP</button></div></section>
+      </section>
+
+      <section class="view" id="view-chrom">
+        <p class="eyebrow">CHROMATOGRAMS &amp; RESULTS</p><h1>Chromatograms &amp; Integration</h1><p class="lead">Overlay or separate selected traces and apply one external integration setting set to every trace.</p>
+        <div class="workflow-steps"><div class="step active" data-chrom-step="1"><b>1</b><span>Choose CMBX</span></div><div class="step" data-chrom-step="2"><b>2</b><span>Filter &amp; plot</span></div><div class="step" data-chrom-step="3"><b>3</b><span>Integrate</span></div></div>
+        <section class="workflow-panel active" data-chrom-panel="1"><div class="analysis-source" data-analysis-source="chrom"></div><div class="panel-footer"><span>Select up to 16 traces from your own CMBX files.</span><button class="primary-button" id="chromLoadCatalog">Continue</button></div></section>
+        <section class="workflow-panel" data-chrom-panel="2"><div class="filter-row"><label>Package<select data-filter="package"></select></label><label>Sequence<select data-filter="sequence"></select></label><label>Injection<select data-filter="injection"></select></label><label>Channel<select data-filter="channel"></select></label></div><div class="analysis-actions"><button class="secondary-button" data-select-visible="chrom">Select visible</button><button class="secondary-button" data-clear-channels="chrom">Clear</button></div><div class="channel-picker compact-picker" id="chromChannelList"><div class="empty-block">Choose CMBX sources and continue.</div></div><div class="panel-footer"><button class="secondary-button" data-chrom-back="1">Back</button><label>Layout<select id="chromLayout"><option value="overlay">Overlay</option><option value="separate">Separate</option></select></label><button class="primary-button" id="plotChrom">Plot selected traces</button></div></section>
+        <section class="workflow-panel" data-chrom-panel="3"><p class="chart-help">Drag a rectangle to zoom. Hold Space and drag to pan. Right-click returns to the previous view.</p><div class="chrom-chart" id="chromChart"><div class="empty-block">No traces plotted.</div></div><div class="integration-controls"><label>Smoothing (s)<input id="intSmooth" type="number" value="1" min="0" step="0.1"></label><label>Noise multiplier<input id="intNoise" type="number" value="5" min="0" step="0.5"></label><label>Minimum height<input id="intHeight" type="number" value="0" min="0" step="any"></label><label>Minimum area<input id="intArea" type="number" value="0" min="0" step="any"></label><label>Minimum width (s)<input id="intWidth" type="number" value="0" min="0" step="0.1"></label><button class="primary-button" id="integrateChrom">Integrate plotted traces</button></div><div class="table-wrap"><table class="compact-table"><thead><tr><th>Trace</th><th>Peak</th><th>Start</th><th>Apex</th><th>End</th><th>Height</th><th>Area</th><th>Width s</th></tr></thead><tbody id="peakRows"><tr><td colspan="8" class="empty">Plot first, then integrate.</td></tr></tbody></table></div><div class="panel-footer"><button class="secondary-button" data-chrom-back="2">Change traces</button><span id="chromStatus">Plot ready.</span></div></section>
+      </section>
+
+      <section class="view" id="view-formula">
+        <p class="eyebrow">CHROMATOGRAMS &amp; RESULTS</p><h1>Direct CM Formula Results</h1><p class="lead">Scan only Direct CM report objects, choose formulas and injection contexts, then batch-evaluate their values.</p>
+        <div class="workflow-steps"><div class="step active"><b>1</b><span>Scan Direct CM formulas</span></div><div class="step"><b>2</b><span>Choose contexts</span></div><div class="step"><b>3</b><span>Batch preview</span></div></div>
+        <section class="workflow-panel active"><div class="analysis-source" data-analysis-source="formula"></div><div class="analysis-actions"><button class="primary-button" id="scanFormulas">Scan Direct CM</button><span id="formulaProgress">Ready.</span></div><div class="formula-layout"><div><input id="formulaSearch" type="search" placeholder="Search formula, report, sheet, channel or meaning"><div class="formula-picker" id="formulaList"><div class="empty-block">Scan selected CMBX sources.</div></div></div><div><h3>Injection contexts</h3><div class="injection-picker" id="formulaInjectionList"><div class="empty-block">Contexts appear after scanning.</div></div><button class="primary-button" id="evaluateFormulas">Batch preview</button></div></div><div class="table-wrap"><table class="compact-table"><thead><tr><th>Package / Sequence / Injection</th><th>Formula</th><th>Channel</th><th>Value</th><th>Status</th><th>Detail</th></tr></thead><tbody id="formulaResultRows"><tr><td colspan="6" class="empty">No formula result.</td></tr></tbody></table></div></section>
+      </section>
+
+      <section class="view" id="view-quality">
+        <p class="eyebrow">QUALITY CONTROL &amp; DATABASE</p><h1>Quality Data &amp; Database</h1><p class="lead">Read historical production data, filter model and date scope, and inspect a metric against statistical control limits.</p>
+        <div class="workflow-steps"><div class="step active"><b>1</b><span>Connect database</span></div><div class="step"><b>2</b><span>Choose table &amp; metric</span></div><div class="step"><b>3</b><span>Review QC curve</span></div></div>
+        <section class="workflow-panel active"><div class="quality-controls"><label>Database source<select id="qualitySource"></select></label><button class="secondary-button" id="qualityConnect">Load tables</button><label>Table<select id="qualityTable"></select></label><label>Metric<select id="qualityMetric"><option value="">Auto detect</option></select></label><label>ModelNo<select id="qualityModel"><option value="">All models</option></select></label><label>From<input id="qualityDateFrom" type="date"></label><label>To<input id="qualityDateTo" type="date"></label><button class="primary-button" id="qualityRun">Load history</button></div><div id="qualitySummary" class="summary-grid"><div class="empty-block">Choose a database source.</div></div><div class="quality-chart" id="qualityChart"><div class="empty-block">The QC curve appears here.</div></div><div class="table-wrap"><table class="compact-table"><thead id="qualityHead"></thead><tbody id="qualityRows"><tr><td class="empty">No historical data.</td></tr></tbody></table></div></section>
+      </section>
+
+      <section class="view" id="view-workspace">
+        <p class="eyebrow">CHROMATOGRAMS & RESULTS</p>
+        <h1>CMBX Workspace</h1>
+        <p class="lead">Upload immutable CMBX sources, scan their structure, and inspect sequence, injection and channel inventory.</p>
+
+        <div class="workflow-steps">
+          <div class="step active"><b>1</b><span>Add CMBX</span></div>
+          <div class="step"><b>2</b><span>Scan inventory</span></div>
+          <div class="step"><b>3</b><span>Inspect contents</span></div>
+        </div>
+
+        <section class="band upload-band">
+          <div>
+            <h2>Add source packages</h2>
+            <p>Original files remain unchanged. The service stores a hash and processes a controlled copy.</p>
+          </div>
+          <label class="primary-button" for="cmbxFiles">Choose CMBX</label>
+          <input id="cmbxFiles" type="file" accept=".cmbx" multiple hidden>
+        </section>
+        <div class="inline-status" id="uploadStatus">Ready for CMBX files.</div>
+
+        <section class="table-section">
+          <div class="section-heading"><h2>Source packages</h2><button class="text-button" id="refreshArtifacts">Refresh</button></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>File</th><th>Owner</th><th>Size</th><th>Uploaded</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="artifactRows"><tr><td colspan="6" class="empty">No CMBX uploaded.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="inventory-layout">
+          <div>
+            <div class="section-heading"><h2>Inventory summary</h2></div>
+            <div id="inventorySummary" class="summary-grid"><div class="empty-block">Scan and open a package.</div></div>
+          </div>
+          <div>
+            <div class="section-heading"><h2>Package tree</h2></div>
+            <div id="inventoryTree" class="tree"><div class="empty-block">No inventory selected.</div></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="view-jobs">
+        <p class="eyebrow">OPERATIONS</p>
+        <h1>Job Center</h1>
+        <p class="lead">Queued and completed work remains visible after navigation and service restart.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Task</th><th>Owner</th><th>Stage</th><th>Progress</th><th>Status</th><th>Message</th></tr></thead>
+            <tbody id="jobRows"><tr><td colspan="6" class="empty">No jobs.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="view" id="view-admin">
+        <p class="eyebrow">ADMIN CONSOLE</p>
+        <h1>Service health</h1>
+        <p class="lead">Service health, daily AI usage, and access requests. This view is restricted to the configured Windows administrator account.</p>
+        <div class="admin-grid" id="adminGrid"><div class="empty-block">Loading administrator status.</div></div>
+        <div class="section-heading admin-section-heading"><h2>Method API access requests</h2><button class="secondary-button" id="refreshAdminAccess">Refresh</button></div>
+        <div class="table-wrap"><table class="compact-table"><thead><tr><th>User</th><th>Day</th><th>Extra uses</th><th>Reason</th><th>Status</th><th>Decision</th></tr></thead><tbody id="adminAccessRows"><tr><td colspan="6" class="empty">Loading requests...</td></tr></tbody></table></div>
+        <div class="section-heading admin-section-heading"><h2>Today's API usage</h2></div>
+        <div class="table-wrap"><table class="compact-table"><thead><tr><th>User</th><th>Provider</th><th>Used</th></tr></thead><tbody id="adminUsageRows"><tr><td colspan="3" class="empty">No usage recorded.</td></tr></tbody></table></div>
+        <div class="section-heading admin-section-heading"><div><h2>Developer accounts</h2><p>Create a named fallback login and control its role, AI allowance and permissions.</p></div><button class="secondary-button" id="newDeveloperAccount">New account</button></div>
+        <div class="table-wrap"><table class="compact-table"><thead><tr><th>Email</th><th>Role</th><th>Daily AI</th><th>Permissions</th><th>Status</th><th></th></tr></thead><tbody id="developerAccountRows"><tr><td colspan="6" class="empty">Loading accounts...</td></tr></tbody></table></div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <dialog class="settings-dialog" id="aiSettingsDialog">
+    <form method="dialog" class="settings-card">
+      <div class="panel-heading"><div><h2>Personal AI settings</h2><p>The key is logically scoped to your Windows identity, encrypted with host DPAPI, and never shown again.</p></div><button class="text-button" value="cancel">Close</button></div>
+      <label class="field-label">Provider<select id="aiSettingsProvider"><option value="gpt">GPT</option><option value="deepseek">DeepSeek</option></select></label>
+      <label class="field-label">Base URL<input id="aiSettingsBaseUrl"></label>
+      <label class="field-label">Model<input id="aiSettingsModel"></label>
+      <label class="field-label">API key<input id="aiSettingsApiKey" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved key"></label>
+      <label class="toggle-row compact-toggle"><input id="clearAiSettingsKey" type="checkbox"><span>Remove the saved API key</span></label>
+      <div class="panel-footer"><span id="aiSettingsStatus"></span><button class="primary-button" type="button" id="saveAiSettings">Save settings</button></div>
+    </form>
+  </dialog>
+  <dialog class="settings-dialog" id="developerAccountDialog">
+    <form method="dialog" class="settings-card">
+      <div class="panel-heading"><div><h2>Developer account</h2><p>New accounts use temporary password 000000 unless another password is entered.</p></div><button class="text-button" value="cancel">Close</button></div>
+      <label class="field-label">Email<input id="developerAccountEmail" type="email"></label>
+      <label class="field-label">Role<select id="developerAccountRole"><option value="analyst">Analyst</option><option value="developer" selected>Developer</option><option value="admin">Admin</option></select></label>
+      <label class="field-label">Daily automatic AI runs<input id="developerAccountLimit" type="number" min="0" max="100" value="10"></label>
+      <fieldset class="permission-fieldset"><legend>Module permissions</legend><div id="developerAccountPermissions" class="permission-grid"></div></fieldset>
+      <label class="field-label">Password<input id="developerAccountPassword" type="password" placeholder="Leave blank to keep; new account defaults to 000000"></label>
+      <label class="toggle-row compact-toggle"><input id="developerAccountEnabled" type="checkbox" checked><span>Account enabled</span></label>
+      <div class="panel-footer"><span id="developerAccountStatus"></span><button class="primary-button" type="button" id="saveDeveloperAccount">Save account</button></div>
+    </form>
+  </dialog>
+  <script src="/static/app.js?v=20260804-live-permissions"></script>
+</body>
+</html>

@@ -15,7 +15,7 @@ from business_ui_components import RoundedButton, _rounded_polygon
 
 APP_TITLE = "CMBX Workspace"
 APP_SUBTITLE = "Guided methods, data, verification and quality"
-APP_VERSION = "V1.4 Business Preview"
+APP_VERSION = "V1.41 Business Preview"
 APP_DIR = Path(__file__).resolve().parent
 APPSLAB_URL = "https://appslab.thermofisher.com/"
 

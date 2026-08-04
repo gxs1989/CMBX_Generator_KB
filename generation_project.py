@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import uuid
 from pathlib import Path
 
 from method_md_linter import lint_method_rows
@@ -184,18 +185,18 @@ def generate_asset(request: AssetGenerationRequest, preflight: AssetPreflight) -
         raise ValueError("Generation is blocked by MD preflight errors.")
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    project_dir = request.output_root / f"{stamp}_{_safe_name(request.asset_name)}"
+    project_dir = request.output_root / f"{stamp}_{uuid.uuid4().hex[:8]}"
     inputs = project_dir / "inputs"
     outputs = project_dir / "outputs"
     inputs.mkdir(parents=True, exist_ok=False)
     outputs.mkdir(parents=True)
-    snapshot = inputs / request.source_md.name
+    snapshot = inputs / f"{request.asset_type}_source.md"
     shutil.copy2(request.source_md, snapshot)
     method_basis_snapshot: Path | None = None
     if request.basis_method_md and request.basis_method_md.is_file():
-        method_basis_snapshot = inputs / f"METHOD_BASIS_{request.basis_method_md.name}"
+        method_basis_snapshot = inputs / "method_basis.md"
         shutil.copy2(request.basis_method_md, method_basis_snapshot)
-    output = outputs / f"{_safe_name(request.asset_name)}_{request.asset_type}.cmbx"
+    output = outputs / f"{_safe_name(request.asset_name, max_length=48)}_{request.asset_type}.cmbx"
 
     compiler_detail: dict[str, object]
     if request.asset_type == "method":
@@ -233,7 +234,9 @@ def generate_asset(request: AssetGenerationRequest, preflight: AssetPreflight) -
                 "intent": request.intent,
                 "target_cm_version": request.target_cm_version,
                 "source_md": str(snapshot),
+                "source_original_name": request.source_md.name,
                 "basis_method_md": str(method_basis_snapshot) if method_basis_snapshot else "",
+                "basis_method_original_name": request.basis_method_md.name if request.basis_method_md else "",
                 "source_sha256": _sha256(snapshot),
                 "output_cmbx": str(output),
                 "compiler_detail": compiler_detail,
@@ -391,18 +394,19 @@ def generate_project(request: GenerationRequest, preflight: GenerationPreflight 
     assert check.report_spec is not None
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    project_dir = request.output_root / f"{stamp}_{_safe_name(request.project_name)}"
+    project_dir = request.output_root / f"{stamp}_{uuid.uuid4().hex[:8]}"
     inputs = project_dir / "inputs"
     outputs = project_dir / "outputs"
     inputs.mkdir(parents=True, exist_ok=False)
     outputs.mkdir(parents=True)
-    method_snapshot = inputs / request.method_md.name
-    report_snapshot = inputs / request.report_md.name
+    method_snapshot = inputs / "method_source.md"
+    report_snapshot = inputs / "report_source.md"
     shutil.copy2(request.method_md, method_snapshot)
     shutil.copy2(request.report_md, report_snapshot)
 
-    method_output = outputs / f"{_safe_name(request.project_name)}_method.cmbx"
-    report_output = outputs / f"{_safe_name(request.project_name)}_report.cmbx"
+    short_name = _safe_name(request.project_name, max_length=48)
+    method_output = outputs / f"{short_name}_method.cmbx"
+    report_output = outputs / f"{short_name}_report.cmbx"
     method_stats = compile_method_md_to_cmbx(
         method_carrier_for_version(request.target_cm_version),
         method_snapshot,
@@ -428,8 +432,10 @@ def generate_project(request: GenerationRequest, preflight: GenerationPreflight 
         "target_cm_version": request.target_cm_version,
         "inputs": {
             "method_md": str(method_snapshot),
+            "method_original_name": request.method_md.name,
             "method_sha256": _sha256(method_snapshot),
             "report_md": str(report_snapshot),
+            "report_original_name": request.report_md.name,
             "report_sha256": _sha256(report_snapshot),
         },
         "outputs": {"method_cmbx": str(method_output), "report_cmbx": str(report_output)},
@@ -442,8 +448,16 @@ def generate_project(request: GenerationRequest, preflight: GenerationPreflight 
 
 
 def configuration_requirements(rows: list[dict[str, str]]) -> list[str]:
-    text = "\n".join(" ".join(str(value) for value in row.values()) for row in rows)
-    devices = sorted({value for value in re.findall(r"\b([A-Za-z][A-Za-z0-9_]*)\.", text) if value not in {"Variables", "StabVars", "TempVars", "RetTimes", "System"}})
+    text = "\n".join(
+        f"{row.get('Command', '')} {row.get('Value', '')}"
+        for row in rows
+        if str(row.get("Kind", "")).lower() != "comment"
+    )
+    path_roots = {
+        token.split(".", 1)[0]
+        for token in re.findall(r"\b[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+", text)
+    }
+    devices = sorted(path_roots - {"Variables", "StabVars", "TempVars", "RetTimes", "System"})
     acquisitions = sorted(set(re.findall(r"([A-Za-z0-9_.]+)\.AcqOn\b", text, re.I)))
     variables = sorted(set(re.findall(r"\b(?:Variables|StabVars|TempVars)\.[A-Za-z0-9_]+", text)))
     return [
@@ -468,9 +482,9 @@ def _channel_has_acquisition(channel: str, acquisitions: set[str], method_text: 
     return any(normalized == item or normalized in item or item.endswith("." + normalized) for item in acquisitions) or normalized in method_text.lower()
 
 
-def _safe_name(value: str) -> str:
+def _safe_name(value: str, *, max_length: int = 80) -> str:
     safe = re.sub(r"[^A-Za-z0-9._-]+", "_", value.strip()).strip("._")
-    return safe or "generation_project"
+    return (safe or "generation_project")[:max_length].rstrip("._")
 
 
 def _sha256(path: Path) -> str:

@@ -9,7 +9,10 @@ if str(MODULE_ROOT) not in sys.path:
     sys.path.insert(0, str(MODULE_ROOT))
 
 from generation_project import (
+    AssetGenerationRequest,
+    configuration_requirements,
     cross_contract_findings,
+    generate_asset,
     preflight_asset,
     preflight_generation,
     recommended_online_kb_files_for_modules,
@@ -77,3 +80,61 @@ def test_recommended_files_support_multiple_modules_and_deduplicate_common_repor
     assert files[0].name == "01_REPORT_SPEC.md"
     assert len(files) == 3
     assert {path.parent.name for path in files[1:]} == {"TCC", "VAS"}
+
+
+def test_configuration_requirements_ignore_comment_prose() -> None:
+    rows = [
+        {"Kind": "Comment", "Command": "The driver changes acquisition settings earlier", "Value": "", "Comment": ""},
+        {"Kind": "Command", "Command": "ColumnComp.CC_Temp.AcqOn", "Value": "", "Comment": ""},
+        {"Kind": "Command", "Command": "Variables.GenericDouble1", "Value": "Thermometer1.ExtTemp_UpperCC", "Comment": ""},
+    ]
+
+    requirements = configuration_requirements(rows)
+
+    assert requirements[0] == "Device/config prefixes: ColumnComp, Thermometer1"
+    assert "driver" not in requirements[0].lower()
+
+
+def test_single_asset_generation_uses_short_internal_paths(monkeypatch, tmp_path: Path) -> None:
+    import generation_project
+
+    source = tmp_path / "2d47cb7f_TCC_20C_30min_8s_Valve_Switch_Instrument_Method.md"
+    source.write_text(
+        "# Long method name\n\n```tsv\n"
+        "Time\tCommand\tValue\tComment\n"
+        "{Initial Time}\tInstrument Setup\t\t\n"
+        "0.000\tColumnComp.CC.TempCtrl\tOn\t\n"
+        "1.000\tEnd\t\t\n```\n",
+        encoding="utf-8",
+    )
+    output_root = tmp_path / "03_Generated" / "lan-analyst-10.68.182.125" / "2026-07-31"
+    asset_name = "TCC_20C_30min_8s_Valve_Switch_Instrument_Method"
+    old_output = output_root / f"20260731_140730_{asset_name}" / "inputs" / source.name
+    assert len(str(old_output)) > 260
+
+    def fake_compile(_carrier, _source, output, **_kwargs):
+        output.write_bytes(b"candidate")
+        return {"rows": 3}
+
+    monkeypatch.setattr(generation_project, "compile_method_md_to_cmbx", fake_compile)
+    checked = preflight_asset("method", source)
+    assert checked.ready
+
+    result = generate_asset(
+        AssetGenerationRequest(
+            asset_type="method",
+            asset_name=asset_name,
+            family="TCC",
+            intent="test",
+            target_cm_version="7.2 compatible",
+            source_md=source,
+            output_root=output_root,
+        ),
+        checked,
+    )
+
+    assert result.project_dir.name.count("_") == 2
+    assert (result.project_dir / "inputs" / "method_source.md").is_file()
+    assert asset_name not in str(result.project_dir)
+    assert result.output_cmbx.is_file()
+    assert len(result.output_cmbx.name) <= 60

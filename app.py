@@ -94,7 +94,7 @@ from external_report_window import ExternalReportWindow
 
 
 APP_NAME = "CMBX Data Explorer"
-APP_VERSION = "V1.4"
+APP_VERSION = "V1.41"
 AUTO_SCAN_CMBX_LIMIT = 80
 EXCEL_PREVIEW_LETTERS = tuple(chr(ord("A") + index) for index in range(16))
 DEFAULT_SAMPLE = Path(__file__).resolve().parents[1] / "tcc_temperature_control_analyzer_staging" / "DATA" / "20260701_New" / "20260701_New.cmbx"
