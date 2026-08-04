@@ -242,7 +242,7 @@ def filter_history_for_device(history_rows: Iterable[dict[str, object]], device:
 
 
 def metric_catalog_for_devices(mapping_path: str | Path, devices: Iterable[str]) -> list[str]:
-    """Return the common measurable DB fields for the selected device models."""
+    """Return every measurable DB field available to any selected device model."""
     field_sets: list[set[str]] = []
     display_names: dict[str, str] = {}
     for device in sorted({str(value).strip() for value in devices if str(value).strip() and value != "unresolved"}):
@@ -260,8 +260,8 @@ def metric_catalog_for_devices(mapping_path: str | Path, devices: Iterable[str])
         field_sets.append(fields)
     if not field_sets:
         return []
-    common = set.intersection(*field_sets)
-    return sorted((display_names[key] for key in common), key=str.lower)
+    available = set.union(*field_sets)
+    return sorted((display_names[key] for key in available), key=str.lower)
 
 
 def expand_metric_dependencies(mapping_path: str | Path, device: str, requested_fields: Iterable[str]) -> list[str]:

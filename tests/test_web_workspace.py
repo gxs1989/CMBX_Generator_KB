@@ -73,6 +73,17 @@ def test_health_and_static_home(tmp_path: Path) -> None:
         page = client.get("/")
         assert page.status_code == 200
         assert "CMBX Workspace" in page.text
+        assert 'id="singleChartFontSize"' in page.text
+        assert "9 pt" in page.text
+        assert 'id="singleChartRatio"' in page.text
+        assert "3:2" in page.text
+        script = client.get("/static/app.js?v=20260804-leak-analyzer-v8")
+        assert script.status_code == 200
+        assert "copyLeakChart" in script.text
+        assert "ClipboardItem" in script.text
+        assert "decimals:0" in script.text
+        assert "decimals:2" in script.text
+        assert "legacyCopyChart" in script.text
 
 
 def test_home_map_root_has_clearance_above_connector() -> None:
@@ -170,10 +181,52 @@ def test_analysis_catalog_and_direct_formula_scan_accept_uploaded_cmbx(tmp_path:
         assert job["result"]["formulas"] == []
 
 
+def test_single_verification_leak_sensor_runs_as_personal_job(tmp_path: Path, monkeypatch) -> None:
+    captured = {}
+
+    def fake_catalog(paths):
+        return {"traces": [{"key": "trace-1", "package": "leak.cmbx", "sequence": "S1", "injection": "Leak", "channel": "LEDBoard_LeakDiff"}], "scope": "Liquid-leak injections", "errors": []}
+
+    def fake_analysis(paths, trace_keys, benchmark_keys):
+        captured.update(paths=[str(item) for item in paths], trace_keys=trace_keys, benchmark_keys=benchmark_keys)
+        return {
+            "algorithm": "Leak Sensor Analyzer V1.1 raw-curve metrics",
+            "summary": {"total": 1, "benchmark": 1, "better": 0, "mixed": 0, "worse": 0, "unmatched": 0},
+            "rows": [{"package": "leak.cmbx", "sequence": "S1", "injection": "Leak", "evaluation": "Benchmark"}],
+            "curves": [],
+        }
+
+    monkeypatch.setattr(web_app, "leak_sensor_catalog", fake_catalog)
+    monkeypatch.setattr(web_app, "leak_sensor_analysis", fake_analysis)
+    with TestClient(create_app(_config(tmp_path))) as client:
+        artifact = client.post(
+            "/api/artifacts/upload", files={"file": ("leak.cmbx", _minimal_cmbx(), "application/octet-stream")},
+        ).json()
+        catalog = client.post(
+            "/api/single-verification/leak-sensor/catalog", json={"artifact_ids": [artifact["id"]]},
+        )
+        assert catalog.status_code == 200
+        assert catalog.json()["traces"][0]["channel"] == "LEDBoard_LeakDiff"
+        queued = client.post(
+            "/api/single-verification/leak-sensor",
+            json={"artifact_ids": [artifact["id"]], "trace_keys": ["trace-1"], "benchmark_keys": ["trace-1"]},
+        )
+        assert queued.status_code == 202, queued.text
+        for _ in range(100):
+            job = client.get(f"/api/jobs/{queued.json()['id']}").json()
+            if job["status"] in {"completed", "failed"}:
+                break
+            time.sleep(0.02)
+        assert job["status"] == "completed", job
+        assert job["result"]["summary"]["benchmark"] == 1
+        assert captured["trace_keys"] == ["trace-1"]
+        assert captured["benchmark_keys"] == ["trace-1"]
+
+
 def test_home_exposes_all_first_release_workflows(tmp_path: Path) -> None:
     with TestClient(create_app(_config(tmp_path))) as client:
         page = client.get("/").text
-        for view in ("report", "raw", "chrom", "formula", "quality"):
+        for view in ("report", "raw", "chrom", "formula", "quality", "single"):
             assert f'data-view="{view}"' in page
         capabilities = client.get("/api/capabilities").json()
         assert "batch_raw_export" in capabilities["available"]
@@ -280,6 +333,20 @@ def test_foq_client_keeps_full_result_for_history_chart() -> None:
     script = (Path(__file__).parents[1] / "web_workspace" / "static" / "app.js").read_text(encoding="utf-8")
     assert "state.foq.result = result;" in script
     assert "result?.history_samples" in script
+
+
+def test_foq_client_provides_copyable_metric_and_tcc_summary_outputs() -> None:
+    static = Path(__file__).parents[1] / "web_workspace" / "static"
+    page = (static / "index.html").read_text(encoding="utf-8")
+    script = (static / "app.js").read_text(encoding="utf-8")
+    assert 'id="foqOutputLayout"' in page
+    assert "Selected chart metric" in page
+    assert "TCC QC Summary - Xiaoshu" in page
+    assert "const TCC_QC_SUMMARY_COLUMNS" in script
+    assert 'label:"Heat Up Time", aliases:["HeatUp_Time_20to50"]' in script
+    assert 'label:"Accruacy 85", aliases:["TempAcc85"]' in script
+    assert "navigator.clipboard.writeText" in script
+    assert 'type:"text/tab-separated-values;charset=utf-8"' in script
 
 
 def test_method_md_preflight_returns_renderable_rows(tmp_path: Path) -> None:
@@ -668,14 +735,21 @@ def test_module_permissions_and_user_cmbx_isolation(tmp_path: Path, monkeypatch)
 
         permission_catalog = client.get("/api/admin/developer-accounts", headers=admin).json()["known_permissions"]
         roots = [item for item in permission_catalog if not item.get("parent")]
-        assert len(roots) == 8
+        assert len(roots) == 9
         assert {item["group"] for item in roots} == {
-            "Design & Generate", "Chromatograms & Results", "Quality Control & Database",
+            "Design & Generate", "Chromatograms & Results", "Quality Control & Database", "Single Verification",
         }
         assert any(item["id"] == "instrument_method_generation" for item in roots)
         assert any(item["id"] == "chromatogram_integrate" for item in permission_catalog)
         assert any(item["id"] == "method_manual_web_ai" and not item["default"] for item in permission_catalog)
         assert any(item["id"] == "report_manual_web_ai" and not item["default"] for item in permission_catalog)
+        assert any(item["id"] == "single_verification" and item["default"] for item in permission_catalog)
+        assert any(
+            item["id"] == "leak_sensor_analysis"
+            and item["parent"] == "single_verification"
+            and item["default"]
+            for item in permission_catalog
+        )
 
         uploaded = client.post(
             "/api/artifacts/upload", headers=user_a,

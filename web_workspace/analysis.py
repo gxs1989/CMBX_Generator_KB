@@ -13,6 +13,13 @@ from typing import Any, Iterable
 
 from db_upload_service import fetch_table_rows, list_database_tables
 from foq_quality_service import filter_database_rows, summarize_history
+from leak_sensor_analysis import (
+    compute_leak_metrics,
+    evaluate_leak_groups,
+    leak_channel_candidates,
+    marker_payload,
+    serialize_leak_candidate,
+)
 from read_analyze_service import (
     ChannelRecord,
     FormulaRecord,
@@ -202,6 +209,91 @@ def evaluate_direct_formulas(paths: Iterable[str | Path], injection_keys: Iterab
         ))
     results = evaluate_formula_batch(contexts, formulas)
     return {"results": [asdict(result) for result in results]}
+
+
+def leak_sensor_catalog(paths: Iterable[str | Path]) -> dict[str, Any]:
+    packages, errors = load_cached_workset(paths)
+    candidates, scope = leak_channel_candidates(channel_records(packages))
+    return {
+        "traces": [serialize_leak_candidate(record) for record in candidates],
+        "scope": scope,
+        "errors": [{"path": str(path), "detail": detail} for path, detail in errors],
+    }
+
+
+def leak_sensor_analysis(
+    paths: Iterable[str | Path], trace_keys: Iterable[str], benchmark_keys: Iterable[str],
+    max_points: int = 1600,
+) -> dict[str, Any]:
+    """Run the established Leak Sensor Analyzer against CMBX LeakDiff raw channels."""
+    packages, load_errors = load_cached_workset(paths)
+    candidates, scope = leak_channel_candidates(channel_records(packages))
+    lookup = {record.key: record for record in candidates}
+    selected_benchmarks = [key for key in dict.fromkeys(benchmark_keys) if key in lookup]
+    requested = list(dict.fromkeys([*trace_keys, *selected_benchmarks]))
+    selected = [lookup[key] for key in requested if key in lookup] if requested else candidates
+    if not selected:
+        raise ValueError("No LeakDiff raw channel was found in the selected CMBX files")
+    if not selected_benchmarks:
+        raise ValueError("Choose at least one benchmark LeakDiff trace")
+
+    rows: list[dict[str, Any]] = []
+    curves: list[dict[str, Any]] = []
+    errors = [{"source": str(path), "detail": detail} for path, detail in load_errors]
+    for record in selected:
+        try:
+            points = decode_channel_points(record)
+            row = compute_leak_metrics(record, points)
+            rows.append(row)
+            sampled = _downsample(points, max(300, min(int(max_points), 4000)))
+            curves.append({
+                "key": record.key,
+                "label": record.label,
+                "package": row["package"],
+                "sequence": row["sequence"],
+                "injection": row["injection"],
+                "liquid": row["liquid"],
+                "temperature_c": row["temp"],
+                "group_key": row["group_key"],
+                "is_benchmark": record.key in selected_benchmarks,
+                "points": [[point.time_min, point.value] for point in sampled],
+                "point_count": len(points),
+                "markers": marker_payload(row, points[0].time_min),
+            })
+        except Exception as exc:
+            errors.append({"source": record.label, "detail": str(exc)})
+    evaluated = evaluate_leak_groups(rows, selected_benchmarks)
+    counts = {"total": len(evaluated), "benchmark": 0, "better": 0, "mixed": 0, "worse": 0, "unmatched": 0}
+    for row in evaluated:
+        key = str(row.get("evaluation") or "unmatched").casefold()
+        counts[key if key in counts else "unmatched"] += 1
+    group_summaries = []
+    for group_key in sorted({row["group_key"] for row in evaluated}):
+        group_rows = [row for row in evaluated if row["group_key"] == group_key]
+        benchmark_values = [abs(row["delta_diff"]) for row in group_rows if row["is_benchmark"]]
+        selected_values = [abs(row["delta_diff"]) for row in group_rows if not row["is_benchmark"]]
+        benchmark_t90 = [row["response_t90"] for row in group_rows if row["is_benchmark"] and row["response_t90"] > 0]
+        selected_t90 = [row["response_t90"] for row in group_rows if not row["is_benchmark"] and row["response_t90"] > 0]
+        group_summaries.append({
+            "group_key": group_key,
+            "liquid": group_rows[0]["liquid"],
+            "temperature_c": group_rows[0]["temp"],
+            "benchmark_count": len(benchmark_values),
+            "selected_count": len(selected_values),
+            "benchmark_delta_mean": statistics.fmean(benchmark_values) if benchmark_values else None,
+            "selected_delta_mean": statistics.fmean(selected_values) if selected_values else None,
+            "benchmark_t90_mean": statistics.fmean(benchmark_t90) if benchmark_t90 else None,
+            "selected_t90_mean": statistics.fmean(selected_t90) if selected_t90 else None,
+        })
+    return {
+        "scope": scope,
+        "algorithm": "Leak Sensor Analyzer V1.1 raw-curve metrics",
+        "summary": counts,
+        "rows": evaluated,
+        "curves": curves,
+        "group_summaries": group_summaries,
+        "errors": errors,
+    }
 
 
 def quality_catalog(config) -> dict[str, Any]:

@@ -1,0 +1,678 @@
+# CM Method Script MD Generation SPEC
+
+KB_Version: 2.2  
+Purpose: Single SPEC file for web AI / ChatGPT to generate Markdown method scripts that can be compiled by CMBX Data Explorer into standalone Chromeleon instrument-method CMBX files.  
+Primary consumer: AI authoring prompt + Method Script Generator.  
+Target copy locations:
+
+```text
+C:\ProgramData\CMBX Data Explorer Workspace\KB\FOQ Template\CM_METHOD_SCRIPT_MD_FORMAT_SPEC.md
+C:\ProgramData\CMBX Data Explorer Workspace\KB\Method Script Generator\Generator Spec\CM_METHOD_SCRIPT_MD_FORMAT_SPEC.md
+```
+
+## 1. How To Use This SPEC With Web AI
+
+Give this entire SPEC to the AI and ask it to generate only one method script in the strict fenced TSV format defined below.
+
+The AI may explain the operation plan before the script, but the executable part must be the first fenced `tsv` code block and must use exactly four tab-separated columns:
+
+```text
+Time<TAB>Command<TAB>Value<TAB>Comment
+```
+
+Do not generate Markdown tables for executable scripts. Do not align columns with spaces. Use real tab characters.
+
+## 2. Evidence And Official Help Alignment
+
+This SPEC combines three evidence layers:
+
+| Layer | Source | Use |
+|---|---|---|
+| CM Help | `C:\Users\xiaoshu.guan\Downloads\CM helper\CM7Help_EN` extracted help folder | Official Script Editor behavior, trigger semantics, custom-variable restrictions, Method Check behavior |
+| CM Help printable PDF | `C:\Users\xiaoshu.guan\Downloads\script.pdf`, 8 pages, printed from `mk:@MSITStore:C:\Program Files (x86)\Thermo\Chromeleon\bin\CM7Help_EN.CHM...` | Complete printable Script Editor topic used for this SPEC |
+| Local CM installation | `C:\Program Files (x86)\Thermo\Chromeleon\bin\CM7Help_EN.CHM`, `InstrumentConfiguration_EN.chm`, driver command strings in `*.cdd` / `*.dll` | Local official help and command vocabulary |
+| Reverse CMBX evidence | Decoded embedded method XML / CM-opened generated methods | Exact row rendering and packaging behavior |
+
+Targeted extracted help topics used:
+
+| Topic | Local help file |
+|---|---|
+| Script Editor main behavior | `InstrumentMethod_CSH\InstMetEdit_Script_Editor.htm` |
+| Script Editor view, stages, time semantics | `InstrumentMethod\InstMetEdit_ScriptEditor_View.htm` |
+| Conditional statements | `InstrumentMethod\InstMetEdit_CONDITIONALS.htm` |
+| Custom Variables in instrument methods | `InstrumentMethod\InstMet_Custom_Variables.htm` |
+| Modify Instrument Method | `InstrumentMethod\InstMetEdit_Modify_Method.htm` |
+| Trigger reference | `ReferenceComm\REFERENCE_TRIGGER.htm` |
+
+PDF page coverage:
+
+| PDF pages | Help content captured |
+|---|---|
+| 1-3 | Script Editor purpose, columns, commands, stages, comments, time steps, negative time steps |
+| 4 | Conditional statements and start of Trigger Block description |
+| 5-7 | Trigger parameters: Condition, TrueTime, Delay, Limit, Hysteresis, AllowImmediateExecution; CM6 import notes |
+| 8 | Find behavior and Method Check validity workflow |
+
+## 3. CM Script Editor Facts From Official Help
+
+The Script Editor is part of the Instrument Method Editor. It shows a chronological list of method steps, also called control commands, defined for an instrument in the Instrument Method Wizard.
+
+Official column meanings:
+
+| Column | Meaning |
+|---|---|
+| Time | When the command is executed |
+| Command | Name of the command |
+| Value | Value of a property or command parameter |
+| Comment | Optional user information |
+
+Official UI facts that matter for generation:
+
+| Fact | Generation implication |
+|---|---|
+| Commands are grouped into predefined sections called stages. Stages have an orange background. | Use explicit stage rows for `Instrument Setup`, `Equilibration`, `Run`, `Stop Run`, etc. |
+| Commands and properties vary by selected User Level and system configuration. | Unknown device symbols must be marked `Open Verification Required`; do not invent them. |
+| A red icon indicates invalid command or value. Tooltip describes the error. | Red preview rows usually mean invalid symbol, invalid value, wrong trigger syntax, or unsupported branch/trigger nesting. |
+| Red background indicates a command no longer valid, for example because system configuration changed. | Script validity depends on CM instrument configuration. |
+| Script Editor provides autosuggestion in Command and Value; CTRL+SPACE opens suggestions. | AI should use exact known symbols from source CMBX/KB. |
+| Custom variables can be used when assigning values and/or properties in the Value column. | Values such as `Variables.GenericDouble1` are valid when source method evidence uses them. |
+| Method Check reports errors/warnings and links back to script locations. | Generated CMBX still needs CM Method Check before claiming runnable status. |
+| New Command Rows append rows where the user specifies a valid symbol in the Command column. | AI-generated commands must use valid symbols, not descriptive phrases. |
+| Find is case-insensitive and partial matches are found. | Useful for human review, but not part of the executable format. |
+
+When the Script Editor view is required:
+
+| Need | Rule |
+|---|---|
+| Add stages, time steps, or commands not available in module views | Use Script Editor syntax, not module-view prose |
+| Create virtual channels | Use Script Editor; source evidence is required before generating unsupported virtual-channel rows |
+| Add conditional statements | Use Script Editor branch rows (`If`, `Else If`, `Else`, `End If`) |
+| Insert trigger blocks | Use Script Editor trigger-block syntax |
+
+## 4. Strict Executable MD Format
+
+Preferred source format:
+
+```tsv
+Time	Command	Value	Comment
+{Initial Time}	Instrument Setup		
+	==============================		
+	IM to measure a TCC test		
+	==============================		
+{Initial Time}	Equilibration	Duration = 30.000 [min]	Equilibrate before run
+0.000	Run		
+120.000	Stop Run		
+	End		
+```
+
+Rules:
+
+| Rule | Required |
+|---|---|
+| First fenced code block | Must be `tsv` and must be the executable script |
+| Columns | `Time`, `Command`, `Value`, `Comment` in this exact order |
+| Separator | Real tab characters |
+| Method name | Derived from MD filename unless generator overrides it |
+| End row | Always include explicit `End` |
+
+Accepted compatibility input:
+
+If no fenced code block exists, the parser treats the whole MD/text file as raw script. This is only for legacy/DS-style input. For web AI output, always use strict fenced TSV.
+
+## 5. Stage Rows
+
+Stages are CM Script Editor sections and render with an orange background.
+
+Common stages:
+
+| Stage display | Meaning |
+|---|---|
+| `Instrument Setup` | Pre-run setup and global method configuration |
+| `Equilibration` | Pre-run preparation, often negative-time setup |
+| `Inject Preparation` | Commands required before injection, for example Wait or Autozero |
+| `Inject` | Injection commands |
+| `Start Run` | Commands immediately before the run, including default `AcqOn` commands |
+| `Run` | Main run-time commands, triggers, waits, RetTimes |
+| `Stop Run` | Cleanup, acquisition off, resets |
+| `Post Run` | Post-run equilibration; may contain `AcqOff` if data acquisition extends the method run |
+
+### 5.0 Exact Stage Display Names
+
+Web-AI output must use the exact CM Script Editor display names shown in the
+table above. In particular, always write:
+
+```text
+Instrument Setup
+Inject Preparation
+Start Run
+Stop Run
+Post Run
+```
+
+Do not emit the compact embedded-XML identifiers `InstrumentSetup`,
+`InjectPreparation`, `StartRun`, `StopRun`, or `PostRun` in generated TSV.
+Those compact forms are accepted by the local parser only as legacy input and
+are normalized before preview/compilation. They are not the online authoring
+contract. A numeric-time row whose stage name is misspelled or compact may be
+classified as a Comment by strict consumers.
+
+TSV:
+
+```tsv
+Time	Command	Value	Comment
+{Initial Time}	Instrument Setup		
+-30.000	Equilibration	Duration = 30.000 [min]	Negative-time equilibration
+0.000	Run		
+120.000	Stop Run		
+```
+
+Time rules from CM Help:
+
+| Rule | Meaning |
+|---|---|
+| Time column is decimal minutes | `2.500` means 2.5 min after injection / run time zero |
+| Injection is performed at retention time 0 | Commands before injection have negative times; commands after injection have positive times |
+| Time step can be inserted before an existing time step or stage | Use explicit time rows/stage rows, not free text |
+| Negative time steps are allowed for equilibration | The value must be equal to or greater than the negative value of the equilibration stage |
+| Stage `Duration = ... [min]` is minutes | Use this for long pre-run holds |
+
+### 5.1 Time Anchors Must Be Executable
+
+Do not create a row that has a numeric `Time` and only explanatory prose in
+`Command`. A timed row is a CM time anchor and must be either:
+
+| Valid timed row type | Example |
+|---|---|
+| Stage row | `13.000<TAB>Stop Run<TAB><TAB>` |
+| Executable command/property row | `5.000<TAB>Variables.GenericBool8<TAB>0<TAB>Deactivate valve loop` |
+| Trigger row | `0.010<TAB>Trigger<TAB>"LowPressureAbort",<TAB>Abort if pressure collapses` |
+
+**A numeric value in `Time` must never appear alone.** The same TSV row must
+also contain a valid stage, Trigger, executable command, or executable
+property. A later row does not inherit a bare numeric time anchor.
+
+Forbidden:
+
+```tsv
+1.000			Wrong: bare time row; it will be classified as a Comment
+5.000	Stop dynamic stress loop and prepare static measurement state		Wrong: timed prose-only comment
+7.000	Static leak-rate measurement starts		Wrong: timed prose-only comment
+```
+
+Correct pattern:
+
+```tsv
+1.000	Variables.GenericFloat1	System.Retention	Initialize the periodic-switch schedule
+	Variables.GenericBool1	1	Arm Ping at the same time step
+5.000	Variables.GenericBool8	0	Stop dynamic stress loop and prepare static measurement state
+7.000	Variables.GenericDouble1	System.Retention	Static leak-rate measurement starts
+```
+
+If only an explanation is needed, attach it to the `Comment` column of the
+nearest real timed command. Untimed comment rows are allowed before or after
+the executable row.
+
+### 5.2 Run Duration Must Cover All Run-Time Rows
+
+The `Run` stage duration and the `Stop Run` stage start time must describe the
+same run end.
+
+Rules:
+
+| Rule | Required behavior |
+|---|---|
+| `Run` has `Duration = X [min]` and `Stop Run` starts at `Y` | `X` must equal `Y` |
+| A row inside `Run` has time `T` | `T` must be `<= Run Duration` and `<= Stop Run time` |
+| Need a command at `13.500` | Set `Run Duration = 13.500 [min]` and `13.500<TAB>Stop Run` |
+| Need `Stop Run` at `13.000` | Do not place Run-stage commands/comments after `13.000` |
+
+The Method Script Generator treats a mismatch as a preflight error. Do not rely
+on compiler-side normalization in authored MD.
+
+## 6. Comment Rows
+
+Comments are optional user information and are not commands.
+
+TSV:
+
+```tsv
+Time	Command	Value	Comment
+	External measured temperatures		
+	Trigger 1: wait until 40 C is stable for 30 min		
+```
+
+Do not put executable commands into comment rows. Do not put explanatory text into command rows if it is not a CM command/property.
+
+Timed comments are forbidden. A row such as `5.000<TAB>Some explanation` is
+not a valid executable time anchor. Move the explanation to a real command's
+`Comment` field.
+
+## 7. Command / Property Rows
+
+Command rows represent CM commands or property assignments.
+
+TSV:
+
+```tsv
+Time	Command	Value	Comment
+	ColumnComp.CC.ReadyTempDelta	0.1 [°C]	
+	ColumnComp.CC.EquilibrationTime	0.5 [min]	
+	ColumnComp.CC.Temperature.Nominal	Variables.GenericDouble1	Set target temperature
+	Delay	3	Short local delay
+	Wait	ColumnComp.CC.TempReady AND StabVars.TriggerStab1=0	Wait for ready gate
+	RetTimes.RetTime1	System.Retention	Report time anchor
+```
+
+Use exact symbols from source CMBX/KB. Examples of currently known TCC command families:
+
+| Family | Example |
+|---|---|
+| Column compartment | `ColumnComp.CC.Temperature.Nominal` |
+| Acquisition on/off | `ColumnComp.CC_Temp.AcqOn`, `ColumnComp.CC_Temp.AcqOff` |
+| Thermometer channels | `Thermometer1.ExtTemp_UpperCC.AcqOn` |
+| RetTimes | `RetTimes.RetTime1` |
+| StabVars | `StabVars.TriggerStab1` |
+| TempVars | `TempVars.Ambient_Temp` |
+| Variables | `Variables.GenericDouble1` |
+| System | `System.Retention`, `System.AbortQueue` |
+
+## 8. Custom Variables And Method Variables
+
+Official CM Help distinguishes custom variables from ordinary device/method
+properties. Custom injection and sequence variables may be used in the Script
+Editor Value column, either directly or in expressions, for:
+
+| Use | Allowed |
+|---|---|
+| Non-gradient properties | Yes |
+| Command parameters | Yes |
+| Conditional statements | Yes |
+| Gradient properties | No |
+| Stage time / time-step time | No |
+| Creating or modifying custom variables inside an instrument method | No |
+| `VirtualChannel` parameters `Name`, `Type`, `Unit`, `Evaluate` | No; constants only |
+| `Wait` command parameters `Run` and `Timeout` | No; constants only |
+
+Official custom-variable container form:
+
+```text
+System.Injection.CustomVariables.<name>
+System.NextInjection.CustomVariables.<name>
+System.PrevInjection.CustomVariables.<name>
+System.PrevStandard.CustomVariables.<name>
+System.Sequence.CustomVariables.<name>
+```
+
+If a referenced custom variable is not defined during sequence execution, the
+Instrument Controller can abort. Therefore, AI output must not invent custom
+variables. Use only variables explicitly present in the source method / user
+contract, or mark `Open Verification Required`.
+
+Important distinction:
+
+| Symbol form | Meaning for generation |
+|---|---|
+| `System.Injection.CustomVariables.X` | Official CM custom variable; must exist in the injection list |
+| `System.Sequence.CustomVariables.X` | Official CM custom sequence variable; must exist in the sequence |
+| `Variables.GenericDouble1`, `Variables.GenericLong9`, `StabVars.*`, `TempVars.*` | Existing method/device variable symbols observed in TCC CMBX evidence; use only according to the source method role map |
+
+## 9. Protocol, Message, And Log
+
+Use these commands according to intent:
+
+| Intent | Command | Example |
+|---|---|---|
+| Write a protocol/audit-style note | `Protocol` | `Protocol	"Stability End"` |
+| Show/record a user message | `Message` | `Message	"Invalid ModelNo!"` |
+| Log a variable/property value | `Log` | `Log	GenericLong9` |
+
+Avoid:
+
+```tsv
+Time	Command	Value	Comment
+	Log	"Stability End"	Wrong: string literal is not a variable/property log target
+```
+
+Prefer:
+
+```tsv
+Time	Command	Value	Comment
+	Protocol	"Stability End"	Text note
+```
+
+## 10. Conditional Blocks
+
+Official Help:
+
+Conditional statements are `If`, `Else If`, `Else`, and `End If`. They ensure Chromeleon executes commands only if a condition is true. Chromeleon executes commands after an `If` until the next `Else`, `Else If`, or `End If`.
+
+Logical conditions usually consist of:
+
+```text
+parameter / device property + comparison operator + value
+```
+
+Operators:
+
+```text
+<, >, =, <=, >=, <>
+```
+
+Expressions:
+
+```text
+Any expression that results in a numerical value can be used as a logical condition.
+Zero is false; non-zero is true.
+```
+
+Strict TSV form:
+
+```tsv
+Time	Command	Value	Comment
+If		ColumnComp.ModelNo="VH-C10-A"	VH branch
+	Variables.GenericLong9	12	
+Else If		ColumnComp.ModelNo="VC-C10-A"	VC branch
+	Variables.GenericLong9	10	
+Else			
+	Message	"Invalid ModelNo! Please reinspect in production!"	
+	System.AbortQueue		
+End If			
+```
+
+Rules:
+
+| Rule | Required |
+|---|---|
+| Branch keyword | Put `If`, `Else If`, `Else`, `End If` in `Time` |
+| Condition | Put condition in `Value` on the same branch row |
+| `Else` / `End If` | Leave `Command` and `Value` empty |
+| Else If position | After `If`, before `Else` |
+| Number of Else If | No limit in CM Help |
+
+Conditional execution cautions from CM Help:
+
+| Caution | Generation implication |
+|---|---|
+| If commands that change flow can interrupt gradients and continue isocratically | Do not add flow-gradient conditionals without module-specific evidence |
+| Signal values cannot be evaluated when data acquisition is disabled or interrupted | Any conditional depending on signal/channel value requires acquisition to be on before evaluation |
+| Method settings for certain modules cannot be changed during the injection run; such If commands may be ignored | For run-time module setting changes, use source-method evidence or mark `Open Verification Required` |
+
+Compatibility note:
+
+Raw input such as `If<TAB>ColumnComp.ModelNo="VH-C10-A"` may be normalized by the parser, but web AI should output the strict TSV form above.
+
+## 11. Trigger Blocks
+
+Official Help:
+
+A trigger block consists of a trigger step and a block of method steps. Commands in the trigger block are executed if the trigger condition becomes true. Trigger commands execute upon each transition from false to true, i.e. edge triggering.
+
+Trigger blocks are displayed with a green background and are closed by an `End Trigger` row.
+
+Strict TSV form for the Method Script Generator:
+
+```tsv
+Time	Command	Value	Comment
+Trigger		"T_HOLD_40",	Hold 40 C until stable for 30 min
+	Condition	(CC.Temperature.Nominal=Variables.GenericDouble1) AND CC.TempReady,	
+	TrueTime	1800	
+	Delay	0	
+	Limit	1	
+	Hysteresis	0	
+	AllowImmediateExecution	No	
+	Protocol	"40 C stable hold complete"	Trigger action
+	ColumnComp.CC.Temperature.Nominal	Variables.GenericDouble2	Trigger action
+End Trigger			
+```
+
+The generator compiles the trigger name and trigger parameters into the CM Trigger row's expandable Value text. Trigger action rows remain actions inside the trigger block.
+
+### 11.1 Trigger Parameter Rules From CM Help
+
+| Parameter | Meaning | Symbol references |
+|---|---|---|
+| Name | Literal string in double quotes, for example `"Trigger1"`; each trigger name must be unique | No |
+| Condition | Trigger condition; can use parameters, properties, signals, deltas, logical/arithmetic operators | Yes |
+| TrueTime | Seconds the condition must be true before activation; absolute time, not paused by hold | Yes, evaluated once when trigger is created |
+| Delay | Delay time in seconds between fulfilled condition and command execution | No; constant numeric expression only |
+| Limit | Upper limit for trigger executions; default is 1000; the trigger is automatically deleted after the corresponding number of activations | Yes, evaluated once when trigger is created |
+| Hysteresis | Percent fraction around comparison value; reduces noise sensitivity | No; constant numeric expression only |
+| AllowImmediateExecution | Whether to execute immediately if condition is true at definition time | No; valid values `No`/`Yes` or `0`/`1`; default is `Yes` |
+
+Never write `Limit Infinite`, `Limit=Infinite`, `Limit Unlimited`, or similar
+text. CM Help defines `Limit` as a numeric expression. If the trigger should
+repeat throughout the run, either omit the `Limit` row and accept the CM default
+limit, or use an explicit numeric limit large enough for the run, for example
+`Limit	1000`.
+
+Autosuggest note from CM Help:
+
+```text
+Autosuggest for symbol references works only for Condition, Limit, and TrueTime.
+All other trigger parameters do not accept symbol references.
+```
+
+### 11.2 Trigger Condition Syntax
+
+Examples from CM Help:
+
+```text
+(UV_VIS_1>100) AND (UV_VIS_2>100)
+(UV_VIS_1+UV_VIS_2)>200
+(UV_VIS_1>100) AND NOT (UV_VIS_2>200)
+```
+
+Operators:
+
+```text
+Arithmetic: +, -, *, /, **
+Logical: AND, OR, NOT, XOR
+Comparison: <, >, =, <=, >=, <>
+```
+
+Use parentheses for clarity.
+
+### 11.3 Trigger Timing Semantics
+
+Important:
+
+| Parameter | Unit |
+|---|---|
+| `TrueTime` | seconds |
+| Trigger `Delay` | seconds |
+| Stage `Duration = ... [min]` | minutes |
+
+If `Delay` is used with `TrueTime`, the command executes after:
+
+```text
+TrueTime + Delay
+```
+
+TrueTime is also used as false time after activation, or if the condition is initially true and `AllowImmediateExecution=No`.
+
+### 11.4 Trigger Limits And Nesting
+
+Do not reuse a trigger name. CM Method Check rejects duplicate trigger names.
+
+Do not generate nested trigger blocks. CM Help states that nested triggers are not allowed in Chromeleon 7; imported nested triggers are converted to comment lines and an error is issued.
+
+Do not place free `If / Else / End If` blocks inside a trigger unless a decoded CM7 CMBX source method proves the exact structure. Prefer:
+
+| Safer pattern | Use when |
+|---|---|
+| Separate triggers with more specific conditions | Conditional logic can be moved into trigger condition |
+| Trigger sets a state variable, ordinary branch outside trigger uses that state | Need procedural branching |
+| `Open Verification Required` | Structure is not proven |
+
+## 12. Time And Unit Rules
+
+| Construct | Unit / meaning |
+|---|---|
+| Stage time such as `-30.000`, `0.000`, `120.000` | decimal minutes in the method timeline |
+| Stage `Duration = 30.000 [min]` | minutes |
+| Trigger `TrueTime=1800` | seconds |
+| Trigger `Delay=5` | seconds |
+| Command `Delay 30` | command value from source method; unit must be verified from source method context |
+
+Do not express a 30-minute stability hold as ordinary command `Delay 30` unless source method evidence proves that exact meaning. Prefer stage duration or trigger `TrueTime=1800`.
+
+### 12.1 Periodic Trigger Scheduling
+
+For source-grounded TCC valve stress methods, periodic switching is scheduled
+against `System.Retention`, which is in minutes. Use an absolute next-edge
+variable, for example:
+
+```text
+6 s period: Variables.GenericFloat1 = System.Retention+0.1
+3 s period: Variables.GenericFloat1 = System.Retention+0.05
+```
+
+Do not describe ordinary command `Delay 0.1` as a 6-second cycle. Do not use
+Trigger `TrueTime=0.1` as the cycle period. Trigger `TrueTime` and trigger
+`Delay` are seconds; the verified recurring schedule is controlled by the
+`System.Retention` comparison and next-edge assignment. Preserve the complete
+source Ping/Pong state handoff and the source Delay rows around valve movement.
+
+### 12.2 Valve Pressure Virtual-Channel Contract
+
+When the requested report needs one dynamic row per valve switch, logging the
+valve properties is not enough: a native Audit Trail table also shows unrelated
+run entries. Use the verified pressure-integration chain only when the pump and
+Processing Method are part of the test configuration:
+
+```tsv
+Time	Command	Value	Comment
+	VirtualChannel	PumpPressureVirtual, PumpModule.Pump.Pump_Pressure.Signal, Type=Digital, Unit="bar", Evaluate=Yes	Expose valve pressure transients for integration
+```
+
+Contract:
+
+| Layer | Required evidence |
+|---|---|
+| Instrument configuration | `PumpModule.Pump.Pump_Pressure.Signal` exists and is acquired during valve switching |
+| Instrument Method | Exact virtual-channel name `PumpPressureVirtual`, `Type=Digital`, `Unit="bar"`, `Evaluate=Yes` |
+| Sequence injection | Processing Method is exactly `PressureSpikeEval` unless another method has been independently validated |
+| Report | Integration table is fixed to `PumpPressureVirtual` and uses peak-time plus valve-position audit formulas |
+
+Do not add this virtual channel to a TCC-only method that has no PumpModule
+pressure source. In that configuration, use explicit RetTime/audit formulas or
+mark the dynamic valve-only table `Open Verification Required`.
+
+## 13. Method Check And Red Cells
+
+Official Help:
+
+After creating a method, use `Check Method`. Errors and warnings are shown in the Method Check Results pane with source links.
+
+Likely causes for red cells:
+
+| Red pattern | Likely cause |
+|---|---|
+| Unknown command/property | Symbol not available for current instrument config/user level |
+| Trigger parameter rows rendered as ordinary commands | Trigger syntax not packed into Trigger value |
+| `Log "text"` | `Log` expects property/variable, not arbitrary string |
+| Empty `If` followed by condition row | Branch condition not on same branch row |
+| Custom variable undefined at sequence run time | Instrument Controller may abort |
+| Custom variable used for stage/time-step time | Not supported by CM Help |
+| Nested trigger | Not allowed in CM7 |
+| Duplicate trigger name | Rejected by Method Check |
+| Symbol references in trigger `Delay`, `Hysteresis`, or `AllowImmediateExecution` | Not accepted by CM Help |
+
+## 14. Compiler Contract For Structural MD -> CMBX
+
+The first executable fenced `tsv` block is structural compiler input, not free
+Markdown prose and not raw Chromeleon XML. The local compiler maps rows into CM
+method nodes using these contracts:
+
+| MD row pattern | Compiler meaning |
+|---|---|
+| `Kind=Stage` or known stage name in `Command` | CM `StageNode` plus a `TimeStepNode` |
+| `Time=If / Else If / Else / End If` | CM branch block |
+| `Time=Trigger` through `End Trigger` | One `System.Trigger` command with folded trigger parameters and child commands |
+| `Kind=Comment` with empty `Time` | CM green comment node |
+| `Kind=Comment` with numeric `Time` | Preflight error; timed prose is not executable |
+| `Command=Condition/TrueTime/Delay/Limit/Hysteresis/AllowImmediateExecution` inside Trigger | Trigger parameter row |
+| Trigger parameter outside Trigger | Preflight error |
+| `Run Duration` != `Stop Run` time | Preflight error |
+| Run-stage row later than `Stop Run` | Preflight error |
+
+Compiler behavior is intentionally strict. If a generated MD is rejected, correct
+the MD so the CM structure is explicit; do not expect the compiler to infer what
+the author meant.
+
+## 15. AI Authoring Workflow
+
+Before producing the TSV block, the AI must internally perform:
+
+1. Interpret the user intent as a CM operation contract.
+2. Identify device model, test type, setpoints, baseline, target, duration, sensors, RetTimes, triggers, and report expectations.
+3. Choose known command families from source KB / CMBX evidence.
+4. Decide if the existing report can calculate the requested output.
+5. Generate a strict TSV script.
+6. Mark unknown commands/config/report constraints as `Open Verification Required`.
+
+The final answer to the user may include explanation, but the executable script must be one strict TSV block.
+
+## 16. Validation Checklist For Web AI Output
+
+| Check | Must pass |
+|---|---|
+| First fenced executable block is `tsv` | Yes |
+| Columns are exactly `Time`, `Command`, `Value`, `Comment` | Yes |
+| Uses tabs, not Markdown table pipes | Yes |
+| Stage rows use known stage names | Yes |
+| Branch rows have keyword in `Time` and condition in `Value` | Yes |
+| Trigger rows have unique quoted names | Yes |
+| Trigger parameter rows stay inside Trigger block | Yes |
+| Trigger `TrueTime` and trigger `Delay` are seconds | Yes |
+| Trigger `Delay`, `Hysteresis`, `AllowImmediateExecution` do not use symbol references | Yes |
+| Numeric `Time` rows are stages, triggers, or executable commands | Yes |
+| No timed prose-only comments | Yes |
+| `Run Duration = X [min]` equals `Stop Run` time `X` | Yes |
+| No Run-stage row occurs after `Stop Run` | Yes |
+| Custom variables are not invented and are not used for stage/time-step time | Yes |
+| Branch/signal conditions only evaluate signals after acquisition is enabled | Yes |
+| No nested triggers | Yes |
+| No arbitrary text passed to `Log` | Yes |
+| Long holds use stage duration or trigger TrueTime, not ambiguous command Delay | Yes |
+| Method ends with `End` | Yes |
+| Unknown device/config/report dependencies are marked | Yes |
+
+## 17. Minimal Valid Template
+
+```tsv
+Time	Command	Value	Comment
+{Initial Time}	Instrument Setup		
+	==============================		
+	Example generated CM method		
+	==============================		
+If		ColumnComp.ModelNo="VH-C10-A"	
+	Variables.GenericDouble1	40.0 [°C]	Baseline temperature
+	Variables.GenericDouble2	60.0 [°C]	Target temperature
+Else			
+	Message	"Invalid ModelNo! Please reinspect in production!"	
+	System.AbortQueue		
+End If			
+-30.000	Equilibration	Duration = 30.000 [min]	Equilibrate at baseline before run
+	ColumnComp.CC.Temperature.Nominal	Variables.GenericDouble1	
+0.000	Run		
+	ColumnComp.CC_Temp.AcqOn		
+	Thermometer1.ExtTemp_UpperCC.AcqOn		
+	Thermometer1.ExtTemp_LowerCC.AcqOn		
+	ColumnComp.CC.Temperature.Nominal	Variables.GenericDouble2	
+Trigger		"T_TARGET_READY",	Wait until target is ready for 2 min
+	Condition	(CC.Temperature.Nominal=Variables.GenericDouble2) AND CC.TempReady,	
+	TrueTime	120	
+	Delay	0	
+	Limit	1	
+	Hysteresis	0	
+	AllowImmediateExecution	No	
+	RetTimes.RetTime1	System.Retention	Report anchor
+	Protocol	"Target temperature ready"	
+End Trigger			
+120.000	Stop Run		
+	ColumnComp.CC_Temp.AcqOff		
+	Thermometer1.ExtTemp_UpperCC.AcqOff		
+	Thermometer1.ExtTemp_LowerCC.AcqOff		
+	End		
+```

@@ -9,7 +9,8 @@ const state = {
     formula:{artifactIds:new Set(),catalog:null,formulas:[],selected:new Set(),injections:new Set(),results:[]}
   },
   report:{config:null,modules:new Set(),package:null,artifact:null,preflight:null,methodBasis:null,methods:[],step:1},
-  quality:{config:null,catalog:null,result:null}
+  quality:{config:null,catalog:null,result:null},
+  single:{artifactIds:new Set(),catalog:null,traceKeys:new Set(),benchmarkKeys:new Set(),result:null,step:1,feature:""}
 };
 
 const api = async (url, options = {}) => {
@@ -65,6 +66,7 @@ function resetUserScopedState() {
   state.analysis.chrom = {artifactIds:new Set(),catalog:null,selected:new Set(),filters:{package:"",sequence:"",injection:"",channel:""},step:1,plot:null,viewStack:[]};
   state.analysis.formula = {artifactIds:new Set(),catalog:null,formulas:[],selected:new Set(),injections:new Set(),results:[]};
   state.quality = {config:null,catalog:null,result:null};
+  state.single = {artifactIds:new Set(),catalog:null,traceKeys:new Set(),benchmarkKeys:new Set(),result:null,step:1,feature:""};
 }
 
 function applyAccessPolicy() {
@@ -74,7 +76,7 @@ function applyAccessPolicy() {
     method:allowed("instrument_method_generation","method_generate","method_manual_web_ai","method_deepseek"),
     report:allowed("report_generate"), raw:allowed("raw_export"),
     chrom:allowed("chromatogram_plot"), formula:allowed("direct_cm_formula"),
-    foq:allowed("foq_check"), quality:allowed("database_read"), admin,
+    foq:allowed("foq_check"), quality:allowed("database_read"), single:allowed("single_verification","leak_sensor_analysis"), admin,
   };
   Object.entries(viewRules).forEach(([view,visible])=>document.querySelectorAll(`[data-view="${view}"]`).forEach(item=>item.hidden=!visible));
   const moduleAliases={instrument_method_generation:["instrument_method_generation","method_generate","method_manual_web_ai","method_deepseek"]};
@@ -122,7 +124,7 @@ function showView(name) {
   document.querySelectorAll(".nav-item").forEach(el => el.classList.toggle("active", el.dataset.view === name));
   document.querySelector(".map-branches")?.classList.remove("has-focus");
   document.querySelectorAll("[data-map-branch]").forEach(el => el.classList.remove("focused"));
-  const labels = {home:"Home",method:"Instrument Method Generation",report:"Report Template Generation",raw:"Batch Raw Data Export",chrom:"Chromatograms & Integration",formula:"Direct CM Formula Results",quality:"Quality Data & Database",workspace:"CMBX Workspace",foq:"FOQ Quick Check",jobs:"Job Center",admin:"Admin Console"};
+  const labels = {home:"Home",method:"Instrument Method Generation",report:"Report Template Generation",raw:"Batch Raw Data Export",chrom:"Chromatograms & Integration",formula:"Direct CM Formula Results",quality:"Quality Data & Database",workspace:"CMBX Workspace",foq:"FOQ Quick Check",single:"Single Verification",jobs:"Job Center",admin:"Admin Console"};
   document.querySelector("#breadcrumb").textContent = `Workspace / ${labels[name]}`;
   if (name === "workspace") refreshArtifacts();
   if (name === "home") refreshFileLibrary();
@@ -131,6 +133,7 @@ function showView(name) {
   if (["raw","chrom","formula"].includes(name)) renderAnalysisSources(name);
   if (name === "report") refreshReportConfig();
   if (name === "quality") refreshQualityConfig();
+  if (name === "single") closeLeakSensorAnalysis();
   if (name === "jobs") refreshJobs();
   if (name === "admin") refreshAdmin();
 }
@@ -758,6 +761,101 @@ async function runFoqCheck() {
 }
 
 function displayValue(value) { return typeof value === "number" ? Number(value.toPrecision(8)).toString() : String(value ?? ""); }
+
+const TCC_QC_SUMMARY_COLUMNS = [
+  {label:"Module", aliases:["ModelNo"], fallback:group=>group[0]?.device},
+  {label:"SN", aliases:["Serial"], fallback:group=>group[0]?.sequence},
+  {label:"Trial"}, {label:"FW Rev.", aliases:["Firmware"]}, {label:"Test Stand", aliases:["TimeBase"]}, {label:"DVT No."},
+  {label:"FOQ Date", aliases:["TestDate","SubmitDate"]}, {label:"Overall result", derive:"overall"}, {label:"QC Comment[Xiaoshu]"},
+  {label:"Heat Up Time", aliases:["HeatUp_Time_20to50"]}, {label:"Cool Down Time", aliases:["CoolDown_Time_50to20"]},
+  {label:"Ripple No. Precision >0.03℃"}, {label:"Overshoot ℃ (0.00)"}, {label:"Precision", aliases:["TempPrecision"]},
+  {label:"Accuracy MAX", derive:"accuracy_max"}, {label:"Stability", aliases:["TempStability"]}, {label:"Accuracy total time/min"},
+  {label:"Preheater Simulator Box Test", derive:"preheater_result"}, {label:"Valve"}, {label:"Column ID", derive:"column_id_result"}, {label:"Fan"},
+  {label:"Accruacy 10", aliases:["TempAcc10"]}, {label:"Accruacy 20", aliases:["TempAcc20"]}, {label:"Accruacy 40", aliases:["TempAcc40"]},
+  {label:"Accruacy 60", aliases:["TempAcc60"]}, {label:"Accruacy 85", aliases:["TempAcc85"]}, {label:"Leak sensor"},
+  {label:"Distribution Test Result"}, {label:"Stress Test Result"},
+  {label:"Preheater temperature up", aliases:["Diff_PhLeft_HtTmp"]}, {label:"right", aliases:["Diff_PhRight_HtTmp"]},
+  {label:"preheater noise", aliases:["Noise_PrehtLeft_Temp"]}, {label:"right", aliases:["Noise_PrehtRight_Temp"]},
+  {label:"Preheater tempstep"}, {label:"right"}, {label:"Keyboard"},
+  {label:"Upper_Valve precision 6_1"}, {label:"Upper_Valve precision 1_2"}, {label:"Upper_Valve precision 6_1"},
+  {label:"Lower_Valve precision 6_1"}, {label:"Lower_Valve precision 1_2"}, {label:"Lower_Valve precision 6_1"},
+];
+
+function foqSequenceGroups() {
+  const groups = new Map();
+  state.foq.results.forEach(row => {
+    const key = `${row.package}\u0000${row.sequence}\u0000${row.device}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  });
+  return [...groups.values()];
+}
+
+function foqMetricValue(group, aliases=[]) {
+  const wanted = new Set(aliases.map(value => value.toLowerCase()));
+  const row = group.find(item => wanted.has(String(item.db_field).toLowerCase()));
+  return row ? displayValue(row.value) : "";
+}
+
+function foqAggregateResult(rows) {
+  if (!rows.length) return "";
+  const ownValues = rows.map(row => String(row.value ?? "").toLowerCase());
+  const statuses = rows.map(row => String(row.spec_status || "").toLowerCase());
+  if (statuses.includes("fail") || ownValues.some(value => ["fail","failed","test failed","false","no","not ok"].includes(value))) return "Fail";
+  if (statuses.includes("review") || statuses.includes("not_evaluated")) return "Review";
+  return statuses.includes("pass") || ownValues.some(value => ["ok","pass","passed","test passed","true","yes"].includes(value)) ? "Pass" : "";
+}
+
+function foqSummaryValue(group, column) {
+  if (column.aliases) {
+    const value = foqMetricValue(group, column.aliases);
+    if (value !== "") return value;
+  }
+  if (column.derive === "overall") return foqAggregateResult(group);
+  if (column.derive === "accuracy_max") {
+    const values = group.filter(row => /^TempAcc(10|20|40|60|80|85|120)$/i.test(row.db_field)).map(row => Number(row.value)).filter(Number.isFinite);
+    return values.length ? displayValue(Math.max(...values.map(Math.abs))) : "";
+  }
+  if (column.derive === "preheater_result") return foqAggregateResult(group.filter(row => /^RES_Preheater_/i.test(row.db_field)));
+  if (column.derive === "column_id_result") return foqAggregateResult(group.filter(row => /^RES_ColumnID_/i.test(row.db_field)));
+  return column.fallback ? displayValue(column.fallback(group)) : "";
+}
+
+function currentFoqOutput() {
+  const layout = document.querySelector("#foqOutputLayout")?.value || "metric";
+  if (layout === "tcc_qc_summary") {
+    return {headers:TCC_QC_SUMMARY_COLUMNS.map(column=>column.label), rows:foqSequenceGroups().map(group=>TCC_QC_SUMMARY_COLUMNS.map(column=>foqSummaryValue(group,column))), name:"TCC_QC_Summary"};
+  }
+  const metric = document.querySelector("#foqChartMetric")?.value || "";
+  const rows = state.foq.results.filter(row => row.db_field === metric);
+  return {headers:["Module","CMBX","Sequence","Injection","Metric","Value","Unit","SPEC","History status","History mean","Delta","Z score"], rows:rows.map(row=>[row.device,row.package,row.sequence,row.injection,row.db_field,displayValue(row.value),row.unit,row.spec_status,row.history_status,row.history?.mean == null ? "" : displayValue(row.history.mean),row.history_delta == null ? "" : displayValue(row.history_delta),row.history_z == null ? "" : displayValue(row.history_z)]), name:metric || "FOQ_metric"};
+}
+
+function renderFoqOutput() {
+  const output = currentFoqOutput();
+  document.querySelector("#foqOutputHead").innerHTML = `<tr>${output.headers.map(value=>`<th>${escapeHtml(value)}</th>`).join("")}</tr>`;
+  document.querySelector("#foqOutputRows").innerHTML = output.rows.length ? output.rows.map(row=>`<tr>${row.map(value=>`<td>${escapeHtml(displayValue(value))}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${output.headers.length}" class="empty">No matching sequence result.</td></tr>`;
+  const layout = document.querySelector("#foqOutputLayout").value;
+  document.querySelector("#foqOutputStatus").textContent = layout === "metric" ? `${output.rows.length} sequence result(s) for the selected chart metric.` : `${output.rows.length} sequence row(s). Columns without a verified FOQ Location mapping remain blank.`;
+}
+
+function foqOutputTsv() {
+  const output=currentFoqOutput();
+  const clean=value=>String(value??"").replace(/\t/g," ").replace(/[\r\n]+/g," ");
+  return [output.headers,...output.rows].map(row=>row.map(clean).join("\t")).join("\r\n");
+}
+
+async function copyFoqOutput() {
+  const text=foqOutputTsv();
+  try { await navigator.clipboard.writeText(text); toast("FOQ result table copied."); }
+  catch (_error) { const area=document.createElement("textarea"); area.value=text; document.body.append(area); area.select(); document.execCommand("copy"); area.remove(); toast("FOQ result table copied."); }
+}
+
+function downloadFoqOutput() {
+  const output=currentFoqOutput(); const blob=new Blob(["\ufeff",foqOutputTsv()],{type:"text/tab-separated-values;charset=utf-8"});
+  const link=document.createElement("a"); link.href=URL.createObjectURL(blob); link.download=`${output.name.replace(/[^A-Za-z0-9_.-]+/g,"_")}.tsv`; link.click(); setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+}
+
 function renderFoqResults(result) {
   const summary = result.summary || {};
   document.querySelector("#foqSummary").innerHTML = [["Total",summary.total,""],["Pass",summary.pass,"pass"],["Fail",summary.fail,"fail"],["Review",summary.review,""],["Not evaluated",summary.not_evaluated,""]].map(([label,value,kind]) => `<div class="metric ${kind}"><b>${value || 0}</b><span>${label}</span></div>`).join("");
@@ -768,10 +866,12 @@ function renderFoqResults(result) {
   const metrics = [...new Set(state.foq.results.map(row => row.db_field))];
   const select = document.querySelector("#foqChartMetric"); select.innerHTML = '<option value="">Choose a result metric</option>' + metrics.map(metric => `<option>${escapeHtml(metric)}</option>`).join("");
   if (metrics.length) { select.value = metrics[0]; renderFoqChart(metrics[0]); }
+  renderFoqOutput();
   document.querySelector("#foqResultStatus").textContent = `${result.history?.enabled ? `${result.history.count} historical row(s) compared` : "SPEC-only comparison"}.`;
 }
 
 function renderFoqChart(metric) {
+  renderFoqOutput();
   const rows = state.foq.results.filter(row => row.db_field === metric && Number.isFinite(Number(row.value)));
   const chart = document.querySelector("#foqChart");
   if (!rows.length) { chart.innerHTML = '<div class="empty-block">No numeric value is available for this metric.</div>'; return; }
@@ -896,7 +996,134 @@ async function runQuality(){const table=document.querySelector("#qualityTable").
 function renderQuality(r){document.querySelector("#qualityMetric").innerHTML='<option value="">Auto detect</option>'+r.numeric_metrics.map(m=>`<option ${m===r.metric?"selected":""}>${escapeHtml(m)}</option>`).join("");document.querySelector("#qualityModel").innerHTML='<option value="">All models</option>'+r.choices.models.map(m=>`<option>${escapeHtml(m)}</option>`).join("");const s=r.summary||{};document.querySelector("#qualitySummary").innerHTML=[["N",s.count||0],["Mean",displayValue(s.mean)],["SD",displayValue(s.stdev)],["UCL",displayValue(s.ucl)],["LCL",displayValue(s.lcl)]].map(([a,b])=>`<div class="metric"><b>${escapeHtml(b)}</b><span>${a}</span></div>`).join("");renderQualityChart(r);document.querySelector("#qualityHead").innerHTML='<tr>'+r.display_columns.map(c=>`<th>${escapeHtml(c)}</th>`).join("")+'</tr>';document.querySelector("#qualityRows").innerHTML=r.rows.map(row=>'<tr>'+r.display_columns.map(c=>`<td>${escapeHtml(displayValue(row[c]))}</td>`).join("")+'</tr>').join("")||'<tr><td class="empty">No rows match the filter.</td></tr>';}
 function renderQualityChart(r){const root=document.querySelector("#qualityChart"),values=r.samples||[];if(!values.length){root.innerHTML='<div class="empty-block">No numeric samples.</div>';return;}const refs=[r.summary.lcl,r.summary.ucl,r.summary.mean].filter(Number.isFinite),all=values.concat(refs);let min=Math.min(...all),max=Math.max(...all);if(min===max){min--;max++;}const w=1000,h=300,l=55,t=20,b=35,y=v=>t+(max-v)/(max-min)*(h-t-b),x=i=>l+i/(Math.max(1,values.length-1))*(w-l-20);const lines=[[r.summary.ucl,"UCL","#b66a00"],[r.summary.mean,"Mean","#526273"],[r.summary.lcl,"LCL","#b66a00"]].filter(a=>Number.isFinite(a[0])).map(a=>`<line x1="${l}" y1="${y(a[0])}" x2="${w-20}" y2="${y(a[0])}" stroke="${a[2]}" stroke-dasharray="4 3"/><text x="${w-24}" y="${y(a[0])-5}" text-anchor="end" fill="${a[2]}">${a[1]} ${displayValue(a[0])}</text>`).join("");root.innerHTML=`<svg viewBox="0 0 ${w} ${h}">${lines}${values.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="2.5" fill="#8794a5"/>`).join("")}<text x="${l}" y="15" font-weight="700">${escapeHtml(r.metric)} · ${r.count} row(s)</text></svg>`;}
 
+function setSingleStep(step,message=""){
+  state.single.step=step;
+  document.querySelectorAll("[data-single-step]").forEach(item=>{const value=Number(item.dataset.singleStep);item.classList.toggle("active",value===step);item.classList.toggle("complete",value<step);});
+  document.querySelectorAll("[data-single-panel]").forEach(item=>item.classList.toggle("active",Number(item.dataset.singlePanel)===step));
+  if(message)document.querySelector("#singleMessage").textContent=message;
+  document.querySelector("#view-single").scrollIntoView({behavior:"smooth",block:"start"});
+}
+async function refreshSingleSources(){
+  try{
+    state.artifacts=await api("/api/artifacts?kind=cmbx_source");
+    const available=new Set(state.artifacts.map(item=>item.id));state.single.artifactIds=new Set([...state.single.artifactIds].filter(id=>available.has(id)));
+    document.querySelector("#singleSourceList").innerHTML=state.artifacts.length?state.artifacts.map(item=>`<label class="source-chip"><input type="checkbox" data-single-artifact="${item.id}" value="${item.id}" ${state.single.artifactIds.has(item.id)?"checked":""}><span><strong>${escapeHtml(item.original_name)}</strong><small>${formatBytes(item.size_bytes)} · ${escapeHtml(item.created_at)}</small></span></label>`).join(""):'<div class="empty-block">No CMBX file in your library. Add one from Home / My files first.</div>';
+    renderSingleSourceStatus();
+  }catch(error){toast(error.message);}
+}
+function renderSingleSourceStatus(){document.querySelector("#singleSourceStatus").textContent=`${state.single.artifactIds.size} CMBX file(s) selected.`;}
+async function openLeakSensorAnalysis(){
+  state.single.feature="leak_sensor_analysis";
+  document.querySelector("#singleCatalog").hidden=true;
+  document.querySelector("#leakSensorWorkflow").hidden=false;
+  setSingleStep(1,"Step 1: choose one or more completed CMBX files from your personal library.");
+  await refreshSingleSources();
+}
+function closeLeakSensorAnalysis(){
+  state.single.feature="";
+  document.querySelector("#singleCatalog").hidden=false;
+  document.querySelector("#leakSensorWorkflow").hidden=true;
+}
+function renderSingleTraceRows(){
+  const rows=state.single.catalog||[];
+  document.querySelector("#singleTraceRows").innerHTML=rows.length?rows.map(row=>`<tr><td><input type="checkbox" data-single-trace="${escapeHtml(row.key)}" ${state.single.traceKeys.has(row.key)?"checked":""}></td><td><input type="checkbox" data-single-benchmark="${escapeHtml(row.key)}" ${state.single.benchmarkKeys.has(row.key)?"checked":""}></td><td>${escapeHtml(row.package)}</td><td>${escapeHtml(row.sequence)}</td><td>${escapeHtml(row.injection)}</td><td>${escapeHtml(row.channel)}</td><td>${escapeHtml(row.liquid||"not identified")}</td><td>${escapeHtml(row.temperature_c||"not identified")}</td></tr>`).join(""):'<tr><td colspan="8" class="empty">No LeakDiff raw channel was found in the selected CMBX files.</td></tr>';
+  document.querySelector("#singleTraceStatus").textContent=`${rows.length} curve(s) found; ${state.single.traceKeys.size} selected; ${state.single.benchmarkKeys.size} benchmark(s).`;
+}
+async function loadSingleCatalog(){
+  if(!state.single.artifactIds.size)return toast("Choose at least one CMBX source.");
+  document.querySelector("#singleSourceStatus").textContent="Decoding LeakDiff channel inventory...";
+  try{
+    const result=await api("/api/single-verification/leak-sensor/catalog",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({artifact_ids:[...state.single.artifactIds]}),timeoutMs:180000});
+    state.single.catalog=result.traces||[];
+    const available=new Set(state.single.catalog.map(row=>row.key));
+    state.single.traceKeys=new Set([...state.single.traceKeys].filter(key=>available.has(key)));
+    state.single.benchmarkKeys=new Set([...state.single.benchmarkKeys].filter(key=>available.has(key)));
+    if(!state.single.traceKeys.size)state.single.catalog.forEach(row=>state.single.traceKeys.add(row.key));
+    renderSingleTraceRows();
+    setSingleStep(2,`Step 2: ${state.single.catalog.length} LeakDiff curve(s) found. Choose analysis curves and optional benchmark curves.`);
+  }catch(error){toast(error.message);renderSingleSourceStatus();}
+}
+async function runSingleVerification(){
+  if(!state.single.traceKeys.size)return toast("Choose at least one LeakDiff curve to analyze.");
+  setSingleStep(3,"Step 3: applying the established Leak Sensor Analyzer algorithm to decoded CMBX raw points.");
+  const button=document.querySelector("#rerunSingleVerification");button.disabled=true;document.querySelector("#singleProgressBar").style.width="3%";document.querySelector("#singleRunStatus").textContent="Queued...";
+  try{
+    const job=await api("/api/single-verification/leak-sensor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({artifact_ids:[...state.single.artifactIds],trace_keys:[...state.single.traceKeys],benchmark_keys:[...state.single.benchmarkKeys]})});
+    const result=await waitForJob(job.id,current=>{const percent=Math.round(100*current.progress_current/Math.max(1,current.progress_total));document.querySelector("#singleProgressBar").style.width=`${percent}%`;document.querySelector("#singleRunStatus").textContent=`${percent}% · ${current.message}`;});
+    state.single.result=result;renderSingleResults(result);document.querySelector("#singleRunStatus").textContent=`Complete · ${result.summary.total} curve(s) · ${result.algorithm||"Leak Sensor Analyzer"}`;
+  }catch(error){toast(error.message);document.querySelector("#singleRunStatus").textContent=error.message;}finally{button.disabled=false;}
+}
+function renderSingleResults(result){
+  const summary=result.summary||{};
+  (result.rows||[]).forEach(row=>{if(Number.isFinite(Number(row.delta_diff)))row.delta_diff=Number(row.delta_diff).toFixed(0);});
+  document.querySelector("#singleSummary").innerHTML=[["Curves",summary.total,""],["Benchmark",summary.benchmark,""],["Better",summary.better,"pass"],["Mixed",summary.mixed,""] ,["Worse",summary.worse,"fail"],["Unmatched",summary.unmatched,""]].map(([label,value,kind])=>`<div class="metric ${kind}"><b>${value||0}</b><span>${label}</span></div>`).join("");
+  document.querySelector("#singleResultRows").innerHTML=(result.rows||[]).map(row=>`<tr><td><strong>${escapeHtml(row.package)}</strong><br><small>${escapeHtml(row.sequence)} / ${escapeHtml(row.injection)}</small></td><td>${escapeHtml(row.benchmark_ref||"not assigned")}</td><td>${escapeHtml(displayValue(row.diff_start))}</td><td>${escapeHtml(displayValue(row.diff_peak))}</td><td>${escapeHtml(displayValue(row.delta_diff))}</td><td>${escapeHtml(displayValue(row.t0))}</td><td>${escapeHtml(displayValue(row.t50))}</td><td>${escapeHtml(displayValue(row.t90))}</td><td>${escapeHtml(Number(row.response_t90).toFixed(2))}</td><td>${escapeHtml(displayValue(row.response_peak))}</td><td>${escapeHtml(displayValue(row.rise_slope))}</td><td class="spec-${row.evaluation==="BETTER"?"pass":row.evaluation==="WORSE"?"fail":"review"}">${escapeHtml(row.evaluation||"NO BENCHMARK")}</td></tr>`).join("")||'<tr><td colspan="12" class="empty">No LeakDiff curve result was returned.</td></tr>';
+  renderSingleChart(result);
+  renderSingleMetricChart(result);
+  renderSingleT90Chart(result);
+}
+function selectedLeakChartRatio(){
+  const ratio=Number(document.querySelector("#singleChartRatio")?.value||1.5);
+  return Number.isFinite(ratio)&&ratio>0?ratio:1.5;
+}
+function selectedLeakChartFontPoints(){
+  const points=Number(document.querySelector("#singleChartFontSize")?.value||9);
+  return Number.isFinite(points)?Math.max(8,Math.min(16,points)):9;
+}
+function singleCurveSvg(curves,title){
+  const allPoints=curves.flatMap(curve=>curve.points||[]);if(!allPoints.length)return '<div class="empty-block">No decoded points.</div>';
+  let xmin=Math.min(...allPoints.map(p=>p[0])),xmax=Math.max(...allPoints.map(p=>p[0])),ymin=Math.min(...allPoints.map(p=>p[1])),ymax=Math.max(...allPoints.map(p=>p[1]));if(xmin===xmax)xmax=xmin+1;if(ymin===ymax)ymax=ymin+1;const ypad=(ymax-ymin)*.08;ymin-=ypad;ymax+=ypad;const w=920,h=Math.round(w/selectedLeakChartRatio()),l=62,r=20,t=34,b=44+Math.max(0,selectedLeakChartFontPoints()-9)*3,x=v=>l+(v-xmin)/(xmax-xmin)*(w-l-r),y=v=>t+(ymax-v)/(ymax-ymin)*(h-t-b),sampleColors=["#ed7d31","#d94841","#7a57ad","#07845f","#b16000"];
+  let sampleIndex=0;const colorFor=curve=>curve.is_benchmark?"#2369c8":sampleColors[(sampleIndex++)%sampleColors.length];
+  const colored=curves.map(curve=>({curve,color:colorFor(curve)}));
+  const paths=colored.map(({curve,color})=>`<path d="${(curve.points||[]).map((p,i)=>`${i?"L":"M"}${x(p[0]).toFixed(2)},${y(p[1]).toFixed(2)}`).join(" ")}" fill="none" stroke="${color}" stroke-width="${curve.is_benchmark?3.4:2.4}" ${curve.is_benchmark?'stroke-dasharray="8 4"':""}/>`).join("");
+  const markers=colored.flatMap(({curve,color})=>(curve.markers||[]).filter(m=>Number.isFinite(m.x)&&Number.isFinite(m.y)).map(m=>`<circle cx="${x(m.x)}" cy="${y(m.y)}" r="3.5" fill="#fff" stroke="${color}" stroke-width="2"/><text x="${x(m.x)+5}" y="${y(m.y)-6}" fill="#263746">${escapeHtml(m.label)}</text>`)).join("");
+  const labels=colored.map(({curve,color},index)=>`<span><i style="background:${color}"></i>${curve.is_benchmark?"Benchmark ":""}${escapeHtml(curve.injection||curve.label)}</span>`).join("");
+  return `<article class="leak-chart-panel"><div class="leak-chart-heading"><h4>${escapeHtml(title)}</h4><button class="chart-copy-button" data-copy-chart type="button">Copy chart</button></div><div class="leak-chart-legend">${labels}</div><svg class="excel-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${escapeHtml(title)} LeakDiff curves"><line x1="${l}" y1="${t}" x2="${l}" y2="${h-b}" stroke="#9aa5b1"/><line x1="${l}" y1="${h-b}" x2="${w-r}" y2="${h-b}" stroke="#9aa5b1"/>${paths}${markers}<text x="${w-r}" y="${h-10}" text-anchor="end" fill="#536273">Time (min)</text></svg></article>`;
+}
+function renderSingleChart(result){
+  const curves=result.curves||[],root=document.querySelector("#singleChart");if(!curves.length){root.innerHTML='<div class="empty-block">No decoded LeakDiff response curve was returned.</div>';return;}
+  const mode=document.querySelector("#singleOverlayMode")?.value||"condition";let groups=[];
+  if(mode==="overlay")groups=[["All selected curves",curves]];
+  else if(mode==="separate")groups=curves.map(curve=>[`${curve.group_key} · ${curve.injection}`, [curve]]);
+  else{const map=new Map();curves.forEach(curve=>{const key=curve.group_key||"Unidentified condition";if(!map.has(key))map.set(key,[]);map.get(key).push(curve);});groups=[...map.entries()];}
+  root.innerHTML=`<div class="leak-chart-grid ${mode}">${groups.map(([title,items])=>singleCurveSvg(items,title)).join("")}</div>`;
+}
+function renderSingleMetricChart(result){
+  renderLeakBarChart({rootId:"singleMetricChart",rows:result.group_summaries||[],benchmarkField:"benchmark_delta_mean",selectedField:"selected_delta_mean",ariaLabel:"Delta Diff benchmark comparison",benchmarkLabel:"ΔDiff [Benchmark mean]",selectedLabel:"ΔDiff [Selected mean]",empty:"No condition has numeric ΔDiff data.",decimals:0});
+}
+function renderSingleT90Chart(result){
+  renderLeakBarChart({rootId:"singleT90Chart",rows:result.group_summaries||[],benchmarkField:"benchmark_t90_mean",selectedField:"selected_t90_mean",ariaLabel:"T90 benchmark comparison",benchmarkLabel:"T90 [Benchmark mean]",selectedLabel:"T90 [Selected mean]",empty:"No condition has a valid T90 result.",decimals:2});
+}
+function renderLeakBarChart({rootId,rows,benchmarkField,selectedField,ariaLabel,benchmarkLabel,selectedLabel,empty,decimals=null}){
+  rows=rows.filter(row=>Number.isFinite(row[benchmarkField])||Number.isFinite(row[selectedField]));const root=document.querySelector(`#${rootId}`);if(!rows.length){root.innerHTML=`<div class="empty-block">${escapeHtml(empty)}</div>`;return;}
+  const format=value=>decimals===null?displayValue(value):Number(value).toFixed(decimals),values=rows.flatMap(row=>[row[benchmarkField],row[selectedField]]).filter(Number.isFinite),max=Math.max(...values,Number.EPSILON)*1.12,w=Math.max(760,rows.length*145+90),h=Math.round(w/selectedLeakChartRatio()),l=58,r=20,t=30,b=90+Math.max(0,selectedLeakChartFontPoints()-9)*5,y=v=>t+(max-v)/max*(h-t-b),groupWidth=(w-l-r)/rows.length,barWidth=Math.min(32,groupWidth*.25);
+  const grid=[0,.25,.5,.75,1].map(part=>{const value=max*part;return `<line x1="${l}" y1="${y(value)}" x2="${w-r}" y2="${y(value)}" stroke="#d9dee5"/><text x="${l-8}" y="${y(value)+4}" text-anchor="end" fill="#536273">${escapeHtml(format(value))}</text>`;}).join("");
+  const bars=rows.map((row,index)=>{const center=l+groupWidth*(index+.5),benchmark=Number(row[benchmarkField]),selected=Number(row[selectedField]),benchmarkBar=Number.isFinite(benchmark)?`<rect x="${center-barWidth-3}" y="${y(benchmark)}" width="${barWidth}" height="${h-b-y(benchmark)}" fill="#5b9bd5"/><text x="${center-barWidth/2-3}" y="${y(benchmark)-7}" text-anchor="middle">${escapeHtml(format(benchmark))}</text>`:"",selectedBar=Number.isFinite(selected)?`<rect x="${center+3}" y="${y(selected)}" width="${barWidth}" height="${h-b-y(selected)}" fill="#ed7d31"/><text x="${center+barWidth/2+3}" y="${y(selected)-7}" text-anchor="middle">${escapeHtml(format(selected))}</text>`:"";return `${benchmarkBar}${selectedBar}<text x="${center}" y="${h-b+22}" text-anchor="middle" fill="#465363">${escapeHtml(row.group_key.replace(" | ","_"))}</text>`;}).join("");
+  root.innerHTML=`<div class="leak-chart-heading"><span></span><button class="chart-copy-button" data-copy-chart type="button">Copy chart</button></div><svg class="excel-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${escapeHtml(ariaLabel)}">${grid}<line x1="${l}" y1="${h-b}" x2="${w-r}" y2="${h-b}" stroke="#9aa5b1"/>${bars}<g transform="translate(${l},${h-28})"><rect width="12" height="12" fill="#5b9bd5"/><text x="18" y="11">${escapeHtml(benchmarkLabel)}</text><rect x="210" width="12" height="12" fill="#ed7d31"/><text x="228" y="11">${escapeHtml(selectedLabel)}</text></g></svg>`;
+}
+
+function leakChartPng(svg){
+  const viewBox=(svg.getAttribute("viewBox")||"0 0 920 600").split(/\s+/).map(Number),width=Math.max(1,Math.round(viewBox[2]||920)),height=Math.max(1,Math.round(viewBox[3]||600));
+  const clone=svg.cloneNode(true),computed=getComputedStyle(svg);clone.setAttribute("xmlns","http://www.w3.org/2000/svg");clone.setAttribute("width",String(width));clone.setAttribute("height",String(height));clone.style.fontFamily="Aptos, Calibri, sans-serif";clone.style.fontSize=computed.fontSize||"12px";clone.style.background="#fff";
+  const source=new XMLSerializer().serializeToString(clone),url=URL.createObjectURL(new Blob([source],{type:"image/svg+xml;charset=utf-8"}));
+  return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>{try{const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;const context=canvas.getContext("2d");context.fillStyle="#fff";context.fillRect(0,0,width,height);context.drawImage(image,0,0,width,height);canvas.toBlob(blob=>blob?resolve({blob,canvas}):reject(new Error("PNG conversion failed")),"image/png");}catch(error){reject(error);}finally{URL.revokeObjectURL(url);}};image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("SVG rendering failed"));};image.src=url;});
+}
+function legacyCopyChart(canvas){
+  const dataUrl=canvas.toDataURL("image/png"),onCopy=event=>{event.clipboardData.setData("text/html",`<img src="${dataUrl}">`);event.preventDefault();};document.addEventListener("copy",onCopy);const copied=document.execCommand("copy");document.removeEventListener("copy",onCopy);return copied;
+}
+async function copyLeakChart(button){
+  const scope=button.closest(".leak-chart-panel,.single-metric-chart"),svg=scope?.querySelector("svg");
+  if(!svg)return toast("Chart not found.");
+  const pngPromise=leakChartPng(svg);
+  try{
+    if(navigator.clipboard&&window.ClipboardItem){await navigator.clipboard.write([new ClipboardItem({"image/png":pngPromise.then(result=>result.blob)})]);}
+    else{const result=await pngPromise;if(!legacyCopyChart(result.canvas))throw new Error("Clipboard image API unavailable");}
+    button.textContent="Copied";setTimeout(()=>button.textContent="Copy chart",1400);
+  }catch(error){try{const result=await pngPromise;if(!legacyCopyChart(result.canvas))throw error;button.textContent="Copied";setTimeout(()=>button.textContent="Copy chart",1400);}catch(fallbackError){toast(`Could not copy chart: ${fallbackError.message}`);}}
+}
+
 document.addEventListener("click", event => {
+  const copyChart=event.target.closest("[data-copy-chart]");if(copyChart){copyLeakChart(copyChart);return;}
   const branch = event.target.closest("[data-branch]")?.dataset.branch; if (branch) { showBranch(branch); return; }
   const view = event.target.closest("[data-view]")?.dataset.view; if (view) showView(view);
   const scan = event.target.closest("[data-scan]")?.dataset.scan; if (scan) scanArtifact(scan);
@@ -908,6 +1135,9 @@ document.addEventListener("click", event => {
   const useReport=event.target.closest("[data-use-report]")?.dataset.useReport;if(useReport){useManagedMd(useReport,"report");return;}
   const back = event.target.closest("[data-foq-back]")?.dataset.foqBack; if (back) setFoqStep(Number(back));
   const methodBack = event.target.closest("[data-method-back]")?.dataset.methodBack; if (methodBack) setMethodStep(Number(methodBack));
+  const singleBack=event.target.closest("[data-single-back]")?.dataset.singleBack;if(singleBack){setSingleStep(Number(singleBack));return;}
+  if(event.target.closest("#openLeakSensorAnalysis")){openLeakSensorAnalysis();return;}
+  if(event.target.closest("#backToSingleCatalog")){closeLeakSensorAnalysis();return;}
   const accessButton = event.target.closest("[data-access-decision]"); if (accessButton) decideAccessRequest(accessButton.dataset.accessId, accessButton.dataset.accessDecision);
   const developerButton = event.target.closest("[data-developer-email]"); if (developerButton) openDeveloperAccount(developerButton.dataset.developerEmail);
   if(event.target.closest("#rawLoadCatalog")){loadAnalysisCatalog("raw");return;}
@@ -919,6 +1149,9 @@ document.addEventListener("click", event => {
   const clearChannels=event.target.closest("[data-clear-channels]")?.dataset.clearChannels;if(clearChannels){state.analysis[clearChannels].selected.clear();renderChannelPicker(clearChannels);}
 });
 document.addEventListener("change",async event=>{
+  const singleArtifact=event.target.dataset.singleArtifact;if(singleArtifact){event.target.checked?state.single.artifactIds.add(singleArtifact):state.single.artifactIds.delete(singleArtifact);renderSingleSourceStatus();return;}
+  const singleTrace=event.target.dataset.singleTrace;if(singleTrace){event.target.checked?state.single.traceKeys.add(singleTrace):state.single.traceKeys.delete(singleTrace);if(!event.target.checked)state.single.benchmarkKeys.delete(singleTrace);renderSingleTraceRows();return;}
+  const singleBenchmark=event.target.dataset.singleBenchmark;if(singleBenchmark){if(event.target.checked){state.single.benchmarkKeys.add(singleBenchmark);state.single.traceKeys.add(singleBenchmark);}else state.single.benchmarkKeys.delete(singleBenchmark);renderSingleTraceRows();return;}
   const artifactKind=event.target.dataset.analysisArtifact;if(artifactKind){event.target.checked?state.analysis[artifactKind].artifactIds.add(event.target.value):state.analysis[artifactKind].artifactIds.delete(event.target.value);return;}
   const channelKind=event.target.dataset.analysisChannel;if(channelKind){event.target.checked?state.analysis[channelKind].selected.add(event.target.value):state.analysis[channelKind].selected.delete(event.target.value);renderChannelPicker(channelKind);return;}
   const filterKey=event.target.dataset.filter;if(filterKey){const kind=event.target.closest("#view-raw")?"raw":event.target.closest("#view-chrom")?"chrom":"";if(kind){state.analysis[kind].filters[filterKey]=event.target.value;populateAnalysisFilters(kind,filterKey);renderChannelPicker(kind);}return;}
@@ -991,6 +1224,9 @@ document.querySelector("#foqDbSource").addEventListener("change", event => {
 document.querySelector("#confirmFoqHistory").addEventListener("click", () => { if (document.querySelector("#foqUseHistory").checked && !state.foq.config?.database?.configured) { toast("Historical database is not configured. Disable history or ask the administrator to configure it."); return; } setFoqStep(4,"Step 4: run the mapped calculation and review SPEC/history evidence."); });
 document.querySelector("#runFoqCheck").addEventListener("click", runFoqCheck);
 document.querySelector("#foqChartMetric").addEventListener("change", event => renderFoqChart(event.target.value));
+document.querySelector("#foqOutputLayout").addEventListener("change", renderFoqOutput);
+document.querySelector("#copyFoqOutput").addEventListener("click", copyFoqOutput);
+document.querySelector("#downloadFoqOutput").addEventListener("click", downloadFoqOutput);
 document.querySelector("#refreshAdminAccess").addEventListener("click", refreshAdmin);
 document.querySelector("#exportRaw").addEventListener("click",exportRawData);
 document.querySelector("#plotChrom").addEventListener("click",plotChromatograms);
@@ -1012,5 +1248,17 @@ document.querySelector("#generateReport").addEventListener("click",generateRepor
 document.querySelector("#qualityConnect").addEventListener("click",loadQualityTables);
 document.querySelector("#qualityRun").addEventListener("click",runQuality);
 document.querySelector("#qualityMetric").addEventListener("change",runQuality);
+document.querySelector("#refreshSingleSources").addEventListener("click",refreshSingleSources);
+document.querySelector("#singleToBenchmark").addEventListener("click",loadSingleCatalog);
+document.querySelector("#runSingleVerification").addEventListener("click",runSingleVerification);
+document.querySelector("#rerunSingleVerification").addEventListener("click",runSingleVerification);
+document.querySelector("#singleOverlayMode").addEventListener("change",()=>{if(state.single.result)renderSingleChart(state.single.result);});
+document.querySelector("#singleChartFontSize").addEventListener("change",event=>{
+  const points=Math.max(8,Math.min(16,Number(event.target.value)||9));
+  document.querySelector("#leakSensorWorkflow").style.setProperty("--leak-chart-font-size",`${points*4/3}px`);
+});
+document.querySelector("#singleChartRatio").addEventListener("change",()=>{
+  if(state.single.result){renderSingleChart(state.single.result);renderSingleMetricChart(state.single.result);renderSingleT90Chart(state.single.result);}
+});
 
 initializeAuthentication();

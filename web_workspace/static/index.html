@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CMBX Workspace</title>
-  <link rel="stylesheet" href="/static/app.css?v=20260804-live-permissions">
+  <link rel="stylesheet" href="/static/app.css?v=20260804-leak-analyzer-v8">
 </head>
 <body>
   <div class="login-gate" id="loginGate">
@@ -71,6 +71,10 @@
               <button class="map-task available" data-view="foq" data-module-permission="foq_check">FOQ Quick Check <span>Available</span></button>
               <button class="map-task available" data-view="quality" data-module-permission="database_read">Quality Data &amp; Database <span>Available</span></button>
             </section>
+          </div>
+          <div class="map-single-route">
+            <div class="map-single-line" aria-hidden="true"></div>
+            <button class="map-task available" data-view="single" data-module-permission="single_verification"><strong>Single Verification</strong><span>Development checks</span></button>
           </div>
         </div>
         <section class="file-library" id="fileLibrary">
@@ -221,6 +225,18 @@
           <div class="summary-grid foq-summary" id="foqSummary"><div class="empty-block">Run the check to display results.</div></div>
           <div class="result-toolbar"><label>Chart metric <select id="foqChartMetric"><option value="">Choose a result metric</option></select></label></div>
           <div class="foq-chart" id="foqChart"><div class="empty-block">The selected metric comparison will appear here.</div></div>
+          <section class="foq-copy-panel">
+            <div class="section-heading">
+              <div><h2>Copyable sequence results</h2><p>List the selected chart metric, or arrange all calculated values in a saved report layout.</p></div>
+              <div class="foq-output-actions">
+                <label>Output layout<select id="foqOutputLayout"><option value="metric">Selected chart metric</option><option value="tcc_qc_summary">TCC QC Summary - Xiaoshu</option></select></label>
+                <button class="secondary-button" id="copyFoqOutput">Copy table</button>
+                <button class="secondary-button" id="downloadFoqOutput">Download TSV</button>
+              </div>
+            </div>
+            <div class="inline-status" id="foqOutputStatus">Choose a chart metric to build the sequence list.</div>
+            <div class="table-wrap foq-output-wrap"><table class="compact-table foq-output-table"><thead id="foqOutputHead"></thead><tbody id="foqOutputRows"><tr><td class="empty">No output yet.</td></tr></tbody></table></div>
+          </section>
           <div class="table-wrap">
             <table class="compact-table result-table">
               <thead><tr><th>CMBX / Sequence</th><th>Metric</th><th>Value</th><th>SPEC</th><th>History</th><th>Report evidence</th><th>Injection</th></tr></thead>
@@ -293,6 +309,47 @@
         <p class="eyebrow">QUALITY CONTROL &amp; DATABASE</p><h1>Quality Data &amp; Database</h1><p class="lead">Read historical production data, filter model and date scope, and inspect a metric against statistical control limits.</p>
         <div class="workflow-steps"><div class="step active"><b>1</b><span>Connect database</span></div><div class="step"><b>2</b><span>Choose table &amp; metric</span></div><div class="step"><b>3</b><span>Review QC curve</span></div></div>
         <section class="workflow-panel active"><div class="quality-controls"><label>Database source<select id="qualitySource"></select></label><button class="secondary-button" id="qualityConnect">Load tables</button><label>Table<select id="qualityTable"></select></label><label>Metric<select id="qualityMetric"><option value="">Auto detect</option></select></label><label>ModelNo<select id="qualityModel"><option value="">All models</option></select></label><label>From<input id="qualityDateFrom" type="date"></label><label>To<input id="qualityDateTo" type="date"></label><button class="primary-button" id="qualityRun">Load history</button></div><div id="qualitySummary" class="summary-grid"><div class="empty-block">Choose a database source.</div></div><div class="quality-chart" id="qualityChart"><div class="empty-block">The QC curve appears here.</div></div><div class="table-wrap"><table class="compact-table"><thead id="qualityHead"></thead><tbody id="qualityRows"><tr><td class="empty">No historical data.</td></tr></tbody></table></div></section>
+      </section>
+
+      <section class="view" id="view-single">
+        <p class="eyebrow">SINGLE VERIFICATION</p><h1>Single Verification</h1>
+        <p class="lead">Choose a focused verification workflow. Each feature keeps its own algorithm, evidence contract, and access permission.</p>
+        <section class="verification-catalog" id="singleCatalog">
+          <article class="verification-card" data-module-permission="leak_sensor_analysis">
+            <div><span class="feature-kicker">TCC DEVELOPMENT CHECK</span><h2>Leak Sensor Analysis</h2><p>Apply the established Leak Sensor Analyzer response algorithm directly to CMBX <code>LEDBoard_LeakDiff</code> raw channels.</p></div>
+            <ul><li>Baseline, peak, t0, t50 and t90</li><li>Response time, ΔDiff/T90 and rise slope</li><li>Benchmark curve comparison</li></ul>
+            <button class="primary-button" id="openLeakSensorAnalysis">Open analysis</button>
+          </article>
+        </section>
+
+        <div id="leakSensorWorkflow" hidden>
+          <div class="feature-header"><button class="text-button" id="backToSingleCatalog">Back to Single Verification</button><div><span class="feature-kicker">LEAK SENSOR ANALYSIS</span><h2>Analyze CMBX LeakDiff curves</h2></div></div>
+          <div class="workflow-steps" id="singleSteps"><div class="step active" data-single-step="1"><b>1</b><span>Choose CMBX</span></div><div class="step" data-single-step="2"><b>2</b><span>Choose curves &amp; benchmark</span></div><div class="step" data-single-step="3"><b>3</b><span>Analyze results</span></div></div>
+          <div class="flow-message" id="singleMessage">Step 1: choose one or more completed CMBX files from your personal library.</div>
+          <section class="workflow-panel active" data-single-panel="1">
+            <div class="panel-heading"><div><h2>1. Choose CMBX</h2><p>The next step finds LeakDiff raw channels through the current CMBX parser.</p></div><button class="secondary-button" id="refreshSingleSources">Refresh</button></div>
+            <div class="source-chip-list" id="singleSourceList"><div class="empty-block">Open this workflow to load your CMBX files.</div></div>
+            <div class="panel-footer"><span id="singleSourceStatus">No CMBX selected.</span><button class="primary-button" id="singleToBenchmark">Find LeakDiff curves</button></div>
+          </section>
+          <section class="workflow-panel" data-single-panel="2">
+            <div class="panel-heading"><div><h2>2. Choose curves and benchmark</h2><p>Select test curves and mark one or more matching benchmark curves. This mirrors the original Leak Sensor Analyzer workflow.</p></div></div>
+            <div class="table-wrap"><table class="compact-table leak-source-table"><thead><tr><th>Analyze</th><th>Benchmark</th><th>CMBX</th><th>Sequence</th><th>Injection</th><th>Channel</th><th>Liquid</th><th>Temperature</th></tr></thead><tbody id="singleTraceRows"><tr><td colspan="8" class="empty">Choose CMBX files first.</td></tr></tbody></table></div>
+            <div class="evidence-note"><strong>Calculation contract</strong><span>Source: decoded <code>LEDBoard_LeakDiff</code> raw points</span><span>Algorithm: Leak Sensor Analyzer V1.1</span><span>Times remain in minutes, matching the CM raw export.</span></div>
+            <div class="panel-footer"><button class="secondary-button" data-single-back="1">Back</button><span id="singleTraceStatus">No curves loaded.</span><button class="primary-button" id="runSingleVerification">Analyze curves</button></div>
+          </section>
+          <section class="workflow-panel" data-single-panel="3">
+            <div class="panel-heading"><div><h2>3. Analyze and review</h2><p>Curve metrics and benchmark comparisons use the same logic as the previous raw-data analyzer.</p></div><button class="secondary-button" id="rerunSingleVerification">Run again</button></div>
+            <div class="run-progress"><div class="progress-track wide"><div class="progress-bar" id="singleProgressBar"></div></div><span id="singleRunStatus">Ready.</span></div>
+            <div class="summary-grid" id="singleSummary"><div class="empty-block">Run the analysis to display results.</div></div>
+            <div class="single-chart-controls"><label>Curve layout<select id="singleOverlayMode"><option value="condition">Group by liquid + temperature</option><option value="overlay">Overlay all selected curves</option><option value="separate">One chart per curve</option></select></label><label class="chart-font-control">Chart font size<select id="singleChartFontSize"><option value="8">8 pt</option><option value="9" selected>9 pt</option><option value="10">10 pt</option><option value="11">11 pt</option><option value="12">12 pt</option><option value="14">14 pt</option><option value="16">16 pt</option></select></label><label class="chart-ratio-control">Chart ratio<select id="singleChartRatio"><option value="1.7777778">16:9</option><option value="1.5" selected>3:2</option><option value="1.3333333">4:3</option><option value="1">1:1</option></select></label><span><i class="legend-line benchmark"></i>Benchmark</span><span><i class="legend-line sample"></i>Selected injection</span></div>
+            <div class="single-chart" id="singleChart"><div class="empty-block">LeakDiff response curves will appear here.</div></div>
+            <div class="panel-heading compact-heading"><div><h3>ΔDiff comparison by condition</h3><p>Blue is the mean of selected benchmark injections; orange is the mean of selected non-benchmark injections.</p></div></div>
+            <section class="leak-summary-chart"><h3>Sensitivity comparison (absolute ΔDiff)</h3><div class="single-metric-chart" id="singleMetricChart"><div class="empty-block">Condition averages will appear here.</div></div></section>
+            <section class="leak-summary-chart"><h3>Response comparison (T90 = t90 - T0, min)</h3><div class="single-metric-chart" id="singleT90Chart"><div class="empty-block">Condition-average T90 values will appear here.</div></div></section>
+            <div class="table-wrap"><table class="compact-table single-result-table"><thead><tr><th>CMBX / Injection</th><th>Benchmark</th><th>Baseline</th><th>Peak</th><th>ΔDiff</th><th>t0</th><th>t50</th><th>t90</th><th>Response T90</th><th>Response peak</th><th>Rise slope</th><th>Evaluation</th></tr></thead><tbody id="singleResultRows"><tr><td colspan="12" class="empty">No result yet.</td></tr></tbody></table></div>
+            <div class="panel-footer"><button class="secondary-button" data-single-back="2">Change benchmark</button><span>Only the CMBX data adapter is new; the response calculation is preserved.</span></div>
+          </section>
+        </div>
       </section>
 
       <section class="view" id="view-workspace">
@@ -388,6 +445,6 @@
       <div class="panel-footer"><span id="developerAccountStatus"></span><button class="primary-button" type="button" id="saveDeveloperAccount">Save account</button></div>
     </form>
   </dialog>
-  <script src="/static/app.js?v=20260804-live-permissions"></script>
+  <script src="/static/app.js?v=20260804-leak-analyzer-v8"></script>
 </body>
 </html>

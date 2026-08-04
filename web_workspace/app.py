@@ -33,6 +33,8 @@ from .analysis import (
     chromatogram_payload,
     evaluate_direct_formulas,
     export_raw_zip,
+    leak_sensor_catalog,
+    leak_sensor_analysis,
     quality_catalog,
     quality_query,
     scan_direct_formulas,
@@ -70,6 +72,8 @@ PERMISSION_CATALOG = [
     {"id": "foq_check", "label": "FOQ Quick Check", "group": "Quality Control & Database", "default": True, "description": "Compare FOQ metrics with specifications and history."},
     {"id": "database_read", "label": "Quality Data & Database", "group": "Quality Control & Database", "default": True, "description": "Read historical quality data and QC trends."},
     {"id": "database_write", "label": "Controlled database write", "group": "Quality Control & Database", "parent": "database_read", "default": False},
+    {"id": "single_verification", "label": "Single Verification", "group": "Single Verification", "default": True, "description": "Run focused development checks directly from CMBX evidence."},
+    {"id": "leak_sensor_analysis", "label": "Leak Sensor Analysis", "group": "Single Verification", "parent": "single_verification", "default": True, "description": "Run the established raw-curve leak sensor analysis against CMBX LeakDiff channels."},
 ]
 DEFAULT_PERMISSIONS = [item["id"] for item in PERMISSION_CATALOG if item["default"]]
 
@@ -243,6 +247,9 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
     )
     require_direct_formula = permission_dependency(
         "direct_cm_formula", detail="Direct CM formula permission is required",
+    )
+    require_leak_sensor_analysis = permission_dependency(
+        "leak_sensor_analysis", detail="Leak Sensor Analysis permission is required",
     )
 
     def require_foq_check(identity: dict[str, Any] = Depends(current_identity)) -> dict[str, Any]:
@@ -1269,6 +1276,50 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             workspace_id=DEFAULT_WORKSPACE_ID, owner=identity["user"], task_type="direct_cm_formula_evaluation",
             input_payload={"artifact_ids": [item["id"] for item in records], "formula_count": len(requested)},
             function=lambda progress: (progress(1, 2, "running", "Evaluating Direct CM formulas") or evaluate_direct_formulas([item["storage_path"] for item in records], [str(value) for value in payload.get("injection_keys", [])], requested)),
+        )
+
+    @app.post("/api/single-verification/leak-sensor/catalog")
+    def single_verification_leak_sensor_catalog(
+        payload: dict[str, Any] = Body(...),
+        identity: dict[str, Any] = Depends(require_leak_sensor_analysis),
+    ) -> dict[str, Any]:
+        records = artifact_records([str(value) for value in payload.get("artifact_ids", [])], identity)
+        if not records:
+            raise HTTPException(status_code=400, detail="Choose at least one CMBX source")
+        return leak_sensor_catalog([item["storage_path"] for item in records])
+
+    @app.post("/api/single-verification/leak-sensor", status_code=202)
+    def single_verification_leak_sensor(
+        payload: dict[str, Any] = Body(...),
+        identity: dict[str, Any] = Depends(require_leak_sensor_analysis),
+    ) -> dict[str, Any]:
+        records = artifact_records([str(value) for value in payload.get("artifact_ids", [])], identity)
+        if not records:
+            raise HTTPException(status_code=400, detail="Choose at least one CMBX source")
+        trace_keys = [str(value) for value in payload.get("trace_keys", [])]
+        benchmark_keys = [str(value) for value in payload.get("benchmark_keys", [])]
+        if not benchmark_keys:
+            raise HTTPException(status_code=400, detail="Choose at least one benchmark LeakDiff trace")
+
+        def run(progress):
+            progress(1, 3, "preparing", "Decoding CMBX LeakDiff raw channels")
+            result = leak_sensor_analysis(
+                [item["storage_path"] for item in records], trace_keys, benchmark_keys,
+            )
+            progress(2, 3, "validating", "Comparing response metrics with benchmark curves")
+            progress(3, 3, "validating", "Leak sensor verification is ready")
+            return result
+
+        return jobs.submit(
+            workspace_id=DEFAULT_WORKSPACE_ID,
+            owner=identity["user"],
+            task_type="single_verification_leak_sensor",
+            input_payload={
+                "artifact_ids": [item["id"] for item in records],
+                "trace_keys": trace_keys,
+                "benchmark_keys": benchmark_keys,
+            },
+            function=run,
         )
 
     @app.get("/api/quality/config")

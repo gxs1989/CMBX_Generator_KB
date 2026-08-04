@@ -117,7 +117,7 @@ def test_database_password_can_be_saved_for_current_windows_user() -> None:
     assert unprotect_secret(protected) == "temporary-test-password"
 
 
-def test_metric_catalog_uses_intersection_for_multiple_devices(monkeypatch) -> None:
+def test_metric_catalog_uses_union_for_multiple_devices(monkeypatch) -> None:
     by_device = {
         "VH-C10-A": [
             SimpleNamespace(db_field="TempStability", unit="K", report_sheet="Stability"),
@@ -130,7 +130,9 @@ def test_metric_catalog_uses_intersection_for_multiple_devices(monkeypatch) -> N
         ],
     }
     monkeypatch.setattr(foq_quality_service, "locations_for_device_type", lambda _path, device: ("sheet", by_device[device]))
-    assert metric_catalog_for_devices("mapping.xls", ["VH-C10-A", "VC-C10-A"]) == ["TempStability"]
+    assert metric_catalog_for_devices("mapping.xls", ["VH-C10-A", "VC-C10-A"]) == [
+        "Performance_PCC", "TempAcc40", "TempStability",
+    ]
 
 
 def test_metric_dependency_adds_result_from_same_report_sheet(monkeypatch) -> None:
