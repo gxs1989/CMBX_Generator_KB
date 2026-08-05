@@ -16,14 +16,46 @@ if (-not $env:CMBX_CHROMELEON_BIN) {
     $env:CMBX_CHROMELEON_BIN = Join-Path $serviceRoot "runtime\chromeleon"
 }
 
+function Publish-WebEntry([string]$Port) {
+    $computerName = [Net.Dns]::GetHostName()
+    $hostUrl = "http://${computerName}:$Port/"
+    $localUrl = "http://127.0.0.1:$Port/"
+    $lanUrls = @(
+        Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } |
+            Sort-Object InterfaceMetric |
+            ForEach-Object { "http://$($_.IPAddress):$Port/" }
+    )
+    $shortcut = @("[InternetShortcut]", "URL=$hostUrl", "IconIndex=0") -join "`r`n"
+    $addressText = @(
+        "CMBX Web Workspace",
+        "Stable LAN entry: $hostUrl",
+        "Local server entry: $localUrl",
+        "Current IP fallback entries:"
+    ) + @($lanUrls | ForEach-Object { "  $_" })
+    $launcherRoots = @(
+        (Join-Path $projectRoot "launcher"),
+        (Join-Path (Split-Path $projectRoot -Parent) "launcher"),
+        $serviceRoot
+    ) | Select-Object -Unique
+    foreach ($root in $launcherRoots) {
+        if (-not (Test-Path -LiteralPath $root)) { continue }
+        $shortcut | Set-Content -LiteralPath (Join-Path $root "CMBX Web LAN Entry.url") -Encoding ASCII
+        $addressText | Set-Content -LiteralPath (Join-Path $root "CMBX Web Server Address.txt") -Encoding UTF8
+    }
+    return [pscustomobject]@{ HostUrl = $hostUrl; LocalUrl = $localUrl; LanUrls = $lanUrls }
+}
+
 $logRoot = Join-Path $env:CMBX_WEB_STATE_ROOT "logs"
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 $pidPath = Join-Path $env:CMBX_WEB_STATE_ROOT "cmbx-web.pid"
 if (Test-Path -LiteralPath $pidPath) {
     $oldPid = (Get-Content -LiteralPath $pidPath -Raw).Trim()
     if ($oldPid -and (Get-Process -Id $oldPid -ErrorAction SilentlyContinue)) {
+        $entry = Publish-WebEntry $env:CMBX_WEB_PORT
         Write-Host "CMBX Web Workspace is already running (PID $oldPid)."
-        if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$env:CMBX_WEB_PORT/" }
+        Write-Host "LAN entry: $($entry.HostUrl)" -ForegroundColor Cyan
+        if (-not $NoBrowser) { Start-Process $entry.LocalUrl }
         exit 0
     }
 }
@@ -58,9 +90,9 @@ if (-not $ready) {
 }
 
 Write-Host "CMBX Web Workspace is running (PID $($process.Id))." -ForegroundColor Green
-Write-Host "Local: http://127.0.0.1:$env:CMBX_WEB_PORT/"
-Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-    Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } |
-    Sort-Object InterfaceMetric |
-    ForEach-Object { Write-Host "LAN:   http://$($_.IPAddress):$env:CMBX_WEB_PORT/" }
-if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$env:CMBX_WEB_PORT/" }
+$entry = Publish-WebEntry $env:CMBX_WEB_PORT
+Write-Host "Local:     $($entry.LocalUrl)"
+Write-Host "LAN entry: $($entry.HostUrl)" -ForegroundColor Cyan
+$entry.LanUrls | ForEach-Object { Write-Host "IP backup: $_" }
+Write-Host "A reusable LAN shortcut was generated in the launcher folder."
+if (-not $NoBrowser) { Start-Process $entry.LocalUrl }

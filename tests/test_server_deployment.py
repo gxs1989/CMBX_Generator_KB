@@ -64,6 +64,9 @@ def test_portable_assets_and_launch_contract_are_present() -> None:
     assert "CMBX_CHROMELEON_BIN" in start
     assert "/api/health" in start
     assert "ProcessStartInfo" in start
+    assert "Publish-WebEntry" in start
+    assert "CMBX Web LAN Entry.url" in start
+    assert "CMBX Web Server Address.txt" in start
     assert "requirements-server.txt" in install
     assert "chromeleon-runtime.zip" in install
     assert "python-3.11.9-amd64.exe" in install
@@ -74,6 +77,8 @@ def test_portable_assets_and_launch_contract_are_present() -> None:
     assert (installers / "python-3.11.9-amd64.exe").stat().st_size > 20_000_000
     assert (installers / "VC_redist.x64.exe").stat().st_size > 10_000_000
     assert (installers / "msodbcsql18-x64.msi").stat().st_size > 5_000_000
+    assert (ROOT / "launcher" / "打开CMBX Web工作台.bat").is_file()
+    assert (ROOT / "launcher" / "WEB_SERVER_DEPLOYMENT.md").is_file()
 
 
 def test_formulaone_uses_shared_runtime_resolver() -> None:

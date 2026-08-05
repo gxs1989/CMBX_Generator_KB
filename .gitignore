@@ -16,6 +16,8 @@ database_config.json
 *_credentials.json
 *.pem
 *.key
+launcher/*.url
+launcher/CMBX Web Server Address.txt
 
 # Generated application data
 logs/

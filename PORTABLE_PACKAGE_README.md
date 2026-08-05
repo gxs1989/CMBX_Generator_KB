@@ -4,8 +4,8 @@
 
 1. Extract the package to a short local path, preferably `C:\CMBX_Workspace`.
 2. Right-click `launcher\安装依赖.bat` and choose **Run as administrator**.
-3. After preflight passes, run `launcher\启动CMBX Web服务器.bat`.
-4. Open the printed local URL on the server, or the printed LAN URL on another company-network computer.
+3. After preflight passes, run `launcher\打开CMBX Web工作台.bat`; the local browser opens automatically.
+4. Give LAN users the generated `launcher\CMBX Web LAN Entry.url`. It uses the server computer name, so an IP change does not require a new shortcut.
 5. Use `launcher\检查CMBX Web服务器.bat` for diagnostics and `launcher\停止CMBX Web服务器.bat` to stop the service.
 
 ## Included dependencies
@@ -29,4 +29,5 @@ Passwords, database credentials, API keys, user accounts, browser sessions, prod
 - The server computer must remain powered on for LAN users.
 - Startup remains manual after Windows restart.
 - Default TCP port: `8765`.
+- The current hostname and fallback IP entries are written to `launcher\CMBX Web Server Address.txt` whenever the server starts.
 - Internal Chromeleon runtime files must remain within approved Thermo Fisher use.
