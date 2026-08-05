@@ -1,0 +1,4 @@
+-r requirements-web.txt
+openpyxl==3.1.5
+xlrd==2.0.2
+pyodbc==5.3.0

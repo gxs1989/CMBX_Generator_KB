@@ -1,5 +1,7 @@
 # CMBX Workspace Web 构建与业务流程设计
 
+> 2026-08-05 部署更新（V1.42）：仓库现已包含 `launcher/` 安装、启动、停止和环境检查入口，离线 Python 3.11 wheelhouse，以及带 FormulaOne SxS/OCX 组件的版本化 Chromeleon runtime。完整 Git checkout 可在另一台内网 Windows 电脑上建立服务器，不再依赖开发电脑已有的 Python 包或本地 Chromeleon 安装。
+
 > 2026-07-31 登录更新：登录页立即显示，不再等待 workspace inventory 或 jobs。当前内网版本统一使用管理员授权的邮箱/密码账户；Windows 登录和首次自助注册默认关闭。账户只能由 Admin 创建、启用、重置密码或禁用。
 
 > 文档状态：Web 架构确认基线 0.2  
@@ -920,6 +922,28 @@ Automatic AI generation no longer compiles a Method CMBX before the user sees th
 
 - Desktop and guided workspace release: `V1.41`.
 - Web API release: `0.3.0`.
+
+### 2026-08-04 / V1.42 portable server deployment
+
+- A new Windows host can be prepared with `Install_CMBX_Web_Server.bat`; the
+  service no longer relies on whichever global Python happens to be on PATH.
+- `.venv` installs the pinned Web and analysis dependencies from
+  `requirements-server.txt`. A local `deployment/wheelhouse` is used
+  automatically when supplied; otherwise pip uses the configured package index.
+- The approved internal Chromeleon dependency closure is stored as
+  `deployment/runtime/chromeleon-runtime.zip` with a version/hash manifest. The
+  installer deploys it to ProgramData and startup exports
+  `CMBX_CHROMELEON_BIN` before any decoder or FormulaOne module is imported.
+- FOQResultLocations and the validated CM 7.2/7.3 method carriers are versioned
+  deployment assets and copied into the ProgramData workspace during install.
+- Start, stop, firewall, dynamic LAN-address display, health wait, logs, PID
+  tracking and preflight are separate scripts. The current operating model keeps
+  startup manual after Windows boot.
+- Credentials, passwords, DSN secrets and personal/workspace API keys are not
+  portable assets. They must be entered on the new host through the Admin UI.
+- Microsoft ODBC Driver 17/18 remains an OS prerequisite for database workflows;
+  its absence is a preflight warning rather than a blocker for CMBX workflows.
+- Web API release: `0.4.0`; desktop/server release: `V1.42`.
 - Release scope includes authenticated owner-scoped libraries, guided Method/Report generation, independent workflow permissions, live permission refresh, controlled workspace AI credentials, FOQ quick check, quality-history comparison, and chromatogram/formula workflows.
 
 ### 2026-08-04 / FOQ multi-CMBX metric union

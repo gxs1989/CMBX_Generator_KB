@@ -28,7 +28,7 @@ Feature and structure notes are split under `docs/`:
 
 ## Current Version
 
-`V1.41` adds the authenticated LAN Web Workspace and guided business workflows on top of the V1.4 report-generation and external-evaluation foundation:
+`V1.42` adds a portable LAN Web-server deployment on top of the authenticated business workflows:
 
 - External Report Engine V1 loads one report MD contract and evaluates it against one or more CMBX packages, with compatibility preflight, report preview, dynamic-table, plot, and log surfaces.
 - Formula Finder indexes supported external formulas, formulas observed in CMBX reports, and locally extracted Chromeleon Help topics.
@@ -39,7 +39,8 @@ Feature and structure notes are split under `docs/`:
 - The native `Read & analyze` workflow now builds one shared multi-CMBX workset for hierarchical/reverse-match raw export, zoomable channel overlays, and cross-injection custom CM formula evaluation.
 - RID is available as a Method & Report Creation module; the RID OQ sequence-template regression package is recognized as four sequences and ten injections without being misreported as missing runtime data.
 - CMBX scanning, FOQ DB preview/export, report-display precision normalization, and multi-workbook SQL upload remain available.
-- Runtime outputs, caches, local database/AI configuration, and machine-specific Chromeleon dependencies are excluded from the source repository.
+- The approved internal deployment includes a minimal, versioned Chromeleon runtime closure, pinned Python server dependencies, FOQ mapping/carrier assets, and install/start/stop/preflight scripts.
+- Runtime outputs, caches, local database/AI configuration, passwords, DSN credentials, and personal API keys remain outside the source repository.
 - The authenticated Web Workspace provides owner-scoped CMBX/Method MD/Report MD libraries, four-step Method and Report generation, FOQ quick checks, quality-history comparison, raw export, chromatogram/integration review, and Direct CM formula evaluation.
 - Administrators can grant each workflow independently, manage automatic-generation quotas, and provide a controlled workspace AI credential without exposing its key to authorized users.
 
@@ -56,9 +57,12 @@ The new workspace launches large tools in separate processes without a CMD windo
 
 The browser workspace is a separate service and does not import Tkinter UI state.
 
-1. Install `requirements-web.txt`.
-2. Run `Start_CMBX_Web_Workspace.bat`, or run `python run_web_workspace.py`.
-3. Open `http://127.0.0.1:8765/`.
+1. Run `launcher/安装依赖.bat` as administrator on a new host.
+2. Run `launcher/启动CMBX Web服务器.bat`.
+3. Open the local or LAN URL printed by the launcher.
+
+See `docs/WEB_SERVER_DEPLOYMENT.md` for migration, security, database-driver,
+shared-storage, preflight, and troubleshooting details.
 
 The Web workspace supports controlled CMBX upload, persistent jobs, FOQ checks, Method and Report Template generation, batch raw-data export, chromatogram comparison and external integration, Direct CM formula evaluation, read-only quality-database analysis, per-user quotas, and administrator approval. Personal API keys are protected with Windows DPAPI. AppsLab discovery and controlled production-database writes remain planned. Do not expose trusted identity headers through the Uvicorn port: production identity should enter through IIS Windows Authentication/HTTPS as described in `docs/WEB_WORKSPACE_BUILD_PLAN.md`.
 
@@ -108,7 +112,11 @@ Runtime lookup order:
 3. `cmbx_data_explorer/dependencies/chromeleon/bin`
 4. Local Chromeleon installation folders under `Program Files`
 
-The tool does not bundle Thermo/Chromeleon DLLs. Use the local dependency folder only with an approved internal/runtime package.
+The internal server deployment contains an approved minimal Chromeleon runtime
+closure under `deployment/runtime/chromeleon-runtime.zip`. The installer deploys
+it to ProgramData and the launcher sets `CMBX_CHROMELEON_BIN`. This bundle is for
+internal Thermo Fisher use only and is not a public redistributable or a
+replacement for a licensed Chromeleon installation.
 
 ## Report Sheets
 

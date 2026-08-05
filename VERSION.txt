@@ -1,6 +1,6 @@
-V1.41
+V1.42
 
-CMBX Data Explorer adds the first External Report Engine workflow, unified
-report MD contracts, report-template CMBX generation, and CM 7.2-compatible
-standalone method packaging. Generated data and machine-local configuration are
-kept outside the source repository.
+CMBX Workspace V1.42 adds portable LAN Web-server installation, an isolated
+Python environment, bundled approved Chromeleon runtime dependencies, deployed
+FOQ assets, dynamic LAN startup, and server preflight. Generated data, passwords,
+DSN credentials, and personal API keys remain outside the source repository.

@@ -6,6 +6,10 @@ from pathlib import Path
 
 TOOL_ROOT = Path(__file__).resolve().parent
 LOCAL_DEPENDENCY_ROOT = TOOL_ROOT / "dependencies" / "chromeleon"
+DEPLOYMENT_RUNTIME_ROOT = TOOL_ROOT / "deployment" / "runtime" / "chromeleon"
+PROGRAM_DATA_RUNTIME_ROOT = Path(
+    os.environ.get("PROGRAMDATA", r"C:\ProgramData")
+) / "CMBX Web Service" / "runtime" / "chromeleon"
 CSC_PATH = Path(r"C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe")
 REQUIRED_RUNTIME_DLLS = (
     "Dionex.DataCommon.dll",
@@ -27,6 +31,8 @@ def chromeleon_bin_candidates() -> list[Path]:
     env_path = os.environ.get("CMBX_CHROMELEON_BIN") or os.environ.get("CHROMELEON_BIN")
     if env_path:
         candidates.extend(_runtime_variants(Path(env_path)))
+    candidates.extend(_runtime_variants(PROGRAM_DATA_RUNTIME_ROOT))
+    candidates.extend(_runtime_variants(DEPLOYMENT_RUNTIME_ROOT))
     candidates.extend(_runtime_variants(LOCAL_DEPENDENCY_ROOT))
     for root_name in ("ProgramFiles(x86)", "ProgramFiles"):
         root = os.environ.get(root_name)
@@ -52,6 +58,8 @@ def runtime_status_text() -> str:
         "-----------------------------",
         f"Environment variable CMBX_CHROMELEON_BIN: {os.environ.get('CMBX_CHROMELEON_BIN') or ''}",
         f"Local dependency folder: {LOCAL_DEPENDENCY_ROOT}",
+        f"Bundled deployment folder: {DEPLOYMENT_RUNTIME_ROOT}",
+        f"ProgramData runtime folder: {PROGRAM_DATA_RUNTIME_ROOT}",
         f"Resolved runtime folder: {runtime or 'Not found'}",
         f".NET C# compiler: {CSC_PATH if CSC_PATH.exists() else 'Not found'}",
         "",

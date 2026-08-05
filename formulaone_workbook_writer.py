@@ -14,8 +14,9 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from chromeleon_runtime import chromeleon_bin as resolve_chromeleon_bin
 
-CHROMELEON_BIN = Path(r"C:\Program Files (x86)\Thermo\Chromeleon\bin")
+CHROMELEON_BIN = resolve_chromeleon_bin() or Path(r"C:\Program Files (x86)\Thermo\Chromeleon\bin")
 _TOOLS_DIR = Path(__file__).resolve().parent / "tools"
 _HOST_SOURCE = _TOOLS_DIR / "formulaone_writer_host.cs"
 

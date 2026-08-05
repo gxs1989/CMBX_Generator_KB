@@ -26,6 +26,8 @@ online_kb_staging/
 dependencies/
 *.dll
 *.pdb
+!deployment/runtime/chromeleon-runtime.zip
+!deployment/runtime/RUNTIME_MANIFEST.json
 
 # Office and editor temporary files
 ~$*

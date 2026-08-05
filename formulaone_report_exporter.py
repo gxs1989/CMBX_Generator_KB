@@ -11,10 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cmbx_container import safe_filename
+from chromeleon_runtime import chromeleon_bin as resolve_chromeleon_bin
 from foq_contract_report import ReportCellValue
 
 
-CHROMELEON_BIN = Path(r"C:\Program Files (x86)\Thermo\Chromeleon\bin")
+CHROMELEON_BIN = resolve_chromeleon_bin() or Path(r"C:\Program Files (x86)\Thermo\Chromeleon\bin")
 POWERSHELL_32 = Path(r"C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe")
 
 
@@ -222,4 +223,3 @@ try {{
 }} finally {{
 }}
 '''
-

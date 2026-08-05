@@ -1,5 +1,7 @@
+param([int]$Port = 8765, [switch]$NoPause)
+
 $ErrorActionPreference = "Stop"
-$ruleName = "CMBX Web Workspace 8765"
+$ruleName = "CMBX Web Workspace $Port"
 $existing = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
 
 if ($existing) {
@@ -10,10 +12,13 @@ if ($existing) {
         -Direction Inbound `
         -Action Allow `
         -Protocol TCP `
-        -LocalPort 8765 `
+        -LocalPort $Port `
         -Profile Domain,Private | Out-Null
 }
 
-Write-Host "CMBX Web Workspace is allowed on Domain/Private networks at TCP 8765."
-Write-Host "LAN URL: http://10.68.182.125:8765/"
-Read-Host "Press Enter to close"
+Write-Host "CMBX Web Workspace is allowed on Domain/Private networks at TCP $Port."
+Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+    Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" } |
+    Sort-Object InterfaceMetric |
+    ForEach-Object { Write-Host "LAN URL: http://$($_.IPAddress):$Port/" }
+if (-not $NoPause) { Read-Host "Press Enter to close" }

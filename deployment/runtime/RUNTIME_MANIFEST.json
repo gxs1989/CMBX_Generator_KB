@@ -1,0 +1,672 @@
+﻿{
+    "schema":  1,
+    "created_utc":  "2026-08-05T01:32:16.2622385Z",
+    "source":  "C:\\Program Files (x86)\\Thermo\\Chromeleon\\bin",
+    "purpose":  "Approved internal Chromeleon runtime closure for CMBX reading and FormulaOne operations",
+    "redistribution":  "Internal Thermo Fisher use only; do not publish as a standalone public runtime",
+    "seeds":  [
+                  "Dionex.DataCommon.dll",
+                  "Dionex.RawData.dll",
+                  "Dionex.RawDataInterfaces.dll",
+                  "Dionex.Chromeleon.Common.dll",
+                  "Dionex.Controls.dll",
+                  "Dionex.CmLzmaImplementationx86.dll",
+                  "Dionex.CmLzmaImplementationx64.dll",
+                  "Dionex.InstrumentServerInterfaces.dll",
+                  "Dionex.Serialization.dll"
+              ],
+    "native_side_by_side_files":  [
+                                      "Formula1SideBySideActivationContext.manifest",
+                                      "VCFI5.sxs.manifest",
+                                      "VCFI5.OCX",
+                                      "CM7RE.sxs.manifest",
+                                      "CM7RE.OCX"
+                                  ],
+    "file_count":  92,
+    "files":  [
+                  {
+                      "name":  "AsyncLock.dll",
+                      "size":  8704,
+                      "sha256":  "e8fe6388e36ad36bee451ddedbc9a63e54641c20da07b029ebf20d872ac12328",
+                      "file_version":  "3.0.1.0",
+                      "product_version":  "3.0.1"
+                  },
+                  {
+                      "name":  "Autofac.dll",
+                      "size":  318976,
+                      "sha256":  "5ab869c204649a16888a8a66a354499a6737125fe1638a93aef32e09c17774af",
+                      "file_version":  "6.1.0.0",
+                      "product_version":  "6.1.0+a99be1ddd7435a945cc9af5c9d195435efc06eb8"
+                  },
+                  {
+                      "name":  "C5.dll",
+                      "size":  272384,
+                      "sha256":  "16b6ca93150c840b0b36e530d111f6c910e6c59d0b5791d6f74908e2811d11d5",
+                      "file_version":  "1.1.0.0",
+                      "product_version":  "1.1.0.0"
+                  },
+                  {
+                      "name":  "CM7RE.dll",
+                      "size":  200704,
+                      "sha256":  "c982468a3fbc0c7787d219b6e7a2d00fe5f17bf99e19ed83ddd030b583cc28ec",
+                      "file_version":  "5.60.0.0",
+                      "product_version":  "5.60.0.0"
+                  },
+                  {
+                      "name":  "CM7RE.OCX",
+                      "size":  1044550,
+                      "sha256":  "82254a27bbdca1519359bd59e73c9ac586861752300c4f7602d6e317eccf4e41",
+                      "file_version":  "5.60.0 Build 2",
+                      "product_version":  "5.60.0 Build 2"
+                  },
+                  {
+                      "name":  "CM7RE.sxs.manifest",
+                      "size":  6004,
+                      "sha256":  "5139d1a421655c86f4b1b120e29ac9ffbe32e60546ec5b6f000191c76deaa4e3",
+                      "file_version":  null,
+                      "product_version":  null
+                  },
+                  {
+                      "name":  "CM7REControl.dll",
+                      "size":  118784,
+                      "sha256":  "8cec30d5586d08763bb70a461e1f206688b9011a06f09da97454722ac91dc9da",
+                      "file_version":  "5.60.0.0",
+                      "product_version":  "5.60.0.0"
+                  },
+                  {
+                      "name":  "Dionex.Chromeleon.Common.dll",
+                      "size":  1665536,
+                      "sha256":  "c0df162bd4d67655cb0346373837c6f088263eb65647676d843f18bd97fd589c",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.CmLzma.dll",
+                      "size":  12288,
+                      "sha256":  "ad4c8d67251bf2b8cdef65da5177eb3696b71c19596fe00ab1b94ebfccd330b2",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.CmLzmaImplementationx64.dll",
+                      "size":  165376,
+                      "sha256":  "a37bc3a355b8bea49d53694c3b7a78d6c5cbc0d8746eb6893671bf98a5e5b50d",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.CmLzmaImplementationx86.dll",
+                      "size":  128512,
+                      "sha256":  "2665f2d78dbf57f398b5b7071eb7bca0b5457beb3ff88d2456268223b110e26b",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.Configuration.dll",
+                      "size":  23040,
+                      "sha256":  "b89c0f65e7c4dd20591571c55a80e80fe0db44acdebef445805a3e32c2570c43",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.Controls.dll",
+                      "size":  1256448,
+                      "sha256":  "660d81eb980c754a1de5824f1230d7e8d3411bdedcf9290784d08ad4e03879d7",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.DataCommon.dll",
+                      "size":  2012160,
+                      "sha256":  "72224f436f7277b497bc5407c12725861817c15ff34e32b86c101d8de2640ea1",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.DataInterfaces.dll",
+                      "size":  252928,
+                      "sha256":  "9988eea0c84cd0accdabd8b59d4fb115f4d6f30a3c201dd7a217ad8ec04c04b0",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.DataTypes.dll",
+                      "size":  113152,
+                      "sha256":  "db8992f659042e484640750fda5c3e92b2bbb47e9351ace1516dad993a23b059",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.DDKPlugInInterfaces.dll",
+                      "size":  5120,
+                      "sha256":  "a592cf24890130f4f9379c122fd77dac31442ca2100629c316e5739e797c2ab5",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.Discovery.Service.Common.dll",
+                      "size":  10752,
+                      "sha256":  "46d9b204d33e9832caf8cabe76ff478e39665e6ef8cc16250b966801fc8558cd",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.DiscoveryAccess.dll",
+                      "size":  226816,
+                      "sha256":  "b471aa00dbe963df7473cb11c4745b49e5b5381b40a40c0fe742b7c9c9283352",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.DiscoveryInterfaces.dll",
+                      "size":  99328,
+                      "sha256":  "fb647afcdfa0083544629f0c24741c4dc866ce75e1c114a504a59e98587fc62d",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.EventsHelper.dll",
+                      "size":  137728,
+                      "sha256":  "062a43db32910c071a81fcc0de91b4fa96e2dc66a4f50a9056165314094ab943",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.FluidicsAnalyzer.dll",
+                      "size":  69632,
+                      "sha256":  "0ebebbfe91593e6aa5870f2bfa6a492d0e1dd6f204e1f286dd05f5abdbb609ae",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.FrameworkExtensions.dll",
+                      "size":  266240,
+                      "sha256":  "cbfbaa897818fb4d9dc88ce011ed1459490e432c618e2b5a3fd9bb7311d7fedb",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.HelpManager.dll",
+                      "size":  139776,
+                      "sha256":  "b26bdcc6036e9d212a4b0b1c4942caf77e3d22cc628c436be0afb13e5d487c66",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.InstrumentMethodInterfaces.dll",
+                      "size":  389632,
+                      "sha256":  "f629ca0340e732b3f14fe7924afec165014e42cde85a6c973cb428fc0270dc7f",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.InstrumentServerInterfaces.dll",
+                      "size":  111104,
+                      "sha256":  "acf84c35dc5b533826d0541123e24cf56f4d60a3befee1aafcfd4e9ee26513c5",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.LogicUtil.dll",
+                      "size":  83968,
+                      "sha256":  "5e649cb8ca9ea7f12bd58192934309c5c13479437b8f4b7a3f3e0544b8203161",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.PhysicalUnits.dll",
+                      "size":  42496,
+                      "sha256":  "90172c2bb07b8b3753120d2d1746d15c5a500664619b11ea2b8d69a77e713ca1",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.Plotting.dll",
+                      "size":  290816,
+                      "sha256":  "2cae22502ed12f9a7818954742ae21da1396de7acc63613e6afdaf74554ab408",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.PropertiesHelper.dll",
+                      "size":  40960,
+                      "sha256":  "7cd7e9f845321f451bd9c64bf1ff23a35baa60491df52c6e74dd319ea9dc3457",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.RawData.dll",
+                      "size":  157184,
+                      "sha256":  "8edff3e8c7848cca4fab762a4093404a08102aa603413ebfa5d66cb02116e006",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.RawDataInterfaces.dll",
+                      "size":  31744,
+                      "sha256":  "f49eb4a2aea0ed973dd35e537b593c6e540ab84554e787ff32744e1616df4977",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.ReportFormula.dll",
+                      "size":  79872,
+                      "sha256":  "c054d385a167d74c43c272e449848d59c2cce7586f268bcef6038bcedb06e862",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.Serialization.dll",
+                      "size":  109056,
+                      "sha256":  "e977959cf10ef7868ab7b46de7d34ddf9dcf5c662c10ec79a54c6919befe94e7",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.SymbolsImplementation.dll",
+                      "size":  173568,
+                      "sha256":  "6fe00604c47db145961fbdd5e655429662321ddc09980dd74d1dfd7cba81f372",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Dionex.SymbolsInterfaces.dll",
+                      "size":  134144,
+                      "sha256":  "172413f0084e1c041119aa8b127b5b5102948ff2cfa37cc6b4e68b85705d81a3",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Formula1SideBySideActivationContext.manifest",
+                      "size":  730,
+                      "sha256":  "a62cb8ac24b9fa918685e267a80450015600a72808e53d672d5cb7e9a4ececaf",
+                      "file_version":  null,
+                      "product_version":  null
+                  },
+                  {
+                      "name":  "IdentityModel.dll",
+                      "size":  136080,
+                      "sha256":  "2107850f8eb44ecfb612cb29a858b05e0d5ad8b94535da4d607da98c6d8b15aa",
+                      "file_version":  "4.6.0.0",
+                      "product_version":  "4.6.0+ab7f6698ec87ea10b9b21421b48479883a5bb409"
+                  },
+                  {
+                      "name":  "IdentityModel.OidcClient.dll",
+                      "size":  73616,
+                      "sha256":  "2973d95899b8b81e56bc43c39e0bdfc00dabb2de295fb429fb3446bb8c5dbb89",
+                      "file_version":  "3.1.2.0",
+                      "product_version":  "3.1.2+de3c5ee430995d821ac51103b9577ea08cd8bfe9"
+                  },
+                  {
+                      "name":  "Microsoft.Bcl.AsyncInterfaces.dll",
+                      "size":  20872,
+                      "sha256":  "075ce79e84041137c78885b3738c1b5a03547d0ae2a79916e844196a9d0ec1db",
+                      "file_version":  "5.0.20.51904",
+                      "product_version":  "5.0.0+cf258a14b70ad9069470a108f13765e0e5988f51"
+                  },
+                  {
+                      "name":  "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+                      "size":  44416,
+                      "sha256":  "200aba7859ecfb045d43a8e2bf9abce4c929507364b7714388f59affe708fb06",
+                      "file_version":  "5.0.20.51904",
+                      "product_version":  "5.0.0+cf258a14b70ad9069470a108f13765e0e5988f51"
+                  },
+                  {
+                      "name":  "Microsoft.Extensions.DependencyInjection.dll",
+                      "size":  76168,
+                      "sha256":  "91d3c0c57412d57562913d50ae6a64db613699a3a64553eef089d178413ab3ed",
+                      "file_version":  "5.0.120.57516",
+                      "product_version":  "5.0.1+b02e13abab3d6f499751af2ad1ae6333fb4e633d"
+                  },
+                  {
+                      "name":  "Microsoft.Extensions.Http.dll",
+                      "size":  57216,
+                      "sha256":  "e2d5722fb3b53da68c7476883e5be1257535bf48f8dd8731a3de04c88e9d4ee7",
+                      "file_version":  "3.100.1120.56716",
+                      "product_version":  "3.1.11+77d62c5738da86985cf69ba0479539b6fdbc904e"
+                  },
+                  {
+                      "name":  "Microsoft.Extensions.Identity.Core.dll",
+                      "size":  170880,
+                      "sha256":  "65eb913e239eced025a807db99bfdf0f7dd45eeda11b33a932c1c137cf8a0c38",
+                      "file_version":  "3.100.1120.56915",
+                      "product_version":  "3.1.11+9699b939f94b7524a178821d78addefa5af5d750"
+                  },
+                  {
+                      "name":  "Microsoft.Extensions.Identity.Stores.dll",
+                      "size":  40832,
+                      "sha256":  "1045e16c494f1c365f3a6c4023bd7d357a4ccc6efb624d541eb2218a65637763",
+                      "file_version":  "3.100.1120.56915",
+                      "product_version":  "3.1.11+9699b939f94b7524a178821d78addefa5af5d750"
+                  },
+                  {
+                      "name":  "Microsoft.Extensions.Logging.Abstractions.dll",
+                      "size":  52616,
+                      "sha256":  "ce8a3129430b92e206d59720adff91ebae0af7c8a808ba81b2ecf9ce680260e1",
+                      "file_version":  "5.0.20.51904",
+                      "product_version":  "5.0.0+cf258a14b70ad9069470a108f13765e0e5988f51"
+                  },
+                  {
+                      "name":  "Microsoft.Extensions.Logging.dll",
+                      "size":  42888,
+                      "sha256":  "c4b2b98c21b24b88640bc0be5dcd335d82df129dcaa0dcc778d91a759a037524",
+                      "file_version":  "5.0.20.51904",
+                      "product_version":  "5.0.0+cf258a14b70ad9069470a108f13765e0e5988f51"
+                  },
+                  {
+                      "name":  "Microsoft.Extensions.Options.dll",
+                      "size":  55176,
+                      "sha256":  "c4673c6000602e76844bad63feecbe42d88fc72639b1fd64d2acde48955be970",
+                      "file_version":  "5.0.20.51904",
+                      "product_version":  "5.0.0+cf258a14b70ad9069470a108f13765e0e5988f51"
+                  },
+                  {
+                      "name":  "Microsoft.Extensions.Primitives.dll",
+                      "size":  42376,
+                      "sha256":  "76152e774b2bd9c5a0d301e92e253d8bf55fa90e191d0155dfd86b2b84766ae8",
+                      "file_version":  "5.0.20.51904",
+                      "product_version":  "5.0.0+cf258a14b70ad9069470a108f13765e0e5988f51"
+                  },
+                  {
+                      "name":  "Microsoft.IdentityModel.JsonWebTokens.dll",
+                      "size":  62840,
+                      "sha256":  "ce5b81b979be4b9aa53b50aeb90692f5e00e1de99d5ea58c0ec65eba5379fb46",
+                      "file_version":  "6.8.0.11012",
+                      "product_version":  "6.8.0.11012235604.824068adaeb7b158df2b36d8787f689646e715e0"
+                  },
+                  {
+                      "name":  "Microsoft.IdentityModel.Logging.dll",
+                      "size":  24952,
+                      "sha256":  "cab3aad8ba2e51775bcc97eb98417aea6692b90c09ea2f2a08206b0a184f27e6",
+                      "file_version":  "6.8.0.11012",
+                      "product_version":  "6.8.0.11012235604.824068adaeb7b158df2b36d8787f689646e715e0"
+                  },
+                  {
+                      "name":  "Microsoft.IdentityModel.Tokens.dll",
+                      "size":  877432,
+                      "sha256":  "10af9aa3ac1592673f9d80add4dda59e64c919b73787bf91fc13c3fc4b800c63",
+                      "file_version":  "6.8.0.11012",
+                      "product_version":  "6.8.0.11012235604.824068adaeb7b158df2b36d8787f689646e715e0"
+                  },
+                  {
+                      "name":  "Microsoft.Web.WebView2.Core.dll",
+                      "size":  180152,
+                      "sha256":  "b98024a78f475933d8fd12cb41b577e470ffd612dd1fed88d70f2588eb4d5a97",
+                      "file_version":  "1.0.818.41",
+                      "product_version":  "1.0.818.41"
+                  },
+                  {
+                      "name":  "Microsoft.Web.WebView2.WinForms.dll",
+                      "size":  31648,
+                      "sha256":  "7f101ef263296b1041a0f0108c501a7701110e1bb7b51b17f56cd4d89d6441ab",
+                      "file_version":  "1.0.818.41",
+                      "product_version":  "1.0.818.41"
+                  },
+                  {
+                      "name":  "Newtonsoft.Json.dll",
+                      "size":  701992,
+                      "sha256":  "b624949df8b0e3a6153fdfb730a7c6f4990b6592ee0d922e1788433d276610f3",
+                      "file_version":  "13.0.1.25517",
+                      "product_version":  "13.0.1+ae9fe44e1323e91bcbd185ca1a14099fba7c021f"
+                  },
+                  {
+                      "name":  "Polly.Contrib.WaitAndRetry.dll",
+                      "size":  14848,
+                      "sha256":  "44038c2736dec544aafa17d4fc89c098334afa7653a54c10fdaf327e76e158e4",
+                      "file_version":  "1.1.1.0",
+                      "product_version":  "1.1.1.0+7596d2dacf22d88bbd814bc49c28424fb6e921e9"
+                  },
+                  {
+                      "name":  "Polly.dll",
+                      "size":  268800,
+                      "sha256":  "b6cea3d811ad4bcd393e5bd294747ad9165e4a31d3fd300b4a6f99da1dbbb44b",
+                      "file_version":  "7.2.1.0",
+                      "product_version":  "7.2.1.0+52968c25f2e13e2708898174c15aafc9cb915020"
+                  },
+                  {
+                      "name":  "protobuf-net.dll",
+                      "size":  197632,
+                      "sha256":  "66653d787ab796a55c55afdfa35d2fd9ad78c89bbd51e0d01965214399fa56b6",
+                      "file_version":  "2.0.0.668",
+                      "product_version":  "2.0.0.668"
+                  },
+                  {
+                      "name":  "SharedCache.WinServiceCommon.dll",
+                      "size":  175104,
+                      "sha256":  "249c0fa3dd04ae069c315d908949d8a848faada459b5f4b439452bcaf1faecea",
+                      "file_version":  "3.0.5.3",
+                      "product_version":  "3.0.5.3"
+                  },
+                  {
+                      "name":  "StdType.dll",
+                      "size":  12800,
+                      "sha256":  "b35eab94586511c91d656a954e1ef3e4e5d82706c21c95789b714b52a7dac686",
+                      "file_version":  "2.0.0.1",
+                      "product_version":  "2.0.0.0"
+                  },
+                  {
+                      "name":  "System.Buffers.dll",
+                      "size":  20856,
+                      "sha256":  "accccfbe45d9f08ffeed9916e37b33e98c65be012cfff6e7fa7b67210ce1fefb",
+                      "file_version":  "4.6.28619.01",
+                      "product_version":  "4.6.28619.01 @BuiltBy: dlab14-DDVSOWINAGE069 @Branch: release/2.1 @SrcCode: https://github.com/dotnet/corefx/tree/7601f4f6225089ffb291dc7d58293c7bbf5c5d4f"
+                  },
+                  {
+                      "name":  "System.ComponentModel.Annotations.dll",
+                      "size":  43152,
+                      "sha256":  "04113c8549185519f3202790ceb23df609644872b9c249a56d2bcf59566102c4",
+                      "file_version":  "4.6.26515.06",
+                      "product_version":  "4.6.26515.06 @BuiltBy: dlab-DDVSOWINAGE059 @Branch: release/2.1 @SrcCode: https://github.com/dotnet/corefx/tree/30ab651fcb4354552bd4891619a0bdd81e0ebdbf"
+                  },
+                  {
+                      "name":  "System.Diagnostics.DiagnosticSource.dll",
+                      "size":  98184,
+                      "sha256":  "599a79d25958eae655ddae7337477d16ebc4f013b6896bbd60719c85b37db88c",
+                      "file_version":  "5.0.20.51904",
+                      "product_version":  "5.0.0+cf258a14b70ad9069470a108f13765e0e5988f51"
+                  },
+                  {
+                      "name":  "System.IdentityModel.Tokens.Jwt.dll",
+                      "size":  81784,
+                      "sha256":  "1bc147d18c0f2326ba2d48d6cd7e7f00cf486e5f8e271c32242e4eaad0b964af",
+                      "file_version":  "6.8.0.11012",
+                      "product_version":  "6.8.0.11012235604.824068adaeb7b158df2b36d8787f689646e715e0"
+                  },
+                  {
+                      "name":  "System.Memory.dll",
+                      "size":  141184,
+                      "sha256":  "8e76318e8b06692abf7dab1169d27d15557f7f0a34d36af6463eff0fe21213c7",
+                      "file_version":  "4.6.28619.01",
+                      "product_version":  "4.6.28619.01 @BuiltBy: dlab14-DDVSOWINAGE069 @Branch: release/2.1 @SrcCode: https://github.com/dotnet/corefx/tree/7601f4f6225089ffb291dc7d58293c7bbf5c5d4f"
+                  },
+                  {
+                      "name":  "System.Numerics.Vectors.dll",
+                      "size":  115856,
+                      "sha256":  "1d3ef8698281e7cf7371d1554afef5872b39f96c26da772210a33da041ba1183",
+                      "file_version":  "4.6.26515.06",
+                      "product_version":  "4.6.26515.06 @BuiltBy: dlab-DDVSOWINAGE059 @Branch: release/2.1 @SrcCode: https://github.com/dotnet/corefx/tree/30ab651fcb4354552bd4891619a0bdd81e0ebdbf"
+                  },
+                  {
+                      "name":  "System.Runtime.CompilerServices.Unsafe.dll",
+                      "size":  16768,
+                      "sha256":  "3cadcb6b8a7335141c7c357a1d77af1ff49b59b872df494f5025580191d1c0d5",
+                      "file_version":  "5.0.20.51904",
+                      "product_version":  "5.0.0+cf258a14b70ad9069470a108f13765e0e5988f51"
+                  },
+                  {
+                      "name":  "System.Text.Encodings.Web.dll",
+                      "size":  65928,
+                      "sha256":  "f2ee33438b8bf433de726c8d580caef8757fca062bdb5bbe5394f0347f23a83a",
+                      "file_version":  "5.0.20.51904",
+                      "product_version":  "5.0.0+cf258a14b70ad9069470a108f13765e0e5988f51"
+                  },
+                  {
+                      "name":  "System.Text.Json.dll",
+                      "size":  355720,
+                      "sha256":  "9a6859f986211d3cedfcdbf21b6713968dfddd32dacf8c3e5b2736e5037eafad",
+                      "file_version":  "5.0.220.61120",
+                      "product_version":  "5.0.2+cb5f173b9696d9d00a544b953d95190ab3b56df2"
+                  },
+                  {
+                      "name":  "System.Threading.Tasks.Extensions.dll",
+                      "size":  25984,
+                      "sha256":  "4f81ffd0dc7204db75afc35ea4291769b07c440592f28894260eea76626a23c6",
+                      "file_version":  "4.6.28619.01",
+                      "product_version":  "4.6.28619.01 @BuiltBy: dlab14-DDVSOWINAGE069 @Branch: release/2.1 @SrcCode: https://github.com/dotnet/corefx/tree/7601f4f6225089ffb291dc7d58293c7bbf5c5d4f"
+                  },
+                  {
+                      "name":  "System.ValueTuple.dll",
+                      "size":  25232,
+                      "sha256":  "e905d102585b22c6df04f219af5cbdbfa7bc165979e9788b62df6dcc165e10f4",
+                      "file_version":  "4.6.26515.06",
+                      "product_version":  "4.6.26515.06 @BuiltBy: dlab-DDVSOWINAGE059 @Branch: release/2.1 @SrcCode: https://github.com/dotnet/corefx/tree/30ab651fcb4354552bd4891619a0bdd81e0ebdbf"
+                  },
+                  {
+                      "name":  "Thermo.Chromeleon.Common.AdminConsole.dll",
+                      "size":  20992,
+                      "sha256":  "562c57b9e2d24d179c4ddf528a66d53370ba2bbb27189ad607248e202b19699f",
+                      "file_version":  "0.0.0.0",
+                      "product_version":  "0.0.0.0"
+                  },
+                  {
+                      "name":  "Thermo.Chromeleon.Common.LicenseManagement.dll",
+                      "size":  215040,
+                      "sha256":  "a466b39511d7ac1c17538f79a420ba14a543736e1ceb155a5710d510a97d5837",
+                      "file_version":  "0.0.0.0",
+                      "product_version":  "0.0.0.0"
+                  },
+                  {
+                      "name":  "Thermo.Chromeleon.Common.Luna.dll",
+                      "size":  121344,
+                      "sha256":  "4b4dc9818ba796ea930efbf136e9fc5443c7d256f0a06e646b42fa0811e74e18",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Thermo.Chromeleon.Instrumentation.dll",
+                      "size":  7680,
+                      "sha256":  "9de705b6a3e2ff8a59525e4bf4ad6ae1524e5d112e8fbb9e44a28df89ebb7ae4",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Thermo.Chromeleon.License.Core.dll",
+                      "size":  25088,
+                      "sha256":  "69ac64d094543a3a69625df0d43c30b957e0c03d71beb4ae83ea63bbd56cf0ba",
+                      "file_version":  "1.0.25.0",
+                      "product_version":  "1.0.25"
+                  },
+                  {
+                      "name":  "Thermo.Chromeleon.ProductInfo.dll",
+                      "size":  6656,
+                      "sha256":  "89e527b684e2e6d38f55a3497157d05dfb1cb6f9cf1ec3d9b3e2e97c3129faec",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Thermo.Common.License.Access.dll",
+                      "size":  143360,
+                      "sha256":  "a3c99f3fd3f7e810a10392483ee8c3b0435a7960886c5863808b30ccc00467ef",
+                      "file_version":  "1.0.15.0",
+                      "product_version":  "1.0.15"
+                  },
+                  {
+                      "name":  "Thermo.ImportFramework.BaseImportFramework.dll",
+                      "size":  17920,
+                      "sha256":  "7f208441c54179dc318a07b2c9d39d69d9562cf0bc4d036c954f073652cf5c4b",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "Thermo.Luna.DataServices.Transfer.dll",
+                      "size":  183296,
+                      "sha256":  "73167b3138e7ede4ea48132e156880573caa4d43b7d0ba127764034c2dca8fe9",
+                      "file_version":  "1.0.0.55",
+                      "product_version":  "1.0.55.0"
+                  },
+                  {
+                      "name":  "Thermo.Luna.HashAlgorithmPlugin.dll",
+                      "size":  6656,
+                      "sha256":  "4e956e85793691dd5881fe4fd5d399990e05f9a237539714716e4dc4339ccfdc",
+                      "file_version":  "1.0.562.0",
+                      "product_version":  "1.0.562.0"
+                  },
+                  {
+                      "name":  "Thermo.Luna.Identity.Authorization.dll",
+                      "size":  59392,
+                      "sha256":  "10b7fb88e6503faf1ea4dac9ef5fc49972881be7f574d3eb8044d581bc4a2f1b",
+                      "file_version":  "1.0.0.190",
+                      "product_version":  "1.0.190.0-Alpha"
+                  },
+                  {
+                      "name":  "Thermo.Luna.Identity.Models.dll",
+                      "size":  58368,
+                      "sha256":  "cd95590a7484be01c3ee74af35a17fb08555b2c697273696a2ec7439710b2ab5",
+                      "file_version":  "1.0.0.190",
+                      "product_version":  "1.0.190.0-Alpha"
+                  },
+                  {
+                      "name":  "Thermo.Luna.UploadData.dll",
+                      "size":  20992,
+                      "sha256":  "383af4b78bfa3685df85f18e5ed9dc31d4d6b6d1eecdfc5e9c624750082b7eb8",
+                      "file_version":  "1.0.562.0",
+                      "product_version":  "1.0.562.0"
+                  },
+                  {
+                      "name":  "Thermo.Reporting.Formula.dll",
+                      "size":  66560,
+                      "sha256":  "0c951202e56ff01b960d4f1feeccf28c3546d9263db4557d3a33ccaf3056042a",
+                      "file_version":  "1.0.118.0",
+                      "product_version":  "1.0.118"
+                  },
+                  {
+                      "name":  "ThermoFisher.Chromeleon.IO.dll",
+                      "size":  938496,
+                      "sha256":  "b8b265a2bdd24ac2b795d7be80d0500ae6575549f2a35b9c477e56e5610687d4",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "ThermoFisher.Chromeleon.IoAdapter.dll",
+                      "size":  45056,
+                      "sha256":  "961d641c779dd2d6c354dcf342e5ab70ef1b0cd50ec80d9a2175def0eab9e7c5",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  },
+                  {
+                      "name":  "ThermoFisher.CommonCore.BackgroundSubtraction.dll",
+                      "size":  40448,
+                      "sha256":  "087700574dbe3c05155a77001ffe3d9b4c05e54736870af906ad8dcf21323070",
+                      "file_version":  "2.0.108.0",
+                      "product_version":  "2.0.108.0"
+                  },
+                  {
+                      "name":  "ThermoFisher.CommonCore.Data.dll",
+                      "size":  212480,
+                      "sha256":  "8f7fc2df453b2b3488d8db27172a95b687dcbc6bb3e62e42c809f89af90096c2",
+                      "file_version":  "2.0.108.0",
+                      "product_version":  "2.0.108.0"
+                  },
+                  {
+                      "name":  "VCFI5.OCX",
+                      "size":  1412096,
+                      "sha256":  "fd641e45d382fd9d91f21996d162d8d9fe89b3a8c7b29d3e8f9e35502cd64f5e",
+                      "file_version":  "5.00.07.05",
+                      "product_version":  "5.00.07.05"
+                  },
+                  {
+                      "name":  "VCFI5.sxs.manifest",
+                      "size":  21246,
+                      "sha256":  "9d33df38fe394a1fc0f15c1c4169a810d52ad4ffc3f82a172739ca8bb86e2c8a",
+                      "file_version":  null,
+                      "product_version":  null
+                  },
+                  {
+                      "name":  "Wintellect.PowerCollections.dll",
+                      "size":  189440,
+                      "sha256":  "1795f6eb73d4965715ca956e1d96c40b8f349fbcb56c9314e485addabdde6562",
+                      "file_version":  "7.3.1.6535",
+                      "product_version":  "7.3.1.6535"
+                  }
+              ]
+}

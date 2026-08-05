@@ -52,7 +52,7 @@ from web_ai_package import PromptOptimization, base_prompt, create_web_ai_zip, l
 from windows_credentials import protect_secret, unprotect_secret
 
 
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 DEFAULT_WORKSPACE_ID = "shared"
 SAFE_NAME = re.compile(r"[^A-Za-z0-9._ -]+")
 SESSION_COOKIE = "cmbx_session"
