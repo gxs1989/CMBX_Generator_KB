@@ -1,6 +1,7 @@
 param(
     [switch]$SkipFirewall,
-    [switch]$SkipPythonPackages
+    [switch]$SkipPythonPackages,
+    [switch]$SkipOdbcDriver
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,16 +40,34 @@ function Resolve-Python311 {
     return $null
 }
 
+function Test-SqlServerOdbcDriver {
+    try {
+        return [bool](Get-OdbcDriver -ErrorAction Stop | Where-Object { $_.Name -like "*ODBC Driver * for SQL Server*" } | Select-Object -First 1)
+    } catch {
+        return $false
+    }
+}
+
 Write-Host "Installing CMBX Web Workspace server dependencies..." -ForegroundColor Cyan
+if (-not (Test-Administrator)) {
+    throw "Run this installer as Administrator so Python, ODBC, firewall, and ProgramData runtime assets can be installed."
+}
 $python = Resolve-Python311
 if (-not $python) {
-    $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
-    if (-not $winget) {
-        throw "Python 3.11 is required. Install it from python.org, then run this installer again."
+    $pythonInstaller = Join-Path $projectRoot "deployment\installers\python-3.11.9-amd64.exe"
+    if (Test-Path -LiteralPath $pythonInstaller) {
+        Write-Host "Python 3.11 was not found. Installing the bundled offline Python runtime..."
+        & $pythonInstaller /quiet InstallAllUsers=1 PrependPath=1 Include_test=0
+        if ($LASTEXITCODE -notin @(0, 3010)) { throw "Bundled Python 3.11 installation failed with exit code $LASTEXITCODE." }
+    } else {
+        $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
+        if (-not $winget) {
+            throw "Python 3.11 is required and the bundled installer is missing."
+        }
+        Write-Host "Bundled Python is unavailable. Installing Python 3.11 with winget..."
+        & $winget.Source install --id Python.Python.3.11 -e --accept-package-agreements --accept-source-agreements
+        if ($LASTEXITCODE -ne 0) { throw "Python 3.11 installation failed." }
     }
-    Write-Host "Python 3.11 was not found. Installing it with winget..."
-    & $winget.Source install --id Python.Python.3.11 -e --accept-package-agreements --accept-source-agreements
-    if ($LASTEXITCODE -ne 0) { throw "Python 3.11 installation failed." }
     $python = Resolve-Python311
     if (-not $python) { throw "Python 3.11 was installed but could not be located. Reopen PowerShell and rerun the installer." }
 }
@@ -60,7 +79,6 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
 }
 if (-not $SkipPythonPackages) {
     Write-Host "Installing pinned Python dependencies..."
-    & $venvPython -m pip install --upgrade pip
     $wheelhouse = Join-Path $projectRoot "deployment\wheelhouse"
     if (Test-Path -LiteralPath $wheelhouse) {
         & $venvPython -m pip install --no-index --find-links $wheelhouse -r (Join-Path $projectRoot "requirements-server.txt")
@@ -68,6 +86,24 @@ if (-not $SkipPythonPackages) {
         & $venvPython -m pip install -r (Join-Path $projectRoot "requirements-server.txt")
     }
     if ($LASTEXITCODE -ne 0) { throw "Python dependency installation failed." }
+}
+
+if (-not $SkipOdbcDriver -and -not (Test-SqlServerOdbcDriver)) {
+    $vcInstaller = Join-Path $projectRoot "deployment\installers\VC_redist.x64.exe"
+    $odbcInstaller = Join-Path $projectRoot "deployment\installers\msodbcsql18-x64.msi"
+    if (Test-Path -LiteralPath $vcInstaller) {
+        Write-Host "Installing the bundled Microsoft Visual C++ runtime..."
+        $vc = Start-Process -FilePath $vcInstaller -ArgumentList "/install", "/quiet", "/norestart" -Wait -PassThru -WindowStyle Hidden
+        if ($vc.ExitCode -notin @(0, 1638, 3010)) { throw "Visual C++ runtime installation failed with exit code $($vc.ExitCode)." }
+    }
+    if (Test-Path -LiteralPath $odbcInstaller) {
+        Write-Host "Installing the bundled Microsoft ODBC Driver 18 for SQL Server..."
+        $odbc = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", "`"$odbcInstaller`"", "/qn", "/norestart", "IACCEPTMSODBCSQLLICENSETERMS=YES" -Wait -PassThru -WindowStyle Hidden
+        if ($odbc.ExitCode -notin @(0, 1638, 3010)) { throw "SQL Server ODBC installation failed with exit code $($odbc.ExitCode)." }
+    }
+    if (-not (Test-SqlServerOdbcDriver)) {
+        throw "SQL Server ODBC Driver 17/18 is required for database workflows and could not be installed."
+    }
 }
 
 New-Item -ItemType Directory -Path $serviceRoot, $workspaceRoot, $runtimeRoot -Force | Out-Null

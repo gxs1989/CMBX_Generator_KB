@@ -66,7 +66,14 @@ def test_portable_assets_and_launch_contract_are_present() -> None:
     assert "ProcessStartInfo" in start
     assert "requirements-server.txt" in install
     assert "chromeleon-runtime.zip" in install
+    assert "python-3.11.9-amd64.exe" in install
+    assert "msodbcsql18-x64.msi" in install
     assert "10.68.182.125" not in start
+
+    installers = ROOT / "deployment" / "installers"
+    assert (installers / "python-3.11.9-amd64.exe").stat().st_size > 20_000_000
+    assert (installers / "VC_redist.x64.exe").stat().st_size > 10_000_000
+    assert (installers / "msodbcsql18-x64.msi").stat().st_size > 5_000_000
 
 
 def test_formulaone_uses_shared_runtime_resolver() -> None:

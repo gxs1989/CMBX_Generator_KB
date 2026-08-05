@@ -16,6 +16,7 @@ FOQ assets, and installs the bundled Chromeleon runtime dependency closure.
 | Server stop command | `Stop_CMBX_Web_Server.bat` | Stops the background service |
 | Python dependencies | `requirements-server.txt` | Pinned Web and analysis packages |
 | Offline wheelhouse | `deployment/wheelhouse/` | Local Windows/Python 3.11 package installation |
+| Offline prerequisite installers | `deployment/installers/` | Python 3.11, VC++ runtime and SQL Server ODBC Driver 18 |
 | Chromeleon runtime | `deployment/runtime/chromeleon-runtime.zip` | CMBX, raw/audit, method/report and FormulaOne runtime |
 | Runtime manifest | `deployment/runtime/RUNTIME_MANIFEST.json` | File versions, hashes and source record |
 | FOQ/runtime assets | `deployment/assets/` | Mapping and CM 7.2/7.3 carrier packages |
@@ -31,9 +32,9 @@ Chromeleon installation.
 1. Clone or download the complete repository to a short local path, for example
    `C:\CMBX_Workspace`.
 2. Right-click `launcher\安装依赖.bat` and choose **Run as administrator**.
-3. The installer locates or installs Python 3.11, creates `.venv`, installs the
+3. The installer locates or installs bundled Python 3.11, creates `.venv`, installs the
    pinned server dependencies from the included wheelhouse, deploys CM and FOQ assets, deploys the KB, and
-   opens TCP port 8765 for Domain/Private networks.
+   installs ODBC Driver 18 when needed, and opens TCP port 8765 for Domain/Private networks.
 4. Run `launcher\启动CMBX Web服务器.bat`.
 5. Use the printed LAN URL, such as `http://10.x.x.x:8765/`, from another
    computer on the same company network.
@@ -53,9 +54,8 @@ API keys, or browser sessions. Configure these after first administrator login:
 - connect the SharePoint/OneDrive shortcut
   `CIC HPCS V&V-CMBX Workstation - CMBX` if shared artifact storage is required.
 
-Python `pyodbc` is installed. Database workflows additionally require Microsoft
-ODBC Driver 17 or 18 for SQL Server on the host. The preflight reports a warning
-when this OS driver is absent; all non-database workflows remain available.
+Python `pyodbc` and the official Microsoft ODBC Driver 18 offline installer are
+included. The installer installs Driver 18 only when Driver 17/18 is absent.
 
 ## Runtime Resolution
 
