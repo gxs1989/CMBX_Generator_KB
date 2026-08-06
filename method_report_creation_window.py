@@ -389,7 +389,7 @@ class MethodReportCreationWindow:
         tk.Label(form, text="4. Options", font=self._font(14, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(14, 4)); row += 1
         BlueCheckbutton(
             form, "Small evidence package (<200 KB per file, recommended for speed)", self.small_context,
-            lambda: None, bg=form["bg"], fg=self.colors["text"], active=self.colors["primary"], font=self._font(9),
+            self._refresh_kb_files, bg=form["bg"], fg=self.colors["text"], active=self.colors["primary"], font=self._font(9),
         ).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=3); row += 1
         BlueCheckbutton(
             form, "Keep a copy of the generated MD", self.keep_md,
