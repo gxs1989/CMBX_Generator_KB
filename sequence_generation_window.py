@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import threading
 from datetime import datetime
@@ -18,6 +19,7 @@ from sequence_package_builder import (
 
 APP_DIR = Path(__file__).resolve().parent
 DEFAULT_CARRIER = APP_DIR / "assets" / "sequence_carrier_native_test1.cmbx"
+STEPS = ("Add method & report inputs", "Generate sequence")
 
 
 def _safe_name(value: str, fallback: str = "item") -> str:
@@ -29,10 +31,9 @@ class SequenceGenerationWindow:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.colors = {
-            "window": "#FFFFFF", "panel": "#F5F5F6", "border": "#E3E4E7",
-            "text": "#222326", "muted": "#7C8087", "primary": "#3598F5",
-            "primary_hover": "#2389EB", "warning": "#A85D00", "success": "#198754",
-            "error": "#C4322B", "error_soft": "#FEE2E2",
+            "bg": "#FFFFFF", "surface": "#FFFFFF", "alt": "#F6F6F7", "border": "#E3E4E7",
+            "text": "#222326", "muted": "#7C8087", "primary": "#3598F5", "hover": "#2389EB",
+            "soft": "#EAF4FE", "success": "#198754", "warning": "#A85D00", "danger": "#C23934",
         }
         self.injections: list[dict[str, object]] = []
         self.busy = False
@@ -41,120 +42,269 @@ class SequenceGenerationWindow:
         self.sequence_name = tk.StringVar()
         self.cm_version = tk.StringVar(value="7.3")
         self.output_root = tk.StringVar(value=str(DEFAULT_PROJECT_ROOT))
-        self._setup_window()
+        self.status_var = tk.StringVar(value="Add at least one Method MD and the shared Report MD to begin.")
+        self.page: tk.Frame | None = None
+        self.workflow_step_bar: tk.Frame | None = None
+        self.workflow_hint_label: tk.Label | None = None
+        self.workflow_active_step = 0
+        self.workflow_targets: dict[int, tuple[tk.Misc, str, int, str]] = {}
+        self._setup()
         self._build_shell()
-
-    def _setup_window(self) -> None:
-        self.root.title("Sequence Generation")
-        self.root.geometry("1180x760")
-        self.root.minsize(980, 640)
-        self.root.configure(bg=self.colors["window"])
-        try:
-            self.root.state("zoomed")
-        except tk.TclError:
-            pass
+        self.show_inputs()
 
     def _font(self, size: int, weight: str = "normal") -> tuple[str, int, str]:
         return ("Segoe UI", size, weight)
 
-    def _button(self, parent: tk.Misc, text: str, command, *, neutral: bool = False, width: int = 130) -> RoundedButton:
+    def _setup(self) -> None:
+        self.root.title("Sequence Generation")
+        self.root.geometry("1440x900")
+        self.root.minsize(1120, 720)
+        self.root.configure(bg=self.colors["bg"])
+        try:
+            self.root.state("zoomed")
+        except tk.TclError:
+            pass
+        style = ttk.Style(self.root)
+        style.configure("Sequence.Treeview", font=self._font(9), rowheight=27, background="#FFFFFF", fieldbackground="#FFFFFF")
+        style.configure("Sequence.Treeview.Heading", font=self._font(9, "bold"), background="#F0F1F3")
+        style.configure("Sequence.TCombobox", font=self._font(9), padding=5)
+
+    def _button(self, parent: tk.Misc, text: str, command, *, neutral: bool = False, width: int = 145) -> RoundedButton:
         return RoundedButton(
-            parent, text=text, command=command,
-            bg=self.colors["primary"] if not neutral else "#FFFFFF",
-            hover_bg=self.colors["primary_hover"] if not neutral else "#EEF2F7",
-            fg="#FFFFFF" if not neutral else self.colors["text"],
+            parent, text, command, width=width, height=42, radius=9,
+            bg=self.colors["surface"] if neutral else self.colors["primary"],
+            hover_bg=self.colors["alt"] if neutral else self.colors["hover"],
+            fg=self.colors["text"] if neutral else "#FFFFFF",
             border=self.colors["border"] if neutral else self.colors["primary"],
-            font=self._font(10, "bold"), width=width, radius=10, height=36,
+            parent_bg=str(parent.cget("bg")), font=self._font(9, "bold"),
         )
 
     def _build_shell(self) -> None:
-        self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(1, weight=1)
-        header = tk.Frame(self.root, bg=self.colors["window"])
-        header.grid(row=0, column=0, sticky="ew", padx=24, pady=(22, 10))
-        tk.Label(header, text="Sequence Generation", font=self._font(18, "bold"), bg=self.colors["window"], fg=self.colors["text"]).pack(anchor="w")
-        tk.Label(
-            header,
-            text="Bind one or more Method MDs and one shared Report MD into a multi-Injection Sequence CMBX.",
-            font=self._font(10), bg=self.colors["window"], fg=self.colors["muted"],
-        ).pack(anchor="w", pady=(3, 0))
+        self.root.columnconfigure(0, weight=1)
+        top = tk.Frame(self.root, bg=self.colors["surface"], height=76, highlightthickness=1, highlightbackground=self.colors["border"])
+        top.grid(row=0, column=0, sticky="ew")
+        top.grid_propagate(False)
+        top.columnconfigure(1, weight=1)
+        tk.Label(top, text="Sequence Generation", font=self._font(19, "bold"), bg=self.colors["surface"], fg=self.colors["text"]).grid(row=0, column=0, sticky="w", padx=(28, 14), pady=(14, 2))
+        self.scope_label = tk.Label(
+            top,
+            text=f"Carrier: {DEFAULT_CARRIER.name} ({'ready' if DEFAULT_CARRIER.is_file() else 'MISSING'})",
+            font=self._font(9), bg=self.colors["surface"], fg=self.colors["success"] if DEFAULT_CARRIER.is_file() else self.colors["danger"],
+        )
+        self.scope_label.grid(row=1, column=0, columnspan=2, sticky="w", padx=28, pady=(0, 12))
+        self._button(top, "Open output folder", self._open_output_folder, neutral=True, width=150).grid(row=0, column=2, rowspan=2, padx=(8, 28), pady=16)
 
-        body = tk.Frame(self.root, bg=self.colors["window"])
-        body.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 10))
-        body.columnconfigure(0, weight=3)
-        body.columnconfigure(1, weight=2)
-        body.rowconfigure(0, weight=1)
+        self.content = tk.Frame(self.root, bg=self.colors["bg"])
+        self.content.grid(row=1, column=0, sticky="nsew")
+        self.content.rowconfigure(0, weight=1)
+        self.content.columnconfigure(0, weight=1)
 
-        left = RoundedPanel(body, fill=self.colors["panel"], border=self.colors["border"], radius=12, padding=12, parent_bg=self.colors["window"])
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=6)
+        log_shell = tk.Frame(self.root, bg=self.colors["surface"], height=86, highlightthickness=1, highlightbackground=self.colors["border"])
+        log_shell.grid(row=2, column=0, sticky="ew")
+        log_shell.grid_propagate(False)
+        log_shell.columnconfigure(0, weight=1)
+        tk.Label(log_shell, text="Progress", font=self._font(8, "bold"), bg=self.colors["surface"], fg=self.colors["muted"]).grid(row=0, column=0, sticky="w", padx=28, pady=(9, 2))
+        self.log_text = tk.Text(log_shell, height=2, relief="flat", bd=0, bg=self.colors["surface"], fg=self.colors["muted"], font=self._font(8), wrap="word")
+        self.log_text.grid(row=1, column=0, sticky="ew", padx=24, pady=(0, 8))
+        self._log(self.status_var.get())
+
+    def _new_page(self) -> tk.Frame:
+        for child in self.content.winfo_children():
+            child.destroy()
+        page = tk.Frame(self.content, bg=self.colors["bg"])
+        page.grid(row=0, column=0, sticky="nsew", padx=32, pady=24)
+        page.rowconfigure(3, weight=1)
+        page.columnconfigure(0, weight=1)
+        self.page = page
+        self.workflow_targets = {}
+        return page
+
+    def _heading(self, page: tk.Frame, title: str, description: str, steps: tuple[str, ...], active: int) -> None:
+        tk.Label(page, text=title, font=self._font(20, "bold"), bg=self.colors["bg"], fg=self.colors["text"]).grid(row=0, column=0, sticky="w")
+        tk.Label(page, text=description, font=self._font(10), bg=self.colors["bg"], fg=self.colors["muted"], wraplength=1050, justify="left").grid(row=1, column=0, sticky="w", pady=(5, 14))
+        guide = tk.Frame(page, bg=self.colors["bg"])
+        guide.grid(row=2, column=0, sticky="ew", pady=(0, 16))
+        guide.columnconfigure(0, weight=1)
+        self.workflow_step_bar = tk.Frame(guide, bg=self.colors["bg"])
+        self.workflow_step_bar.grid(row=0, column=0, sticky="w")
+        self.workflow_hint_label = tk.Label(
+            guide, text="", font=self._font(9, "bold"), bg=self.colors["soft"],
+            fg=self.colors["primary"], anchor="w", justify="left", padx=12, pady=8,
+        )
+        self.workflow_hint_label.grid(row=1, column=0, sticky="ew", pady=(10, 0))
+        self.workflow_active_step = max(0, min(active, len(steps) - 1))
+        self._render_workflow_stepper()
+
+    def _render_workflow_stepper(self) -> None:
+        bar = self.workflow_step_bar
+        if bar is None or not bar.winfo_exists():
+            return
+        for child in bar.winfo_children():
+            child.destroy()
+        for index, label in enumerate(STEPS):
+            active = self.workflow_active_step
+            done = index < active
+            current = index == active
+            color = self.colors["success"] if done else self.colors["primary"] if current else self.colors["muted"]
+            tk.Label(bar, text=str(index + 1), width=3, font=self._font(9, "bold"), bg=color if done or current else self.colors["alt"], fg="#FFFFFF" if done or current else color).pack(side="left")
+            tk.Label(bar, text=label, font=self._font(9, "bold" if current else "normal"), bg=self.colors["bg"], fg=color).pack(side="left", padx=(7, 14))
+            if index < len(STEPS) - 1:
+                tk.Frame(bar, width=32, height=1, bg=self.colors["border"]).pack(side="left", padx=(0, 14))
+
+    def _register_workflow_target(self, step: int, widget: tk.Misc, instruction: str) -> None:
+        try:
+            original_thickness = int(widget.cget("highlightthickness"))
+            original_color = str(widget.cget("highlightbackground"))
+        except (tk.TclError, ValueError):
+            original_thickness, original_color = 0, self.colors["border"]
+        self.workflow_targets[step] = (widget, instruction, original_thickness, original_color)
+        self._apply_workflow_guidance()
+
+    def _set_workflow_step(self, step: int) -> None:
+        self.workflow_active_step = max(0, min(step, len(STEPS) - 1))
+        self._render_workflow_stepper()
+        self._apply_workflow_guidance()
+
+    def _apply_workflow_guidance(self) -> None:
+        active_target = None
+        for index, target in self.workflow_targets.items():
+            widget, _instruction, thickness, color = target
+            if not widget.winfo_exists():
+                continue
+            try:
+                if index == self.workflow_active_step:
+                    widget.configure(highlightthickness=2, highlightbackground=self.colors["primary"], highlightcolor=self.colors["primary"])
+                    active_target = target
+                else:
+                    widget.configure(highlightthickness=thickness, highlightbackground=color)
+            except tk.TclError:
+                continue
+        hint = self.workflow_hint_label
+        if hint is not None and hint.winfo_exists():
+            label = STEPS[self.workflow_active_step]
+            instruction = active_target[1] if active_target is not None else "Complete the highlighted operation below."
+            hint.configure(text=f"Step {self.workflow_active_step + 1}: {label}  |  {instruction}")
+
+    def show_inputs(self) -> None:
+        page = self._new_page()
+        self._heading(page, "Assemble sequence inputs", "Add one or more Method MDs and one shared Report MD. Each Method MD is a reusable injection contract.", STEPS, 0)
+        page.rowconfigure(3, weight=1)
+        page.columnconfigure(0, weight=3)
+        page.columnconfigure(1, weight=2)
+
+        left = RoundedPanel(page, fill=self.colors["alt"], border=self.colors["border"], radius=12, padding=12, parent_bg=self.colors["bg"])
+        left.grid(row=3, column=0, sticky="nsew", padx=(0, 10), pady=6)
         left.body.columnconfigure(0, weight=1)
         left.body.rowconfigure(1, weight=1)
-        tk.Label(left.body, text="Injection methods", font=self._font(13, "bold"), bg=left.body["bg"], fg=self.colors["text"]).grid(row=0, column=0, sticky="w", padx=8, pady=(6, 6))
+        tk.Label(left.body, text="1. Injection methods", font=self._font(13, "bold"), bg=left.body["bg"], fg=self.colors["text"]).grid(row=0, column=0, sticky="w", padx=10, pady=(8, 6))
+        tree_frame = tk.Frame(left.body, bg=self.colors["surface"])
+        tree_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 6))
+        tree_frame.rowconfigure(0, weight=1)
+        tree_frame.columnconfigure(0, weight=1)
         self.method_tree = ttk.Treeview(
-            left.body, columns=("injection", "md"), show="headings", selectmode="extended",
+            tree_frame, columns=("injection", "md"), show="headings", selectmode="extended",
             style="Sequence.Treeview",
         )
         self.method_tree.heading("injection", text="Injection name")
         self.method_tree.heading("md", text="Method MD")
-        self.method_tree.column("injection", width=180, stretch=False)
-        self.method_tree.column("md", width=430, stretch=True)
-        ybar = ttk.Scrollbar(left.body, orient="vertical", command=self.method_tree.yview)
-        self.method_tree.configure(yscrollcommand=ybar.set)
-        self.method_tree.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 6))
-        ybar.grid(row=1, column=1, sticky="ns", pady=(0, 6))
+        self.method_tree.column("injection", width=170, minwidth=120, stretch=False)
+        self.method_tree.column("md", width=430, minwidth=220, stretch=True)
+        ybar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.method_tree.yview)
+        xbar = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.method_tree.xview)
+        self.method_tree.configure(yscrollcommand=ybar.set, xscrollcommand=xbar.set)
+        self.method_tree.grid(row=0, column=0, sticky="nsew")
+        ybar.grid(row=0, column=1, sticky="ns")
+        xbar.grid(row=1, column=0, sticky="ew")
         tree_actions = tk.Frame(left.body, bg=left.body["bg"])
-        tree_actions.grid(row=2, column=0, columnspan=2, sticky="ew", padx=8, pady=(0, 8))
+        tree_actions.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
         self._button(tree_actions, "Add Method MD(s)", self._add_methods, width=150).pack(side="left")
         self._button(tree_actions, "Rename", self._rename_injection, neutral=True, width=100).pack(side="left", padx=8)
         self._button(tree_actions, "Remove", self._remove_selected, neutral=True, width=100).pack(side="left")
         self._button(tree_actions, "Clear", self._clear_injections, neutral=True, width=90).pack(side="right")
+        self._register_workflow_target(0, self.method_tree, "Add at least one Method MD, then choose the shared Report MD.")
 
-        right = RoundedPanel(body, fill=self.colors["panel"], border=self.colors["border"], radius=12, padding=12, parent_bg=self.colors["window"])
-        right.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=6)
+        right = RoundedPanel(page, fill=self.colors["alt"], border=self.colors["border"], radius=12, padding=12, parent_bg=self.colors["bg"])
+        right.grid(row=3, column=1, sticky="nsew", padx=(10, 0), pady=6)
         form = right.body
         form.columnconfigure(1, weight=1)
-        tk.Label(form, text="Shared Report MD", font=self._font(13, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=0, column=0, columnspan=2, sticky="w", padx=8, pady=(6, 8))
-        tk.Entry(form, textvariable=self.report_md, font=self._font(10), relief="flat", highlightthickness=1, highlightbackground=self.colors["border"], bg="#FFFFFF").grid(row=1, column=0, columnspan=2, sticky="ew", padx=8, pady=(0, 6), ipady=6)
-        self._button(form, "Choose Report MD", self._choose_report_md, neutral=True, width=160).grid(row=2, column=0, columnspan=2, sticky="w", padx=8, pady=(0, 12))
+        tk.Label(form, text="2. Shared Report MD", font=self._font(13, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(8, 8))
+        tk.Entry(form, textvariable=self.report_md, font=self._font(9), relief="flat", highlightthickness=1, highlightbackground=self.colors["border"], bg=self.colors["surface"]).grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(0, 6), ipady=7)
+        self._button(form, "Choose Report MD", self._choose_report_md, neutral=True, width=170).grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 14))
 
-        tk.Label(form, text="Sequence name", font=self._font(10, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=3, column=0, sticky="w", padx=8, pady=6)
-        tk.Entry(form, textvariable=self.sequence_name, font=self._font(10), relief="flat", highlightthickness=1, highlightbackground=self.colors["border"], bg="#FFFFFF").grid(row=3, column=1, sticky="ew", padx=(0, 8), pady=6, ipady=6)
-        tk.Label(form, text="CM target", font=self._font(10, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=4, column=0, sticky="w", padx=8, pady=6)
-        ttk.Combobox(form, textvariable=self.cm_version, values=("7.3", "7.2 compatible"), state="readonly", font=self._font(10)).grid(row=4, column=1, sticky="w", padx=(0, 8), pady=6)
-        tk.Label(form, text="Output folder", font=self._font(10, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=5, column=0, sticky="w", padx=8, pady=6)
-        tk.Entry(form, textvariable=self.output_root, font=self._font(10), relief="flat", highlightthickness=1, highlightbackground=self.colors["border"], bg="#FFFFFF").grid(row=5, column=1, sticky="ew", padx=(0, 8), pady=6, ipady=6)
-        self._button(form, "Choose", self._choose_output, neutral=True, width=100).grid(row=6, column=1, sticky="e", padx=(0, 8), pady=(2, 10))
+        tk.Label(form, text="3. Sequence settings", font=self._font(13, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=3, column=0, columnspan=2, sticky="w", padx=10, pady=(4, 8))
+        tk.Label(form, text="Sequence name", font=self._font(9, "bold"), bg=form["bg"], fg=self.colors["muted"]).grid(row=4, column=0, sticky="w", padx=10, pady=6)
+        tk.Entry(form, textvariable=self.sequence_name, font=self._font(9), relief="flat", highlightthickness=1, highlightbackground=self.colors["border"], bg=self.colors["surface"]).grid(row=4, column=1, sticky="ew", padx=(0, 10), pady=6, ipady=7)
+        tk.Label(form, text="CM target", font=self._font(9, "bold"), bg=form["bg"], fg=self.colors["muted"]).grid(row=5, column=0, sticky="w", padx=10, pady=6)
+        ttk.Combobox(form, textvariable=self.cm_version, values=("7.3", "7.2 compatible"), state="readonly", style="Sequence.TCombobox").grid(row=5, column=1, sticky="w", padx=(0, 10), pady=6)
+        tk.Label(form, text="Output folder", font=self._font(9, "bold"), bg=form["bg"], fg=self.colors["muted"]).grid(row=6, column=0, sticky="w", padx=10, pady=6)
+        tk.Entry(form, textvariable=self.output_root, font=self._font(9), relief="flat", highlightthickness=1, highlightbackground=self.colors["border"], bg=self.colors["surface"]).grid(row=6, column=1, sticky="ew", padx=(0, 10), pady=6, ipady=7)
+        self._button(form, "Choose", self._choose_output, neutral=True, width=100).grid(row=7, column=1, sticky="e", padx=(0, 10), pady=(2, 6))
 
-        carrier_ok = DEFAULT_CARRIER.is_file()
-        tk.Label(
-            form,
-            text=f"Carrier: {DEFAULT_CARRIER.name} ({'ready' if carrier_ok else 'MISSING'})",
-            font=self._font(9), bg=form["bg"],
-            fg=self.colors["success"] if carrier_ok else self.colors["error"],
-        ).grid(row=7, column=0, columnspan=2, sticky="w", padx=8, pady=(2, 10))
+        footer = tk.Frame(page, bg=self.colors["bg"])
+        footer.grid(row=4, column=0, columnspan=2, sticky="ew", pady=(14, 0))
+        self._button(footer, "Continue", self._go_to_generate, width=150).pack(side="right")
+        self._log("Sequence workflow opened. Add Method MDs and a shared Report MD.")
 
-        self.generate_button = self._button(form, "Generate Sequence CMBX", self._start_generate, width=210)
-        self.generate_button.grid(row=8, column=0, columnspan=2, sticky="ew", padx=8, pady=(6, 4))
-        self.status_label = tk.Label(form, text="Add methods and a shared Report MD, then generate.", font=self._font(9), bg=form["bg"], fg=self.colors["muted"], anchor="w", justify="left", wraplength=360)
-        self.status_label.grid(row=9, column=0, columnspan=2, sticky="w", padx=8, pady=(2, 0))
+    def show_generate(self) -> None:
+        page = self._new_page()
+        self._heading(page, "Generate the sequence", "Review the assembled inputs, then build the multi-Injection Sequence CMBX.", STEPS, 1)
+        panel = RoundedPanel(page, fill=self.colors["alt"], border=self.colors["border"], radius=12, padding=14, parent_bg=self.colors["bg"])
+        panel.grid(row=3, column=0, sticky="nsew", pady=6)
+        body = panel.body
+        body.columnconfigure(1, weight=1)
+        rows = [
+            ("Asset type", "Sequence CMBX"),
+            ("Sequence name", self.sequence_name.get().strip() or "(not set)"),
+            ("Injections", f"{len(self.injections)} method(s): {', '.join(str(row['name']) for row in self.injections[:3])}{' ...' if len(self.injections) > 3 else ''}"),
+            ("Shared Report MD", self.report_md.get().strip() or "(not set)"),
+            ("CM target", self.cm_version.get()),
+            ("Output folder", self.output_root.get().strip() or str(DEFAULT_PROJECT_ROOT)),
+        ]
+        for row, (label, value) in enumerate(rows, start=1):
+            tk.Label(body, text=label, font=self._font(9, "bold"), bg=body["bg"], fg=self.colors["text"], width=16, anchor="w").grid(row=row, column=0, sticky="w", padx=(14, 8), pady=8)
+            tk.Label(body, text=value, font=self._font(10), bg=body["bg"], fg=self.colors["muted"], anchor="w", wraplength=820, justify="left").grid(row=row, column=1, sticky="w", padx=8, pady=8)
+        result_text = f"A candidate Sequence CMBX will be written here after generation.{chr(10) + str(self.result_path) if self.result_path else ''}"
+        self.generation_result = tk.Label(body, text=result_text, font=self._font(10), wraplength=850, justify="left", bg=body["bg"], fg=self.colors["primary"] if self.result_path else self.colors["muted"])
+        self.generation_result.grid(row=len(rows) + 2, column=0, columnspan=2, sticky="w", padx=14, pady=(20, 16))
+        footer = tk.Frame(page, bg=self.colors["bg"])
+        footer.grid(row=4, column=0, sticky="ew", pady=(14, 0))
+        self._button(footer, "Back to inputs", self.show_inputs, neutral=True, width=140).pack(side="left")
+        self.generate_button = self._button(footer, "Generate Sequence CMBX", self._start_generate, width=210)
+        self.generate_button.pack(side="right")
+        self._register_workflow_target(1, self.generate_button, "Review the summary, then generate the Sequence CMBX.")
 
-        log_panel = RoundedPanel(body, fill="#FBFBFC", border=self.colors["border"], radius=12, padding=10, parent_bg=self.colors["window"])
-        log_panel.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(4, 0))
-        log_panel.body.columnconfigure(0, weight=1)
-        self.log_text = tk.Text(log_panel.body, height=7, font=self._font(9), wrap="word", relief="flat", bg="#FBFBFC", fg=self.colors["text"], state="disabled")
-        self.log_text.grid(row=0, column=0, sticky="ew")
+    def _go_to_generate(self) -> None:
+        if self.busy:
+            return
+        if not self.injections:
+            messagebox.showwarning("Sequence Generation", "Add at least one Method MD.", parent=self.root)
+            return
+        if not self.report_md.get().strip():
+            messagebox.showwarning("Sequence Generation", "Choose the shared Report MD.", parent=self.root)
+            return
+        if not self.sequence_name.get().strip():
+            messagebox.showwarning("Sequence Generation", "Enter a sequence name.", parent=self.root)
+            return
+        self.show_generate()
 
     def _log(self, message: str) -> None:
-        stamp = datetime.now().strftime("%H:%M:%S")
+        self.status_var.set(message)
+        if not hasattr(self, "log_text"):
+            return
         self.log_text.configure(state="normal")
-        self.log_text.insert("end", f"[{stamp}] {message}\n")
+        self.log_text.insert("end", message.rstrip() + "\n")
+        lines = int(self.log_text.index("end-1c").split(".")[0])
+        if lines > 120:
+            self.log_text.delete("1.0", f"{lines - 100}.0")
         self.log_text.see("end")
         self.log_text.configure(state="disabled")
 
     def _set_busy(self, busy: bool, text: str) -> None:
         self.busy = busy
-        self.status_label.configure(text=text)
-        self.generate_button.configure(state="disabled" if busy else "normal", cursor="watch" if busy else "hand2")
+        self.status_var.set(text)
+        if hasattr(self, "generate_button") and self.generate_button.winfo_exists():
+            self.generate_button.configure(state="disabled" if busy else "normal", cursor="watch" if busy else "hand2")
 
     def _add_methods(self) -> None:
         if self.busy:
@@ -172,6 +322,7 @@ class SequenceGenerationWindow:
         if values and not self.sequence_name.get().strip():
             first = Path(values[0]).stem
             self.sequence_name.set(f"{_safe_name(first, 'Sequence')}_Sequence_{datetime.now():%Y%m%d_%H%M%S}")
+        self.scope_label.configure(text=f"Carrier: {DEFAULT_CARRIER.name} · {len(self.injections)} injection method(s) ready")
 
     def _rename_injection(self) -> None:
         selection = self.method_tree.selection()
@@ -181,13 +332,15 @@ class SequenceGenerationWindow:
         current = str(self.injections[index]["name"])
         dialog = tk.Toplevel(self.root)
         dialog.title("Rename injection")
-        dialog.geometry("440x140")
+        dialog.geometry("440x150")
         dialog.transient(self.root)
         dialog.grab_set()
-        dialog.configure(bg=self.colors["window"])
-        tk.Label(dialog, text="Injection name", font=self._font(10, "bold"), bg=self.colors["window"], fg=self.colors["text"]).pack(anchor="w", padx=20, pady=(18, 6))
+        dialog.configure(bg=self.colors["bg"])
+        tk.Label(dialog, text="Injection name", font=self._font(10, "bold"), bg=self.colors["bg"], fg=self.colors["text"]).pack(anchor="w", padx=22, pady=(20, 6))
         variable = tk.StringVar(value=current)
-        tk.Entry(dialog, textvariable=variable, font=self._font(10), relief="solid", bd=1).pack(fill="x", padx=20, pady=(0, 12), ipady=5)
+        tk.Entry(dialog, textvariable=variable, font=self._font(10), relief="solid", bd=1, highlightthickness=1, highlightbackground=self.colors["border"]).pack(fill="x", padx=22, pady=(0, 14), ipady=6)
+        actions = tk.Frame(dialog, bg=self.colors["bg"])
+        actions.pack(fill="x", padx=22, pady=(0, 16))
 
         def save() -> None:
             value = variable.get().strip() or current
@@ -196,7 +349,8 @@ class SequenceGenerationWindow:
             self._log(f"Renamed injection to: {value}")
             dialog.destroy()
 
-        self._button(dialog, "Save", save, width=100).pack(anchor="e", padx=20, pady=(0, 14))
+        self._button(actions, "Cancel", dialog.destroy, neutral=True, width=100).pack(side="right", padx=(8, 0))
+        self._button(actions, "Save", save, width=100).pack(side="right")
 
     def _remove_selected(self) -> None:
         if self.busy:
@@ -207,12 +361,14 @@ class SequenceGenerationWindow:
             self.method_tree.delete(item)
             self.injections.pop(index)
             self._reindex_tree()
+        self.scope_label.configure(text=f"Carrier: {DEFAULT_CARRIER.name} · {len(self.injections)} injection method(s) ready")
 
     def _clear_injections(self) -> None:
         if self.busy:
             return
         self.method_tree.delete(*self.method_tree.get_children())
         self.injections.clear()
+        self.scope_label.configure(text=f"Carrier: {DEFAULT_CARRIER.name} · 0 injection methods")
         self._log("Injection list cleared.")
 
     def _reindex_tree(self) -> None:
@@ -232,6 +388,14 @@ class SequenceGenerationWindow:
         value = filedialog.askdirectory(parent=self.root, title="Select generation history folder", initialdir=self.output_root.get())
         if value:
             self.output_root.set(value)
+
+    def _open_output_folder(self) -> None:
+        target = Path(self.output_root.get().strip() or DEFAULT_PROJECT_ROOT)
+        if self.result_path is not None:
+            target = self.result_path
+        target.mkdir(parents=True, exist_ok=True)
+        if os.name == "nt":
+            os.startfile(target)  # type: ignore[attr-defined]
 
     def _start_generate(self) -> None:
         if self.busy:
@@ -352,6 +516,8 @@ class SequenceGenerationWindow:
         self._log(f"Report template: {validation.report_template}")
         for warning in validation.warnings:
             self._log(f"WARNING: {warning}")
+        if self.page is not None and self.current_step_is_generate():
+            self.show_generate()
         messagebox.showinfo(
             "Sequence Generation",
             f"Sequence CMBX generated successfully:\n\n{output_cmbx}\n\n"
@@ -360,6 +526,9 @@ class SequenceGenerationWindow:
             f"Report: {validation.report_template}",
             parent=self.root,
         )
+
+    def current_step_is_generate(self) -> bool:
+        return self.workflow_active_step == 1
 
     def _task_failed(self, error: Exception) -> None:
         self._set_busy(False, f"Sequence generation failed: {error}")
