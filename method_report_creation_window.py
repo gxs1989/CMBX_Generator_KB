@@ -21,11 +21,21 @@ from generation_project import (
     recommended_online_kb_files_for_modules,
 )
 from method_md_linter import lint_error_rows
-from web_ai_package import AI_CONFIG_FILE, PromptOptimization, base_prompt, create_web_ai_zip, load_ai_config, optimize_prompt
+from web_ai_package import (
+    AI_CONFIG_FILE,
+    AIProviderSettings,
+    PromptOptimization,
+    base_prompt,
+    create_web_ai_zip,
+    generate_method_markdown,
+    generate_report_markdown,
+    load_ai_config,
+    optimize_prompt,
+)
 
 
 class MethodReportCreationWindow:
-    STEP_TITLES = ("Choose asset", "Prepare web AI", "Import & preview", "Generate CMBX")
+    STEP_TITLES = ("Choose asset", "Prepare & generate", "Import & preview", "Generate CMBX")
     MODULES = ("TCC", "RID", "VAS", "VVWD", "Pump")
 
     def __init__(self, root: tk.Tk, initial_asset: str | None = None):
@@ -322,6 +332,8 @@ class MethodReportCreationWindow:
         self._button(prompt_actions, "AI settings", self._open_ai_settings, neutral=True, width=116).pack(side="left")
         self.optimize_prompt_button = self._button(prompt_actions, "Optimize", self._start_prompt_optimization, width=116)
         self.optimize_prompt_button.pack(side="left", padx=8)
+        self.auto_generate_button = self._button(prompt_actions, "Generate via API", self._start_auto_generate, width=150)
+        self.auto_generate_button.pack(side="left", padx=8)
         prompt_status = "Optimized prompt is visible and editable; choose Optimize to regenerate it." if self.prompt_prepared else "Prompt is editable and has not been optimized locally."
         self.prompt_status_label = tk.Label(form, text=prompt_status, font=self._font(8), bg=form["bg"], fg=self.colors["success"] if self.prompt_prepared else self.colors["muted"], wraplength=430, justify="left")
         self.prompt_status_label.grid(row=7, column=0, sticky="w", padx=12, pady=(0, 10))
@@ -369,6 +381,100 @@ class MethodReportCreationWindow:
         self._button(actions, "Open selected", self._open_selected_kb, neutral=True, width=138).pack(side="left")
         self._button(actions, "Create ZIP", self._start_package, width=126).pack(side="right")
         self._refresh_kb_files()
+
+    def _start_auto_generate(self) -> None:
+        modules = self.selected_modules()
+        if not modules:
+            messagebox.showwarning("Method & Report Creation", "Select at least one module.", parent=self.root)
+            return
+        self._capture_page()
+        requirement = self.intent.strip()
+        if not requirement:
+            messagebox.showwarning("Method & Report Creation", "Enter the test/report requirement first.", parent=self.root)
+            return
+        config = load_ai_config()
+        provider = str(config.get("provider") or "gpt").strip().lower()
+        api_key = str(config.get("api_key") or "").strip()
+        if not api_key:
+            messagebox.showwarning(
+                "Method & Report Creation",
+                f"{provider} API key is empty. Configure it in AI settings first.",
+                parent=self.root,
+            )
+            self._open_ai_settings()
+            return
+        basis_path: Path | None = None
+        if self.asset_type.get() == "report":
+            basis_value = self.method_basis_md.get().strip()
+            if not basis_value:
+                messagebox.showwarning(
+                    "Method & Report Creation",
+                    "Attach a Method MD basis before automatic Report generation.",
+                    parent=self.root,
+                )
+                return
+            basis_path = Path(basis_value)
+            if not basis_path.is_file():
+                messagebox.showerror("Method & Report Creation", f"Method basis MD not found:\n{basis_value}", parent=self.root)
+                return
+        kb_files = recommended_online_kb_files_for_modules(
+            self.asset_type.get(), modules, small_context=bool(self.small_context.get()),
+        )
+        if not kb_files:
+            messagebox.showwarning(
+                "Method & Report Creation",
+                "No SPEC/KB files were found for the selected modules.",
+                parent=self.root,
+            )
+            return
+        settings = AIProviderSettings(
+            provider=provider,
+            base_url=str(config.get("base_url") or "").strip(),
+            model=str(config.get("model") or "").strip(),
+            api_key=api_key,
+        )
+        kind = "Method" if self.asset_type.get() == "method" else "Report"
+        self._set_busy(True, f"Calling {provider} API to generate {kind} Markdown...")
+        self._log(f"Automatic {provider} generation started: {', '.join(modules)}")
+        threading.Thread(
+            target=self._auto_generate_worker,
+            args=(modules, requirement, kb_files, settings, basis_path),
+            daemon=True,
+        ).start()
+
+    def _auto_generate_worker(
+        self,
+        modules: tuple[str, ...],
+        requirement: str,
+        kb_files: list[Path],
+        settings: AIProviderSettings,
+        basis_path: Path | None,
+    ) -> None:
+        try:
+            if self.asset_type.get() == "report":
+                if not basis_path or not basis_path.is_file():
+                    raise ValueError("A valid Method MD basis is required for Report generation.")
+                method_markdowns = [(basis_path.name, basis_path.read_text(encoding="utf-8", errors="replace"))]
+                generated = generate_report_markdown(requirement, modules, kb_files, method_markdowns, settings)
+            else:
+                generated = generate_method_markdown(requirement, modules, kb_files, settings)
+            out_dir = DEFAULT_PROJECT_ROOT / "AI_generated"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            kind = "method" if self.asset_type.get() == "method" else "report"
+            path = out_dir / f"{kind}_{settings.provider}_{stamp}.md"
+            path.write_text(generated, encoding="utf-8")
+            self.root.after(0, lambda result=path: self._finish_auto_generate(result))
+        except Exception as exc:
+            self.root.after(0, lambda error=exc: self._task_failed("Automatic generation", error))
+
+    def _finish_auto_generate(self, path: Path) -> None:
+        self.source_md.set(str(path))
+        self.preflight = None
+        self.generated_path = None
+        self._log(f"API-generated MD saved: {path}")
+        self._set_busy(False, "Generated. Review the MD in the next step.")
+        self.show_step(2)
 
     def _refresh_kb_files(self) -> None:
         if not hasattr(self, "docs_tree"):
