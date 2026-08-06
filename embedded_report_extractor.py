@@ -88,9 +88,14 @@ def extract_embedded_report_template(package: CmbxPackage, element: CmbxElement)
     # report source so the Report Templates view can inspect its XML too.
     if not sequence and element.filename:
         data = extract_cmbx_entry(package.path, element.filename)
-        cpxm_start = data.find(b"CpXm")
-        if cpxm_start < 0:
+        # CpXm is a length-delimited protobuf value. It is not necessarily the
+        # final value in a standalone .report command: generated reports can
+        # carry object name and version metadata after it. Slicing to EOF would
+        # silently append that metadata to the compressed report payload.
+        cpxm = _find_cpxm_wire_value(data, 0, len(data))
+        if not cpxm:
             return None
+        cpxm_start, cpxm_end, cpxm_payload = cpxm
         return EmbeddedReportTemplate(
             element_name=element.name,
             sequence_name="(standalone report template)",
@@ -98,9 +103,9 @@ def extract_embedded_report_template(package: CmbxPackage, element: CmbxElement)
             start=0,
             end=len(data),
             data=data,
-            cpxm_payload=data[cpxm_start:],
+            cpxm_payload=cpxm_payload,
             cpxm_start=cpxm_start,
-            cpxm_end=len(data),
+            cpxm_end=cpxm_end,
         )
     if not sequence or not sequence.filename:
         return None

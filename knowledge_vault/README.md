@@ -8,11 +8,11 @@ inventory while preserving the paths required by the running application.
 | Layer | Files | Editing contract |
 |---|---:|---|
 | `operational` | 219 | Snapshot of `C:\ProgramData\CMBX Data Explorer Workspace\KB`. Obsidian edits are collected back into this layer. |
-| `engineering` | 102 | Read-only mirror of Git-tracked project Markdown. Edit the original repository file. |
+| `engineering` | 108 | Read-only mirror of Git-tracked project Markdown. Edit the original repository file. |
 | `skills` | 6 | Read-only mirror of relevant Codex skills. Edit the installed skill source. |
 
 Exact-content duplicates are retained where runtime compatibility requires their
-legacy paths. `manifest.json` and `manifest.csv` identify 79
+legacy paths. `manifest.json` and `manifest.csv` identify 77
 duplicate groups by SHA-256 so they can be consolidated deliberately later.
 Managed copies whose full Windows path would exceed the safe limit are stored under
 `_long_paths` with a stable hash suffix; the manifest preserves and restores their

@@ -415,3 +415,46 @@ Important boundary:
 - Add rendered report sheet extraction/export once the Chromeleon report workbook output format is mapped.
 - Continue comparing the Chromeleon-style method script renderer against additional method XML variants.
 - Use the same CMBX package reader for non-TCC workflows by adding analysis modules on top of exported raw signal/audit/method data.
+
+## Sequence Package Generation Prototype
+
+The first write path for a complete sequence package is now implemented as a
+**carrier-guided assembly**, not as ZIP concatenation:
+
+```text
+CM-exported one-sequence / one-injection carrier
++ standalone Instrument Method CMBX
++ standalone Report Template CMBX
+-> replace the carrier method CpXm body
+-> replace the carrier report CpXm body
+-> rename sequence, injection, method and report references
+-> preserve the carrier Processing Method and DataContract graph
+-> rebuild header.xml and the owning sequence .cmd
+-> reopen and validate the generated package
+```
+
+Prototype API and CLI:
+
+- `sequence_package_builder.py`
+- `tools/build_sequence_package.py`
+
+Validation checks:
+
+- exactly one visible sequence and injection;
+- exactly one visible Instrument Method and Report Template;
+- Injection `RelativeUrl` resolves to the renamed Instrument Method;
+- generated Method CpXm is byte-identical to the standalone Method input;
+- generated Report CpXm is byte-identical to the standalone Report input;
+- hidden `.cmd` objects inherited from the carrier are reported;
+- the preserved Processing Method is named explicitly in the result.
+
+Current boundary:
+
+- This creates a structurally readable **candidate sequence CMBX**.
+- Processing Method / IRC logic is not generated yet; it is inherited from the carrier.
+- A non-minimal carrier can retain hidden objects that are not exposed by `header.xml`.
+- Runtime approval still requires opening the result in Chromeleon and verifying it
+  against the target Instrument Configuration.
+- The preferred next evidence asset is a CM-exported minimal carrier containing one
+  blank/idle injection, one benign Processing Method, one Instrument Method and one
+  Report Template.

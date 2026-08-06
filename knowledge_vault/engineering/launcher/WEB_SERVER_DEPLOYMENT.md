@@ -51,12 +51,6 @@ server; use `launcher\停止CMBX Web服务器.bat`.
 
 ## Machine-Specific Configuration
 
-Uploaded and generated assets are kept under
-`%LOCALAPPDATA%\CMBX Web Workspace\assets`; compiler jobs use the adjacent short
-`work` directory. This avoids Windows path-limit failures caused by the long synced
-SharePoint shortcut. Set `CMBX_WEB_LOCAL_ROOT` in `server.env.ps1` only when another
-short local disk is required. Do not point it at OneDrive or a network share.
-
 The installer deliberately does not copy passwords, DSN credentials, personal
 API keys, or browser sessions. Configure these after first administrator login:
 

@@ -13,6 +13,7 @@ from web_workspace.app import create_app
 from web_workspace.config import SHAREPOINT_SHORTCUT_NAME, WebWorkspaceConfig
 import web_workspace.app as web_app
 from web_workspace.foq import load_database_sources
+from web_workspace.method_ai import build_report_generation_prompt
 
 
 def _config(tmp_path: Path) -> WebWorkspaceConfig:
@@ -59,9 +60,13 @@ def test_environment_config_prefers_synced_sharepoint_shortcut(tmp_path: Path, m
     shortcut.mkdir(parents=True)
     monkeypatch.setenv("OneDriveCommercial", str(one_drive))
     monkeypatch.delenv("CMBX_WEB_SHARED_ROOT", raising=False)
+    monkeypatch.delenv("CMBX_WEB_LOCAL_ROOT", raising=False)
     monkeypatch.setenv("CMBX_WEB_STATE_ROOT", str(tmp_path / "state"))
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
 
-    assert WebWorkspaceConfig.from_environment().shared_root == shortcut
+    config = WebWorkspaceConfig.from_environment()
+    assert config.shared_root == shortcut
+    assert config.local_root == tmp_path / "LocalAppData" / "CMBX Web Workspace"
 
 
 def test_health_and_static_home(tmp_path: Path) -> None:
@@ -76,14 +81,45 @@ def test_health_and_static_home(tmp_path: Path) -> None:
         assert 'id="singleChartFontSize"' in page.text
         assert "9 pt" in page.text
         assert 'id="singleChartRatio"' in page.text
+        assert 'id="view-sequence"' in page.text
+        assert "Sequence Generation" in page.text
+        assert 'id="sequenceMethodFiles"' in page.text
+        assert 'id="sequenceReportFile"' in page.text
+        assert 'id="sequenceAddInjection"' in page.text
+        assert 'id="sequenceTargetVersion"' in page.text
+        assert 'id="sequenceName"' not in page.text
+        assert 'id="sequenceReportName"' not in page.text
         assert "3:2" in page.text
-        script = client.get("/static/app.js?v=20260804-leak-analyzer-v8")
+        script = client.get("/static/app.js?v=20260806-sequence-v3")
         assert script.status_code == 200
         assert "copyLeakChart" in script.text
         assert "ClipboardItem" in script.text
         assert "decimals:0" in script.text
         assert "decimals:2" in script.text
         assert "legacyCopyChart" in script.text
+        sequence_config = client.get("/api/sequence/config")
+        assert sequence_config.status_code == 200
+        assert sequence_config.json()["processing_method_default"] == ""
+        assert sequence_config.json()["max_injections"] == 2
+        assert sequence_config.json()["target_versions"] == ["7.3 candidate"]
+
+
+def test_report_prompt_binds_all_selected_methods(tmp_path: Path) -> None:
+    kb = tmp_path / "REPORT_SPEC.md"
+    kb.write_text("# Controlled Report SPEC\n", encoding="utf-8")
+    prompt = build_report_generation_prompt(
+        "Create one shared sequence report",
+        ("TCC",),
+        [kb],
+        [("Method_A.md", "# Method A\nRetTimes.RetTime1"), ("Method_B.md", "# Method B\nUV_VIS_1")],
+    )
+    assert "BINDING METHOD MD 1: Method_A.md" in prompt
+    assert "BINDING METHOD MD 2: Method_B.md" in prompt
+    assert "one shared Report Template" in prompt
+    assert "independent Injection-local runtime contract" in prompt
+    assert "reusable method contract, not an Injection count" in prompt
+    assert "multiple Injection rows" in prompt
+    assert "Multiple Method MD / Shared Sequence Report Contract" in prompt
 
 
 def test_home_map_root_has_clearance_above_connector() -> None:
@@ -123,8 +159,69 @@ def test_personal_md_library_upload_preflight_and_delete(tmp_path: Path) -> None
         assert client.get("/api/artifacts?kind=method_md").json() == []
 
 
-def test_upload_scan_and_inventory_roundtrip(tmp_path: Path) -> None:
+def test_sequence_config_lists_uploaded_method_and_report_md(tmp_path: Path) -> None:
     with TestClient(create_app(_config(tmp_path))) as client:
+        method = client.post(
+            "/api/artifacts/md-upload?kind=method_md",
+            files={"file": ("sequence_method.md", _minimal_method_md(), "text/markdown")},
+        )
+        report = client.post(
+            "/api/artifacts/md-upload?kind=report_md",
+            files={"file": ("sequence_report.md", b"# Report\n", "text/markdown")},
+        )
+        assert method.status_code == 201, method.text
+        assert report.status_code == 201, report.text
+        config = client.get("/api/sequence/config")
+        assert config.status_code == 200
+        assert [item["original_name"] for item in config.json()["method_md"]] == ["sequence_method.md"]
+        assert [item["original_name"] for item in config.json()["report_md"]] == ["sequence_report.md"]
+        assert config.json()["method_md"][0]["asset_name"] == "sequence_method"
+        assert config.json()["report_md"][0]["asset_name"] == "sequence_report"
+
+
+def test_sequence_only_account_can_upload_sequence_md_assets(tmp_path: Path) -> None:
+    config = WebWorkspaceConfig(
+        state_root=tmp_path / "state",
+        shared_root=tmp_path / "shared",
+        worker_count=1,
+        require_login=True,
+    )
+    with TestClient(create_app(config), client=("10.68.178.88", 50000)) as client:
+        client.app.state.store.save_developer_account(
+            "sequence.only@thermofisher.com",
+            web_app.hash_password("000000"),
+            "analyst",
+            0,
+            ["sequence_generate"],
+            True,
+        )
+        logged_in = client.post(
+            "/api/auth/developer-login",
+            json={"email": "sequence.only@thermofisher.com", "password": "000000"},
+        )
+        assert logged_in.status_code == 200, logged_in.text
+        method = client.post(
+            "/api/artifacts/md-upload?kind=method_md",
+            files={"file": ("owned_method.md", _minimal_method_md(), "text/markdown")},
+        )
+        report = client.post(
+            "/api/artifacts/md-upload?kind=report_md",
+            files={"file": ("owned_report.md", b"# Report\n", "text/markdown")},
+        )
+        assert method.status_code == 201, method.text
+        assert report.status_code == 201, report.text
+        sequence = client.get("/api/sequence/config")
+        assert sequence.status_code == 200
+        assert len(sequence.json()["method_md"]) == 1
+        assert len(sequence.json()["report_md"]) == 1
+        assert client.get("/api/method/config").json()["allowed_routes"] == {
+            "manual": False, "gpt": False, "deepseek": False,
+        }
+
+
+def test_upload_scan_and_inventory_roundtrip(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    with TestClient(create_app(config)) as client:
         uploaded = client.post(
             "/api/artifacts/upload",
             files={"file": ("sample.cmbx", _minimal_cmbx(), "application/octet-stream")},
@@ -133,6 +230,9 @@ def test_upload_scan_and_inventory_roundtrip(tmp_path: Path) -> None:
         artifact = uploaded.json()
         assert artifact["original_name"] == "sample.cmbx"
         assert "storage_path" not in artifact
+        stored = Path(client.app.state.store.get_artifact(artifact["id"])["storage_path"])
+        assert config.asset_root.resolve() in stored.resolve().parents
+        assert stored.name.endswith("sample.cmbx")
 
         queued = client.post(f"/api/cmbx/{artifact['id']}/scan")
         assert queued.status_code == 202
@@ -154,6 +254,28 @@ def test_upload_scan_and_inventory_roundtrip(tmp_path: Path) -> None:
         assert payload["summary"]["injections"] == 1
         assert payload["summary"]["channels"] == 1
         assert payload["tree"][0]["children"][0]["name"] == "Injection 1"
+
+
+def test_legacy_shared_artifact_is_copied_to_short_local_storage_on_use(tmp_path: Path) -> None:
+    config = _config(tmp_path)
+    legacy = config.shared_root / ("very-long-folder-" * 6) / "legacy_source.cmbx"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_bytes(_minimal_cmbx())
+    with TestClient(create_app(config)) as client:
+        record = client.app.state.store.add_artifact({
+            "id": "legacy-artifact-1",
+            "workspace_id": "shared",
+            "owner": "test.user",
+            "kind": "cmbx_source",
+            "original_name": "legacy_source.cmbx",
+            "sha256": "legacy",
+            "size_bytes": legacy.stat().st_size,
+            "storage_path": str(legacy),
+        })
+        downloaded = client.get(f"/api/artifacts/{record['id']}/download")
+        assert downloaded.status_code == 200
+        local_copy = config.asset_root / "cmbx_source" / "test.user" / "legacy-a_legacy_source.cmbx"
+        assert local_copy.is_file()
 
 
 def test_analysis_catalog_and_direct_formula_scan_accept_uploaded_cmbx(tmp_path: Path) -> None:
@@ -242,6 +364,8 @@ def test_admin_status_reports_separate_roots(tmp_path: Path) -> None:
         storage = response.json()["storage"]
         assert storage["state_root"] == str(config.state_root)
         assert storage["shared_root"] == str(config.shared_root)
+        assert storage["local_asset_root"] == str(config.asset_root)
+        assert storage["local_work_root"] == str(config.work_root)
 
 
 def test_admin_is_not_available_to_an_unlisted_user(tmp_path: Path) -> None:
@@ -735,11 +859,12 @@ def test_module_permissions_and_user_cmbx_isolation(tmp_path: Path, monkeypatch)
 
         permission_catalog = client.get("/api/admin/developer-accounts", headers=admin).json()["known_permissions"]
         roots = [item for item in permission_catalog if not item.get("parent")]
-        assert len(roots) == 9
+        assert len(roots) == 10
         assert {item["group"] for item in roots} == {
             "Design & Generate", "Chromatograms & Results", "Quality Control & Database", "Single Verification",
         }
         assert any(item["id"] == "instrument_method_generation" for item in roots)
+        assert any(item["id"] == "sequence_generate" for item in roots)
         assert any(item["id"] == "chromatogram_integrate" for item in permission_catalog)
         assert any(item["id"] == "method_manual_web_ai" and not item["default"] for item in permission_catalog)
         assert any(item["id"] == "report_manual_web_ai" and not item["default"] for item in permission_catalog)

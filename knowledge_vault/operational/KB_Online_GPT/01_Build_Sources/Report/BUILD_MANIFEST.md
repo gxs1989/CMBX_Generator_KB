@@ -1,6 +1,6 @@
 # Universal Report KB Build Manifest
 
-SPEC_bytes: 160502  
+SPEC_bytes: 163966  
 SPEC_source_count: 4  
 Delivery_rule: one universal SPEC plus two module-specific evidence files  
 Modules: TCC, VAS, VVWD, Pump  

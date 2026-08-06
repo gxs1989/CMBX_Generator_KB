@@ -92,15 +92,26 @@ def build_injection_method_links(package: CmbxPackage) -> dict[str, InjectionMet
         if not sequence.filename:
             continue
         data = extract_cmbx_entry(package.path, sequence.filename)
+        method_names = {child.name for child in sequence.children if child.kind == "instrument_method"}
+        processing_names = {child.name for child in sequence.children if child.kind == "processing_method"}
         for injection in (child for child in sequence.children if child.kind == "injection"):
             occurrence, refs = _injection_reference_block(data, injection.name)
-            if occurrence < 0 or len(refs) < 2:
+            if occurrence < 0 or not refs:
                 continue
+            method_index = next((index for index, value in enumerate(refs) if value in method_names), -1)
+            if method_index < 0:
+                continue
+            instrument_method = refs[method_index]
+            processing_method = (
+                refs[method_index - 1]
+                if method_index > 0 and refs[method_index - 1] in processing_names
+                else ""
+            )
             key = injection.name if name_counts[injection.name] == 1 else f"{sequence.id}:{injection.name}"
             links[key] = InjectionMethodLink(
                 injection_name=injection.name,
-                processing_method=refs[0],
-                instrument_method=refs[1],
+                processing_method=processing_method,
+                instrument_method=instrument_method,
                 occurrence=occurrence,
                 sequence_name=sequence.name,
                 sequence_id=sequence.id,
@@ -134,7 +145,7 @@ def _injection_reference_block(data: bytes, injection_name: str) -> tuple[int, l
         if occurrence < 0:
             return -1, []
         refs = _relative_urls_after(data, occurrence, 1000)
-        if len(refs) >= 2:
+        if refs:
             return occurrence, refs
         start = occurrence + 1
 

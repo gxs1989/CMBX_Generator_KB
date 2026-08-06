@@ -50,9 +50,14 @@ from generation_project import (
 )
 from web_ai_package import PromptOptimization, base_prompt, create_web_ai_zip, load_ai_config, optimize_prompt
 from windows_credentials import protect_secret, unprotect_secret
+from sequence_package_builder import (
+    MultiSequencePackageRequest,
+    SequenceInjectionRequest,
+    build_multi_sequence_package,
+)
 
 
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.5.0"
 DEFAULT_WORKSPACE_ID = "shared"
 SAFE_NAME = re.compile(r"[^A-Za-z0-9._ -]+")
 SESSION_COOKIE = "cmbx_session"
@@ -64,6 +69,7 @@ PERMISSION_CATALOG = [
     {"id": "method_deepseek", "label": "DeepSeek automatic", "group": "Design & Generate", "parent": "instrument_method_generation", "default": False},
     {"id": "report_generate", "label": "Report Template Generation", "group": "Design & Generate", "default": True, "description": "Prepare Report MD and compile report-template CMBX."},
     {"id": "report_manual_web_ai", "label": "Manual Web AI", "group": "Design & Generate", "parent": "report_generate", "default": False},
+    {"id": "sequence_generate", "label": "Sequence Generation", "group": "Design & Generate", "default": True, "description": "Assemble multiple Method MD files and one shared Report MD into a candidate sequence CMBX."},
     {"id": "hplc_applications", "label": "HPLC Applications & Workflows", "group": "Design & Generate", "default": False, "description": "Reserved for the planned application workflow."},
     {"id": "raw_export", "label": "Batch Raw Data Export", "group": "Chromatograms & Results", "default": True, "description": "Filter and export raw channel data."},
     {"id": "chromatogram_plot", "label": "Chromatograms & Integration", "group": "Chromatograms & Results", "default": True, "description": "Plot selected chromatograms."},
@@ -81,6 +87,13 @@ DEFAULT_PERMISSIONS = [item["id"] for item in PERMISSION_CATALOG if item["defaul
 def _safe_segment(value: str, fallback: str = "item") -> str:
     cleaned = SAFE_NAME.sub("_", Path(value).name).strip(" ._")
     return (cleaned or fallback)[:120]
+
+
+def _short_file_name(value: str, fallback: str = "asset.bin", max_stem: int = 48) -> str:
+    safe = Path(_safe_segment(value, fallback))
+    suffix = safe.suffix[:12]
+    stem = safe.stem[:max_stem] or Path(fallback).stem
+    return f"{stem}{suffix}"
 
 
 def _public_artifact(record: dict[str, Any]) -> dict[str, Any]:
@@ -238,6 +251,9 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
     require_report_manual = permission_dependency(
         "report_manual_web_ai", detail="Manual Report Web AI is restricted by the administrator",
     )
+    require_sequence_generator = permission_dependency(
+        "sequence_generate", detail="Sequence generation permission is required",
+    )
     require_raw_export = permission_dependency("raw_export", detail="Raw-data export permission is required")
     require_chromatogram_plot = permission_dependency(
         "chromatogram_plot", detail="Chromatogram plotting permission is required",
@@ -373,6 +389,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
                 "external_integration",
                 "direct_cm_formulas",
                 "report_generation",
+                "sequence_generation",
                 "quality_database_read",
             ],
             "next": ["hplc_applications", "controlled_database_write"],
@@ -419,9 +436,9 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
                     handle.write(chunk)
             owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
             date_segment = datetime.now().strftime("%Y-%m-%d")
-            destination_dir = config.shared_root / "01_Inbox" / owner_segment / date_segment
+            destination_dir = config.asset_root / "cmbx_source" / owner_segment / date_segment
             destination_dir.mkdir(parents=True, exist_ok=True)
-            destination = destination_dir / f"{artifact_id[:8]}_{original_name}"
+            destination = destination_dir / f"{artifact_id[:8]}_{_short_file_name(original_name, 'upload.cmbx')}"
             shutil.move(str(temporary), destination)
         except Exception:
             temporary.unlink(missing_ok=True)
@@ -451,8 +468,12 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
     ) -> dict[str, Any]:
         if kind not in {"method_md", "report_md"}:
             raise HTTPException(status_code=400, detail="MD kind must be method_md or report_md")
-        required = "instrument_method_generation" if kind == "method_md" else "report_generate"
-        if not has_permission(identity, required, "method_generate" if kind == "method_md" else required):
+        required_permissions = (
+            ("instrument_method_generation", "method_generate", "sequence_generate")
+            if kind == "method_md"
+            else ("report_generate", "sequence_generate")
+        )
+        if not has_permission(identity, *required_permissions):
             raise HTTPException(status_code=403, detail="This MD library is not authorized for the account")
         original_name = _safe_segment(file.filename or f"{kind}.md", f"{kind}.md")
         if Path(original_name).suffix.lower() not in {".md", ".markdown"}:
@@ -460,9 +481,9 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         store.ensure_workspace(workspace_id, workspace_id, identity["user"])
         owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
         folder_name = "Method_MD" if kind == "method_md" else "Report_MD"
-        folder = config.shared_root / "02_Workspaces" / owner_segment / datetime.now().strftime("%Y-%m-%d") / folder_name
+        folder = config.asset_root / kind / owner_segment / datetime.now().strftime("%Y-%m-%d")
         folder.mkdir(parents=True, exist_ok=True)
-        destination = folder / f"{uuid.uuid4().hex[:8]}_{original_name}"
+        destination = folder / f"{uuid.uuid4().hex[:8]}_{_short_file_name(original_name, f'{kind}.md')}"
         limit = 20 * 1024 * 1024 if kind == "method_md" else 30 * 1024 * 1024
         try:
             with destination.open("wb") as handle:
@@ -496,7 +517,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         if artifact["owner"].lower() != identity["user"].lower():
             raise HTTPException(status_code=403, detail="This MD belongs to another user")
         asset_type = "method" if artifact["kind"] == "method_md" else "report"
-        checked = preflight_asset(asset_type, Path(artifact["storage_path"]))
+        checked = preflight_asset(asset_type, artifact_local_path(artifact))
         preflight = method_preflight_payload(checked) if asset_type == "method" else report_preflight_payload(checked)
         return {"artifact": _public_artifact(artifact), "preflight": preflight}
 
@@ -510,8 +531,8 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Managed file not found")
         if artifact["owner"].lower() != identity["user"].lower() and identity["role"] != "admin":
             raise HTTPException(status_code=403, detail="This file belongs to another user")
-        path = Path(artifact["storage_path"])
-        allowed_roots = [config.shared_root.resolve(), config.state_root.resolve()]
+        path = artifact_local_path(artifact)
+        allowed_roots = [config.shared_root.resolve(), config.state_root.resolve(), config.asset_root.resolve()]
         resolved = path.resolve()
         if not any(resolved == root or root in resolved.parents for root in allowed_roots):
             raise HTTPException(status_code=409, detail="Managed path is outside the controlled storage roots")
@@ -529,7 +550,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="CMBX artifact not found")
         if artifact["owner"].lower() != identity["user"].lower():
             raise HTTPException(status_code=403, detail="This CMBX belongs to another user")
-        source_path = Path(artifact["storage_path"])
+        source_path = artifact_local_path(artifact)
         inventory_path = config.inventory_root / f"{artifact['sha256']}.json"
 
         def run(progress):
@@ -580,6 +601,23 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail="Choose at least one CMBX source")
         return records
 
+    def owned_method_md_records(payload: dict[str, Any], identity: dict[str, Any]) -> list[dict[str, Any]]:
+        requested = [str(value) for value in payload.get("method_md_artifact_ids", []) if str(value)]
+        legacy = str(payload.get("method_md_artifact_id") or "")
+        if legacy and legacy not in requested:
+            requested.append(legacy)
+        records: list[dict[str, Any]] = []
+        for artifact_id in dict.fromkeys(requested):
+            artifact = store.get_artifact(artifact_id)
+            if not artifact or artifact["kind"] != "method_md":
+                raise HTTPException(status_code=404, detail=f"Method MD basis was not found: {artifact_id}")
+            if artifact["owner"].lower() != identity["user"].lower():
+                raise HTTPException(status_code=403, detail="A selected Method MD belongs to another user")
+            records.append(artifact)
+        if not records:
+            raise HTTPException(status_code=400, detail="Choose at least one Method MD basis")
+        return records
+
     def register_file_artifact(
         path: Path,
         *,
@@ -588,23 +626,74 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         workspace_id: str = DEFAULT_WORKSPACE_ID,
         original_name: str | None = None,
     ) -> dict[str, Any]:
+        if not path.is_file():
+            raise FileNotFoundError(f"Generated asset is missing: {path}")
+        artifact_id = uuid.uuid4().hex
+        asset_root = config.asset_root.resolve()
+        source = path.resolve()
+        if source == asset_root or asset_root in source.parents:
+            stored_path = source
+        else:
+            owner_segment = _safe_segment(owner.replace("\\", "_"), "user")[:32]
+            suffix = path.suffix.lower() or ".bin"
+            stored_dir = config.asset_root / kind / owner_segment
+            stored_dir.mkdir(parents=True, exist_ok=True)
+            stored_path = stored_dir / f"{artifact_id}{suffix}"
+            temporary = stored_path.with_suffix(stored_path.suffix + ".part")
+            shutil.copy2(path, temporary)
+            temporary.replace(stored_path)
         digest = hashlib.sha256()
-        with path.open("rb") as handle:
+        with stored_path.open("rb") as handle:
             while chunk := handle.read(1024 * 1024):
                 digest.update(chunk)
         record = store.add_artifact(
             {
-                "id": uuid.uuid4().hex,
+                "id": artifact_id,
                 "workspace_id": workspace_id,
                 "owner": owner,
                 "kind": kind,
                 "original_name": original_name or path.name,
                 "sha256": digest.hexdigest(),
-                "size_bytes": path.stat().st_size,
-                "storage_path": str(path),
+                "size_bytes": stored_path.stat().st_size,
+                "storage_path": str(stored_path),
             }
         )
         return record
+
+    def artifact_local_path(artifact: dict[str, Any]) -> Path:
+        """Return a short managed copy, including for records created before local storage."""
+        source = Path(str(artifact["storage_path"]))
+        asset_root = config.asset_root.resolve()
+        if source.is_file():
+            resolved_source = source.resolve()
+            if resolved_source == asset_root or asset_root in resolved_source.parents:
+                return resolved_source
+        owner_segment = _safe_segment(str(artifact["owner"]).replace("\\", "_"), "user")[:32]
+        original = Path(str(artifact.get("original_name") or source.name))
+        suffix = original.suffix.lower() or source.suffix or ".bin"
+        short_stem = _safe_segment(original.stem, "asset")[:48]
+        destination = config.asset_root / str(artifact["kind"]) / owner_segment / f"{str(artifact['id'])[:8]}_{short_stem}{suffix}"
+        if destination.is_file() and destination.stat().st_size == int(artifact.get("size_bytes") or 0):
+            return destination
+        if not source.is_file():
+            if destination.is_file():
+                return destination
+            raise FileNotFoundError(
+                f"Managed asset is unavailable: {artifact.get('original_name') or artifact['id']}"
+            )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if source.resolve() == destination.resolve():
+            return destination
+        temporary = destination.with_suffix(destination.suffix + f".{uuid.uuid4().hex[:8]}.part")
+        shutil.copy2(source, temporary)
+        temporary.replace(destination)
+        return destination
+
+    def new_local_work_root(prefix: str) -> Path:
+        return config.work_root / f"{_safe_segment(prefix, 'job')[:12]}_{uuid.uuid4().hex[:12]}"
+
+    def artifact_paths(records: list[dict[str, Any]]) -> list[str]:
+        return [str(artifact_local_path(item)) for item in records]
 
     def method_preflight_payload(result) -> dict[str, Any]:
         issues = [
@@ -776,7 +865,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             prompt = PromptOptimization(base_prompt("method", modules, request_text), False, "Prompt packaged without API optimization.")
         date_segment = datetime.now().strftime("%Y-%m-%d")
         owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
-        destination_dir = config.shared_root / "02_Workspaces" / owner_segment / date_segment / "AI_Packages"
+        destination_dir = config.asset_root / "method_ai_package" / owner_segment / date_segment
         destination = destination_dir / f"{uuid.uuid4().hex[:8]}_Instrument_Method_AI_Package.zip"
         try:
             create_web_ai_zip(
@@ -811,9 +900,9 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         store.ensure_workspace(workspace_id, workspace_id, identity["user"])
         owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
         date_segment = datetime.now().strftime("%Y-%m-%d")
-        destination_dir = config.shared_root / "02_Workspaces" / owner_segment / date_segment / "Method_MD"
+        destination_dir = config.asset_root / "method_md" / owner_segment / date_segment
         destination_dir.mkdir(parents=True, exist_ok=True)
-        destination = destination_dir / f"{uuid.uuid4().hex[:8]}_{original_name}"
+        destination = destination_dir / f"{uuid.uuid4().hex[:8]}_{_short_file_name(original_name, 'method.md')}"
         size = 0
         try:
             with destination.open("wb") as handle:
@@ -885,8 +974,8 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         md_only = bool(payload.get("md_only"))
         owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
         date_segment = datetime.now().strftime("%Y-%m-%d")
-        method_dir = config.shared_root / "02_Workspaces" / owner_segment / date_segment / "Method_MD"
-        output_root = config.shared_root / "03_Generated" / owner_segment / date_segment
+        method_dir = config.asset_root / "method_md" / owner_segment / date_segment
+        output_root = new_local_work_root("method_ai")
 
         def run(progress):
             progress(1, 6, "preparing", f"Loading {len(kb_files)} Method SPEC/KB file(s)")
@@ -979,10 +1068,10 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             raise HTTPException(status_code=403, detail="This Method MD belongs to another user")
         asset_name = _safe_segment(str(payload.get("asset_name") or Path(artifact["original_name"]).stem), "Instrument_Method")
         target_version = str(payload.get("target_cm_version") or "7.2 compatible")
-        source_path = Path(artifact["storage_path"])
+        source_path = artifact_local_path(artifact)
         owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
         date_segment = datetime.now().strftime("%Y-%m-%d")
-        output_root = config.shared_root / "03_Generated" / owner_segment / date_segment
+        output_root = new_local_work_root("method")
 
         def run(progress):
             progress(1, 4, "preparing", "Rechecking Method MD")
@@ -1052,21 +1141,14 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         files = recommended_online_kb_files_for_modules("report", modules, small_context=bool(payload.get("small_context")))
         if not files:
             raise HTTPException(status_code=400, detail="No Report SPEC/KB files were found for the selected modules")
-        method_basis = None
-        method_artifact_id = str(payload.get("method_md_artifact_id") or "")
-        if method_artifact_id:
-            method_basis = store.get_artifact(method_artifact_id)
-            if not method_basis or method_basis["kind"] != "method_md":
-                raise HTTPException(status_code=404, detail="Method MD basis was not found")
-            if method_basis["owner"].lower() != identity["user"].lower():
-                raise HTTPException(status_code=403, detail="This Method MD belongs to another user")
-            files = [*files, Path(method_basis["storage_path"])]
+        method_bases = owned_method_md_records(payload, identity)
+        files = [*files, *(artifact_local_path(item) for item in method_bases)]
         request_text = str(payload.get("request") or "")
         prompt = optimize_prompt("report", modules, request_text) if bool(payload.get("optimize")) else PromptOptimization(
             base_prompt("report", modules, request_text), False, "Prompt packaged without API optimization."
         )
         owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
-        destination = config.shared_root / "02_Workspaces" / owner_segment / datetime.now().strftime("%Y-%m-%d") / "AI_Packages" / f"{uuid.uuid4().hex[:8]}_Report_AI_Package.zip"
+        destination = config.asset_root / "report_ai_package" / owner_segment / f"{uuid.uuid4().hex[:8]}_Report_AI_Package.zip"
         create_web_ai_zip(destination, asset_type="report", modules=modules, files=files, prompt=prompt, small_context=bool(payload.get("small_context")))
         artifact = register_file_artifact(destination, owner=identity["user"], kind="report_ai_package")
         return {
@@ -1074,7 +1156,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             "download_url": f"/api/artifacts/{artifact['id']}/download",
             "files": [path.name for path in files],
             "prompt": prompt.prompt,
-            "method_basis": _public_artifact(method_basis) if method_basis else None,
+            "method_bases": [_public_artifact(item) for item in method_bases],
         }
 
     @app.post("/api/report/preflight", status_code=201)
@@ -1087,9 +1169,9 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         if Path(original_name).suffix.lower() not in {".md", ".markdown"}:
             raise HTTPException(status_code=400, detail="Choose a Markdown report file")
         owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
-        folder = config.shared_root / "02_Workspaces" / owner_segment / datetime.now().strftime("%Y-%m-%d") / "Report_MD"
+        folder = config.asset_root / "report_md" / owner_segment / datetime.now().strftime("%Y-%m-%d")
         folder.mkdir(parents=True, exist_ok=True)
-        destination = folder / f"{uuid.uuid4().hex[:8]}_{original_name}"
+        destination = folder / f"{uuid.uuid4().hex[:8]}_{_short_file_name(original_name, 'report.md')}"
         try:
             with destination.open("wb") as handle:
                 size = 0
@@ -1112,11 +1194,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         payload: dict[str, Any] = Body(...),
         identity: dict[str, Any] = Depends(require_report_generator),
     ) -> dict[str, Any]:
-        method_artifact = store.get_artifact(str(payload.get("method_md_artifact_id") or ""))
-        if not method_artifact or method_artifact["kind"] != "method_md":
-            raise HTTPException(status_code=404, detail="Choose a Method MD basis first")
-        if method_artifact["owner"].lower() != identity["user"].lower():
-            raise HTTPException(status_code=403, detail="This Method MD belongs to another user")
+        method_artifacts = owned_method_md_records(payload, identity)
         modules = tuple(dict.fromkeys(
             str(value).strip() for value in payload.get("modules", []) if str(value).strip()
         ))
@@ -1151,13 +1229,19 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         except PermissionError as exc:
             raise HTTPException(status_code=429, detail=str(exc)) from exc
         owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
-        report_dir = config.shared_root / "02_Workspaces" / owner_segment / datetime.now().strftime("%Y-%m-%d") / "Report_MD"
+        report_dir = config.asset_root / "report_md" / owner_segment / datetime.now().strftime("%Y-%m-%d")
         asset_name = _safe_segment(str(payload.get("asset_name") or "AI_Report_Template"), "AI_Report_Template")
 
         def run(progress):
             progress(1, 4, "preparing", "Loading Method MD and Report SPEC/KB")
-            method_markdown = Path(method_artifact["storage_path"]).read_text(encoding="utf-8", errors="replace")
-            generated_md = generate_report_markdown(requirement, modules, kb_files, method_markdown, settings)
+            method_markdowns = [
+                (
+                    str(item["original_name"]),
+                    artifact_local_path(item).read_text(encoding="utf-8", errors="replace"),
+                )
+                for item in method_artifacts
+            ]
+            generated_md = generate_report_markdown(requirement, modules, kb_files, method_markdowns, settings)
             progress(2, 4, "running", "GPT returned Report Markdown")
             report_dir.mkdir(parents=True, exist_ok=True)
             source_path = report_dir / f"{uuid.uuid4().hex[:8]}_AI_report.md"
@@ -1180,7 +1264,11 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             workspace_id=DEFAULT_WORKSPACE_ID,
             owner=identity["user"],
             task_type="report_template_ai_generation",
-            input_payload={"modules": modules, "method_md_artifact_id": method_artifact["id"], "usage_id": usage_id},
+            input_payload={
+                "modules": modules,
+                "method_md_artifact_ids": [item["id"] for item in method_artifacts],
+                "usage_id": usage_id,
+            },
             function=run,
         )
         store.attach_usage_job(usage_id, job["id"])
@@ -1196,10 +1284,10 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Report MD artifact not found")
         if artifact["owner"].lower() != identity["user"].lower() and identity["role"] != "admin":
             raise HTTPException(status_code=403, detail="This Report MD belongs to another user")
-        source_path = Path(artifact["storage_path"])
+        source_path = artifact_local_path(artifact)
         asset_name = _safe_segment(str(payload.get("asset_name") or Path(artifact["original_name"]).stem), "Report_Template")
         owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
-        output_root = config.shared_root / "03_Generated" / owner_segment / datetime.now().strftime("%Y-%m-%d")
+        output_root = new_local_work_root("report")
 
         def run(progress):
             progress(1, 4, "preparing", "Rechecking Report MD")
@@ -1219,10 +1307,193 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
 
         return jobs.submit(workspace_id=artifact["workspace_id"], owner=identity["user"], task_type="report_template_generation", input_payload={"report_md_artifact_id": artifact["id"], "asset_name": asset_name}, function=run)
 
+    def sequence_method_name(artifact: dict[str, Any]) -> str:
+        return _safe_segment(Path(str(artifact.get("original_name") or "Method")).stem, "Generated Method")[:80]
+
+    def sequence_report_name(artifact: dict[str, Any], checked: Any | None = None) -> str:
+        result = checked or preflight_asset("report", artifact_local_path(artifact))
+        spec = getattr(result, "report_spec", None)
+        return _safe_segment(
+            str(getattr(spec, "template_name", "") or Path(str(artifact.get("original_name") or "Report")).stem),
+            "Generated Report",
+        )[:80]
+
+    @app.get("/api/sequence/config")
+    def sequence_config(identity: dict[str, Any] = Depends(require_sequence_generator)) -> dict[str, Any]:
+        methods = [
+            {**_public_artifact(item), "asset_name": sequence_method_name(item)} for item in store.list_artifacts(DEFAULT_WORKSPACE_ID)
+            if item["owner"].lower() == identity["user"].lower() and item["kind"] == "method_md"
+        ]
+        reports = [
+            {**_public_artifact(item), "asset_name": sequence_report_name(item)} for item in store.list_artifacts(DEFAULT_WORKSPACE_ID)
+            if item["owner"].lower() == identity["user"].lower() and item["kind"] == "report_md"
+        ]
+        carrier = Path(__file__).resolve().parents[1] / "assets" / "sequence_carrier_native_test1.cmbx"
+        return {
+            "method_md": methods,
+            "report_md": reports,
+            "max_injections": 2,
+            "processing_method_optional": True,
+            "processing_method_default": "",
+            "carrier_available": carrier.exists(),
+            "carrier_family": "TCC",
+            "target_versions": ["7.3 candidate"],
+        }
+
+    @app.post("/api/sequence/preflight")
+    def sequence_preflight(
+        payload: dict[str, Any] = Body(...),
+        identity: dict[str, Any] = Depends(require_sequence_generator),
+    ) -> dict[str, Any]:
+        rows = list(payload.get("injections") or [])
+        if not rows:
+            raise HTTPException(status_code=400, detail="Add at least one Injection")
+        if len(rows) > 10:
+            raise HTTPException(status_code=400, detail="The controlled TCC carrier supports at most 10 Injections")
+        target_version = str(payload.get("target_cm_version") or "7.3 candidate")
+        if target_version != "7.3 candidate":
+            raise HTTPException(status_code=400, detail=f"No controlled sequence carrier is available for {target_version}")
+        method_records: list[dict[str, Any]] = []
+        checks: list[dict[str, Any]] = []
+        for index, row in enumerate(rows, 1):
+            artifact = store.get_artifact(str(row.get("method_md_artifact_id") or ""))
+            if not artifact or artifact["kind"] != "method_md":
+                raise HTTPException(status_code=404, detail=f"Injection {index}: Method MD not found")
+            if artifact["owner"].lower() != identity["user"].lower():
+                raise HTTPException(status_code=403, detail="A selected Method MD belongs to another user")
+            checked = preflight_asset("method", artifact_local_path(artifact))
+            method_records.append(artifact)
+            checks.append({
+                "injection": str(row.get("injection_name") or f"Injection {index}"),
+                "method": sequence_method_name(artifact),
+                "ready": checked.ready,
+                "errors": list(checked.errors),
+                "warnings": list(checked.warnings),
+            })
+        report = store.get_artifact(str(payload.get("report_md_artifact_id") or ""))
+        if not report or report["kind"] != "report_md":
+            raise HTTPException(status_code=404, detail="Choose one shared Report MD")
+        if report["owner"].lower() != identity["user"].lower():
+            raise HTTPException(status_code=403, detail="The selected Report MD belongs to another user")
+        report_check = preflight_asset("report", artifact_local_path(report))
+        resolved_report_name = sequence_report_name(report, report_check)
+        ready = all(item["ready"] for item in checks) and report_check.ready
+        return {
+            "ready": ready,
+            "methods": checks,
+            "report": {
+                "name": resolved_report_name,
+                "ready": report_check.ready,
+                "errors": list(report_check.errors),
+                "warnings": list(report_check.warnings),
+            },
+            "processing_method": "blank",
+            "target_cm_version": target_version,
+            "warnings": [
+                "Processing Method is intentionally blank; IRC and integration actions are not included.",
+                "The first multi-Injection writer uses a controlled TCC CM 7.3 carrier and requires Chromeleon runtime verification.",
+            ],
+        }
+
+    @app.post("/api/sequence/generate", status_code=202)
+    def generate_sequence_cmbx(
+        payload: dict[str, Any] = Body(...),
+        identity: dict[str, Any] = Depends(require_sequence_generator),
+    ) -> dict[str, Any]:
+        preview = sequence_preflight(payload, identity)
+        if not preview["ready"]:
+            raise HTTPException(status_code=400, detail="Sequence inputs do not pass preflight")
+        rows = list(payload.get("injections") or [])
+        report_artifact = store.get_artifact(str(payload.get("report_md_artifact_id") or ""))
+        method_artifacts = [store.get_artifact(str(row.get("method_md_artifact_id") or "")) for row in rows]
+        first_method_name = sequence_method_name(method_artifacts[0])
+        sequence_name = _safe_segment(f"{first_method_name}_Sequence_{datetime.now():%Y%m%d_%H%M%S}", "Generated Sequence")[:80]
+        report_check = preflight_asset("report", artifact_local_path(report_artifact))
+        report_name = sequence_report_name(report_artifact, report_check)
+        target_version = str(payload.get("target_cm_version") or "7.3 candidate")
+        owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
+        output_root = new_local_work_root("sequence")
+        carrier = Path(__file__).resolve().parents[1] / "assets" / "sequence_carrier_native_test1.cmbx"
+
+        def run(progress):
+            total = len(rows) + 5
+            output_root.mkdir(parents=True, exist_ok=True)
+            generated_methods = []
+            generated_method_names: list[str] = []
+            for index, (row, artifact) in enumerate(zip(rows, method_artifacts), 1):
+                progress(index, total, "running", f"Compiling Method {index}/{len(rows)}")
+                source = artifact_local_path(artifact)
+                checked = preflight_asset("method", source)
+                method_name = sequence_method_name(artifact)
+                generated_method_names.append(method_name)
+                generated_methods.append(generate_asset(AssetGenerationRequest(
+                    asset_type="method", asset_name=method_name, family="TCC",
+                    intent=f"Sequence {sequence_name} / {row.get('injection_name') or f'Injection {index}'}",
+                    target_cm_version="7.3", source_md=source, output_root=output_root / "components",
+                ), checked))
+            progress(len(rows) + 1, total, "running", "Compiling shared Report Template")
+            report_source = artifact_local_path(report_artifact)
+            generated_report = generate_asset(AssetGenerationRequest(
+                asset_type="report", asset_name=report_name, family="TCC",
+                intent=f"Shared report for Sequence {sequence_name}", target_cm_version="7.3",
+                source_md=report_source, output_root=output_root / "components",
+            ), report_check)
+            progress(len(rows) + 2, total, "running", "Writing multi-Injection sequence DataContract")
+            output_cmbx = output_root / f"{sequence_name}.cmbx"
+            validation = build_multi_sequence_package(MultiSequencePackageRequest(
+                carrier_cmbx=carrier,
+                report_cmbx=generated_report.output_cmbx,
+                output_cmbx=output_cmbx,
+                sequence_name=sequence_name,
+                report_name=report_name,
+                injections=tuple(
+                    SequenceInjectionRequest(
+                        injection_name=str(row.get("injection_name") or f"Injection {index}"),
+                        method_cmbx=generated.output_cmbx,
+                        method_name=method_name,
+                    )
+                    for index, (row, artifact, generated, method_name) in enumerate(
+                        zip(rows, method_artifacts, generated_methods, generated_method_names), 1
+                    )
+                ),
+                include_processing_methods=False,
+            ))
+            progress(len(rows) + 3, total, "validating", "Reopening sequence and checking asset bindings")
+            if not validation.passed:
+                raise ValueError("Sequence validation failed: " + "; ".join(validation.errors))
+            output_artifact = register_file_artifact(
+                output_cmbx, owner=identity["user"], kind="generated_sequence_cmbx",
+                original_name=f"{sequence_name}.cmbx",
+            )
+            progress(total, total, "validating", "Candidate Sequence CMBX is registered")
+            return {
+                "artifact": _public_artifact(output_artifact),
+                "download_url": f"/api/artifacts/{output_artifact['id']}/download",
+                "sequence_name": validation.sequence_name,
+                "injections": list(validation.injection_names),
+                "instrument_methods": list(validation.instrument_methods),
+                "report_template": validation.report_template,
+                "processing_methods": list(validation.processing_methods),
+                "warnings": list(validation.warnings),
+            }
+
+        return jobs.submit(
+            workspace_id=DEFAULT_WORKSPACE_ID,
+            owner=identity["user"],
+            task_type="sequence_generation",
+            input_payload={
+                "sequence_name": sequence_name,
+                "method_md_artifact_ids": [item["id"] for item in method_artifacts],
+                "report_md_artifact_id": report_artifact["id"],
+                "target_cm_version": target_version,
+            },
+            function=run,
+        )
+
     @app.post("/api/analysis/catalog")
     def analysis_catalog(payload: dict[str, Any] = Body(...), identity: dict[str, Any] = Depends(current_identity)) -> dict[str, Any]:
         records = artifact_records([str(value) for value in payload.get("artifact_ids", [])], identity)
-        return build_catalog([item["storage_path"] for item in records])
+        return build_catalog(artifact_paths(records))
 
     @app.post("/api/raw/export", status_code=202)
     def raw_export(payload: dict[str, Any] = Body(...), identity: dict[str, Any] = Depends(require_raw_export)) -> dict[str, Any]:
@@ -1233,7 +1504,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
 
         def run(progress):
             progress(1, 3, "preparing", "Resolving selected channels")
-            summary = export_raw_zip([item["storage_path"] for item in records], keys, destination)
+            summary = export_raw_zip(artifact_paths(records), keys, destination)
             progress(2, 3, "validating", "Registering raw data archive")
             artifact = register_file_artifact(destination, owner=identity["user"], kind="raw_data_export")
             progress(3, 3, "validating", "Raw data export is ready")
@@ -1248,7 +1519,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             raise HTTPException(status_code=403, detail="External integration permission is required")
         records = artifact_records([str(value) for value in payload.get("artifact_ids", [])], identity)
         return chromatogram_payload(
-            [item["storage_path"] for item in records],
+            artifact_paths(records),
             [str(value) for value in payload.get("channel_keys", [])],
             payload.get("integration") or {},
             int(payload.get("max_points") or 2400),
@@ -1262,7 +1533,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         def run(progress):
             def relay(item):
                 progress(item.completed, max(1, item.total), "running", f"{item.report}: {item.formulas_found} formula(s), ETA {round(item.eta_s or 0)} s")
-            return scan_direct_formulas([item["storage_path"] for item in records], relay)
+            return scan_direct_formulas(artifact_paths(records), relay)
 
         return jobs.submit(workspace_id=DEFAULT_WORKSPACE_ID, owner=identity["user"], task_type="direct_cm_formula_scan", input_payload={"artifact_ids": [item["id"] for item in records]}, function=run)
 
@@ -1275,7 +1546,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         return jobs.submit(
             workspace_id=DEFAULT_WORKSPACE_ID, owner=identity["user"], task_type="direct_cm_formula_evaluation",
             input_payload={"artifact_ids": [item["id"] for item in records], "formula_count": len(requested)},
-            function=lambda progress: (progress(1, 2, "running", "Evaluating Direct CM formulas") or evaluate_direct_formulas([item["storage_path"] for item in records], [str(value) for value in payload.get("injection_keys", [])], requested)),
+            function=lambda progress: (progress(1, 2, "running", "Evaluating Direct CM formulas") or evaluate_direct_formulas(artifact_paths(records), [str(value) for value in payload.get("injection_keys", [])], requested)),
         )
 
     @app.post("/api/single-verification/leak-sensor/catalog")
@@ -1286,7 +1557,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         records = artifact_records([str(value) for value in payload.get("artifact_ids", [])], identity)
         if not records:
             raise HTTPException(status_code=400, detail="Choose at least one CMBX source")
-        return leak_sensor_catalog([item["storage_path"] for item in records])
+        return leak_sensor_catalog(artifact_paths(records))
 
     @app.post("/api/single-verification/leak-sensor", status_code=202)
     def single_verification_leak_sensor(
@@ -1304,7 +1575,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         def run(progress):
             progress(1, 3, "preparing", "Decoding CMBX LeakDiff raw channels")
             result = leak_sensor_analysis(
-                [item["storage_path"] for item in records], trace_keys, benchmark_keys,
+                artifact_paths(records), trace_keys, benchmark_keys,
             )
             progress(2, 3, "validating", "Comparing response metrics with benchmark curves")
             progress(3, 3, "validating", "Leak sensor verification is ready")
@@ -1352,7 +1623,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Artifact not found")
         if artifact["owner"].lower() != identity["user"].lower() and identity["role"] != "admin":
             raise HTTPException(status_code=403, detail="This generated asset belongs to another user")
-        path = Path(artifact["storage_path"])
+        path = artifact_local_path(artifact)
         if not path.is_file():
             raise HTTPException(status_code=410, detail="Artifact file is no longer available")
         return FileResponse(path, filename=artifact["original_name"])
@@ -1460,6 +1731,8 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             "storage": {
                 "state_root": str(config.state_root),
                 "shared_root": str(config.shared_root),
+                "local_asset_root": str(config.asset_root),
+                "local_work_root": str(config.work_root),
                 "free_bytes": disk.free,
                 "total_bytes": disk.total,
             },

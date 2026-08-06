@@ -8,7 +8,8 @@ const state = {
     chrom:{artifactIds:new Set(),catalog:null,selected:new Set(),filters:{package:"",sequence:"",injection:"",channel:""},step:1,plot:null,viewStack:[]},
     formula:{artifactIds:new Set(),catalog:null,formulas:[],selected:new Set(),injections:new Set(),results:[]}
   },
-  report:{config:null,modules:new Set(),package:null,artifact:null,preflight:null,methodBasis:null,methods:[],step:1},
+  report:{config:null,modules:new Set(),package:null,artifact:null,preflight:null,methodBases:new Map(),methods:[],step:1},
+  sequence:{config:null,methods:[],reports:[],selectedMethods:new Map(),report:null,rows:[],preflight:null,step:1},
   quality:{config:null,catalog:null,result:null},
   single:{artifactIds:new Set(),catalog:null,traceKeys:new Set(),benchmarkKeys:new Set(),result:null,step:1,feature:""}
 };
@@ -60,7 +61,8 @@ function resetUserScopedState() {
   state.artifacts = [];
   state.library = {cmbx_source:[],method_md:[],report_md:[],active:"cmbx_source"};
   state.method = {config:null,modules:new Set(),package:null,mdArtifact:null,preflight:null,generationJob:null,route:"gpt",aiSettings:null};
-  state.report = {config:null,modules:new Set(),package:null,artifact:null,preflight:null,methodBasis:null,methods:[],step:1};
+  state.report = {config:null,modules:new Set(),package:null,artifact:null,preflight:null,methodBases:new Map(),methods:[],step:1};
+  state.sequence = {config:null,methods:[],reports:[],selectedMethods:new Map(),report:null,rows:[],preflight:null,step:1};
   state.foq = {config:null,scope:null,artifactIds:new Set(),sequenceKeys:new Set(),injections:{},metrics:[],selectedMetrics:new Set(),result:null,results:[]};
   state.analysis.raw = {artifactIds:new Set(),catalog:null,selected:new Set(),filters:{package:"",sequence:"",injection:"",channel:""},step:1};
   state.analysis.chrom = {artifactIds:new Set(),catalog:null,selected:new Set(),filters:{package:"",sequence:"",injection:"",channel:""},step:1,plot:null,viewStack:[]};
@@ -74,7 +76,7 @@ function applyAccessPolicy() {
   const admin=identity.role==="admin"||permissions.has("*"), allowed=(...items)=>admin||items.some(item=>permissions.has(item));
   const viewRules={
     method:allowed("instrument_method_generation","method_generate","method_manual_web_ai","method_deepseek"),
-    report:allowed("report_generate"), raw:allowed("raw_export"),
+    report:allowed("report_generate"), sequence:allowed("sequence_generate"), raw:allowed("raw_export"),
     chrom:allowed("chromatogram_plot"), formula:allowed("direct_cm_formula"),
     foq:allowed("foq_check"), quality:allowed("database_read"), single:allowed("single_verification","leak_sensor_analysis"), admin,
   };
@@ -124,7 +126,7 @@ function showView(name) {
   document.querySelectorAll(".nav-item").forEach(el => el.classList.toggle("active", el.dataset.view === name));
   document.querySelector(".map-branches")?.classList.remove("has-focus");
   document.querySelectorAll("[data-map-branch]").forEach(el => el.classList.remove("focused"));
-  const labels = {home:"Home",method:"Instrument Method Generation",report:"Report Template Generation",raw:"Batch Raw Data Export",chrom:"Chromatograms & Integration",formula:"Direct CM Formula Results",quality:"Quality Data & Database",workspace:"CMBX Workspace",foq:"FOQ Quick Check",single:"Single Verification",jobs:"Job Center",admin:"Admin Console"};
+  const labels = {home:"Home",method:"Instrument Method Generation",report:"Report Template Generation",sequence:"Sequence Generation",raw:"Batch Raw Data Export",chrom:"Chromatograms & Integration",formula:"Direct CM Formula Results",quality:"Quality Data & Database",workspace:"CMBX Workspace",foq:"FOQ Quick Check",single:"Single Verification",jobs:"Job Center",admin:"Admin Console"};
   document.querySelector("#breadcrumb").textContent = `Workspace / ${labels[name]}`;
   if (name === "workspace") refreshArtifacts();
   if (name === "home") refreshFileLibrary();
@@ -132,6 +134,7 @@ function showView(name) {
   if (name === "foq") { refreshFoqArtifacts(); refreshFoqConfig(); }
   if (["raw","chrom","formula"].includes(name)) renderAnalysisSources(name);
   if (name === "report") refreshReportConfig();
+  if (name === "sequence") refreshSequenceConfig();
   if (name === "quality") refreshQualityConfig();
   if (name === "single") closeLeakSensorAnalysis();
   if (name === "jobs") refreshJobs();
@@ -275,7 +278,7 @@ async function autoGenerateMethod() {
         const links = `${mdLink}<button class="secondary-button" type="button" data-continue-method-report>Continue to Report</button>`;
         document.querySelector("#autoMethodGenerationResult").innerHTML = `<div class="generation-success"><strong>Method MD preview is ready.</strong><span>Review structural warnings before compiling CMBX.</span>${links}</div>`;
         document.querySelector("#methodGenerationResult").innerHTML = "";
-        state.report.methodBasis = result.method_md_artifact || null;
+        if(result.method_md_artifact)state.report.methodBases.set(result.method_md_artifact.id,result.method_md_artifact);
         document.querySelectorAll("[data-continue-method-report]").forEach(button => button.addEventListener("click", continueMethodToReport));
         setMethodStep(4, "Step 4: review every highlighted Method MD row, then compile the candidate CMBX.");
         methodLog("Automatic Method MD generation completed; CMBX compilation is awaiting review.");
@@ -483,7 +486,7 @@ async function useManagedMd(id, target) {
   try {
     const payload = await api(`/api/artifacts/${id}/preflight`, {method:"POST",timeoutMs:180000});
     if (target === "method") { renderMethodPreflight(payload); showView("method"); setMethodStep(4,"Step 4: review the selected Method MD, then compile CMBX."); }
-    if (target === "report-basis") { state.report.methodBasis=payload.artifact; showView("report"); await refreshReportConfig(); setReportStep(1,"Step 1: confirm the selected Method MD basis."); }
+    if (target === "report-basis") { state.report.methodBases.set(payload.artifact.id,payload.artifact); showView("report"); await refreshReportConfig(); setReportStep(1,"Step 1: confirm the selected Method MD collection."); }
     if (target === "report") { renderReportPreflight(payload); showView("report"); setReportStep(4,"Step 4: review the selected Report MD, then compile CMBX."); }
   } catch (error) { toast(error.message); }
 }
@@ -973,22 +976,86 @@ function setReportStep(step,message=""){
   document.querySelectorAll("[data-report-panel]").forEach(item=>item.classList.toggle("active",Number(item.dataset.reportPanel)===step));
   if(message)document.querySelector("#reportMessage").textContent=message;
 }
-function renderReportMethodBasis(){const root=document.querySelector("#reportMethodBasis");if(!root)return;root.innerHTML=state.report.methodBasis?`<strong>Selected Method MD</strong><span>${escapeHtml(state.report.methodBasis.original_name)}</span>`:"No Method MD selected.";document.querySelector("#reportToDesign").disabled=!state.report.methodBasis;}
-function renderReportMethodChoices(){const root=document.querySelector("#reportMethodList");if(!root)return;root.innerHTML=state.report.methods.length?state.report.methods.map(item=>`<label class="selection-item"><input type="radio" name="reportMethodBasis" data-report-method="${escapeHtml(item.id)}" ${state.report.methodBasis?.id===item.id?"checked":""}><strong>${escapeHtml(item.original_name)}</strong><small>${escapeHtml(item.created_at||"")}</small></label>`).join(""):'<div class="empty-block">No Method MD is available. Generate and review a Method MD first.</div>';renderReportMethodBasis();}
-async function uploadReportMethodBasis(file){const form=new FormData();form.append("file",file);try{const payload=await api("/api/artifacts/md-upload?kind=method_md",{method:"POST",body:form,timeoutMs:180000});state.report.methodBasis=payload.artifact;await refreshFileLibrary();await refreshReportConfig();renderReportMethodBasis();toast("Method MD added to My files and selected.");}catch(error){toast(error.message);}}
+function renderReportMethodBasis(){const root=document.querySelector("#reportMethodBasis");if(!root)return;const rows=[...state.report.methodBases.values()];root.innerHTML=rows.length?`<strong>${rows.length} selected Method MD file(s)</strong><span>${rows.map(item=>escapeHtml(item.original_name)).join(" · ")}</span>`:"No Method MD selected.";document.querySelector("#reportToDesign").disabled=!rows.length;}
+function renderReportMethodChoices(){const root=document.querySelector("#reportMethodList");if(!root)return;root.innerHTML=state.report.methods.length?state.report.methods.map(item=>`<label class="selection-item"><input type="checkbox" data-report-method="${escapeHtml(item.id)}" ${state.report.methodBases.has(item.id)?"checked":""}><strong>${escapeHtml(item.original_name)}</strong><small>${escapeHtml(item.created_at||"")}</small></label>`).join(""):'<div class="empty-block">No Method MD is available. Generate and review Method MD files first.</div>';renderReportMethodBasis();}
+async function uploadReportMethodBasis(file){const form=new FormData();form.append("file",file);try{const payload=await api("/api/artifacts/md-upload?kind=method_md",{method:"POST",body:form,timeoutMs:180000});state.report.methodBases.set(payload.artifact.id,payload.artifact);await refreshFileLibrary();await refreshReportConfig();renderReportMethodBasis();toast("Method MD added to My files and selected.");}catch(error){toast(error.message);}}
 function continueMethodToReport(){
-  state.report.methodBasis=state.method.mdArtifact||state.report.methodBasis;
+  if(state.method.mdArtifact)state.report.methodBases.set(state.method.mdArtifact.id,state.method.mdArtifact);
   state.report.modules=new Set(state.method.modules);
   document.querySelector("#reportIntent").value=document.querySelector("#methodIntent").value;
   showView("report"); setReportStep(1,"Step 1: confirm the Method MD that defines the report's runtime evidence.");
 }
 async function refreshReportConfig(){try{state.report.config=await api("/api/report/config");state.report.methods=await api("/api/artifacts?kind=method_md");state.method.aiSettings=await api("/api/account/ai-settings");if(!state.report.modules.size&&state.report.config.modules.includes("TCC"))state.report.modules.add("TCC");document.querySelector("#reportModuleList").innerHTML=state.report.config.modules.map(m=>`<label class="module-option"><input type="checkbox" data-report-module="${escapeHtml(m)}" ${state.report.modules.has(m)?"checked":""}><span>${escapeHtml(m)}</span></label>`).join("");document.querySelectorAll(".manual-report-only").forEach(item=>item.hidden=!state.report.config.manual_web_ai);const gpt=(state.method.aiSettings?.providers||[]).find(item=>item.provider==="gpt");const quota=state.method.aiSettings?.quota||state.report.config.quota||{};document.querySelector("#reportQuotaSummary").innerHTML=`<b>${escapeHtml(quota.remaining??0)} of ${escapeHtml(quota.limit??3)} automatic run(s) remaining today</b><span>${escapeHtml(quota.used??0)} used</span>`;document.querySelector("#reportApiSettingSummary").textContent=gpt?`GPT · ${gpt.model} · ${gpt.api_key_configured?"API key configured":"API key required"}`:"GPT setting unavailable";document.querySelector("#autoGenerateReport").disabled=!gpt?.api_key_configured||Number(quota.remaining||0)<1;renderReportMethodChoices();}catch(error){toast(error.message);}}
 function reportLog(message){const el=document.querySelector("#reportLog");el.textContent=`[${new Date().toLocaleTimeString()}] ${message}\n${el.textContent==="Ready."?"":el.textContent}`.trim();}
-async function buildReportPackage(){if(!state.report.modules.size)return toast("Choose modules.");try{const result=await api("/api/report/ai-package",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({modules:[...state.report.modules],request:document.querySelector("#reportIntent").value,small_context:document.querySelector("#reportSmallContext").checked,method_md_artifact_id:state.report.methodBasis?.id||""})});const link=document.querySelector("#downloadReportPackage");link.href=result.download_url;link.classList.remove("disabled-link");link.textContent="Download ZIP";reportLog(`AI package ready: ${result.files.length} file(s).${result.method_basis?" Method MD contract included.":""}`);}catch(error){toast(error.message);}}
+async function buildReportPackage(){if(!state.report.modules.size)return toast("Choose modules.");if(!state.report.methodBases.size)return toast("Choose Method MD files.");try{const result=await api("/api/report/ai-package",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({modules:[...state.report.modules],request:document.querySelector("#reportIntent").value,small_context:document.querySelector("#reportSmallContext").checked,method_md_artifact_ids:[...state.report.methodBases.keys()]})});const link=document.querySelector("#downloadReportPackage");link.href=result.download_url;link.classList.remove("disabled-link");link.textContent="Download ZIP";reportLog(`AI package ready: ${result.files.length} file(s); ${result.method_bases?.length||0} Method MD contract(s) included.`);}catch(error){toast(error.message);}}
 function renderReportPreflight(payload){state.report.artifact=payload.artifact;state.report.preflight=payload.preflight;const p=payload.preflight,s=p.summary||{};document.querySelector("#reportPreflight").classList.remove("empty-block");document.querySelector("#reportPreflight").innerHTML=`<strong>${p.ready?"Ready to generate":"Blocked"}</strong><p>${s.sheets||0} sheet(s), ${s.cm_formulas||0} CM formula(s), ${s.workbook_cells||0} workbook cell(s), ${s.dynamic_tables||0} dynamic table(s).</p>${[...(p.errors||[]),...(p.warnings||[])].map(x=>`<div>${escapeHtml(x)}</div>`).join("")}`;document.querySelector("#generateReport").disabled=!p.ready;document.querySelector("#reportReviewStatus").textContent=p.ready?"Report MD passed structural preflight.":"Resolve Report MD errors before compilation.";document.querySelector("#reportFinalAssetName").value=document.querySelector("#reportAssetName").value||payload.artifact?.original_name?.replace(/\.(md|markdown)$/i,"")||"Report Template";reportLog(`Preflight: ${(p.errors||[]).length} error(s), ${(p.warnings||[]).length} warning(s).`);}
 async function uploadReportMd(file){const form=new FormData();form.append("file",file);try{renderReportPreflight(await api("/api/artifacts/md-upload?kind=report_md",{method:"POST",body:form,timeoutMs:180000}));setReportStep(4,"Step 4: review the imported Report MD and compile the candidate CMBX.");refreshFileLibrary();}catch(error){toast(error.message);}}
-async function autoGenerateReport(){if(!state.report.methodBasis)return toast("Choose a Method MD basis first.");if(!state.report.modules.size)return toast("Choose related modules.");const request=document.querySelector("#reportIntent").value.trim();if(!request)return toast("Describe the report requirement.");const button=document.querySelector("#autoGenerateReport");button.disabled=true;document.querySelector("#reportAiProgressBar").style.width="3%";document.querySelector("#reportAiRunStatus").textContent="Queuing Report MD generation...";try{const job=await api("/api/report/auto-generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({method_md_artifact_id:state.report.methodBasis.id,modules:[...state.report.modules],request,small_context:document.querySelector("#reportSmallContext").checked,asset_name:document.querySelector("#reportAssetName").value||"AI Report Template"})});const result=await waitForJob(job.id,current=>{const percent=Math.round(100*current.progress_current/Math.max(1,current.progress_total));document.querySelector("#reportAiProgressBar").style.width=`${percent}%`;document.querySelector("#reportAiRunStatus").textContent=current.message||current.stage;});renderReportPreflight({artifact:result.report_md_artifact,preflight:result.preflight});document.querySelector("#reportTargetVersion").value=document.querySelector("#reportOptionTargetVersion").value;document.querySelector("#reportAiResult").innerHTML=`<div class="generation-success"><span>Report MD generated from the selected Method MD.</span>${document.querySelector("#reportKeepMd").checked?`<a class="secondary-button" href="${escapeHtml(result.report_md_download_url)}">Download Report MD</a>`:""}</div>`;setReportStep(4,"Step 4: review the generated Report MD and compile the candidate CMBX.");refreshFileLibrary();}catch(error){toast(error.message);reportLog(`Automatic Report generation failed: ${error.message}`);}finally{button.disabled=false;refreshReportConfig();}}
+async function autoGenerateReport(){if(!state.report.methodBases.size)return toast("Choose at least one Method MD basis first.");if(!state.report.modules.size)return toast("Choose related modules.");const request=document.querySelector("#reportIntent").value.trim();if(!request)return toast("Describe the report requirement.");const button=document.querySelector("#autoGenerateReport");button.disabled=true;document.querySelector("#reportAiProgressBar").style.width="3%";document.querySelector("#reportAiRunStatus").textContent="Queuing Report MD generation...";try{const job=await api("/api/report/auto-generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({method_md_artifact_ids:[...state.report.methodBases.keys()],modules:[...state.report.modules],request,small_context:document.querySelector("#reportSmallContext").checked,asset_name:document.querySelector("#reportAssetName").value||"AI Report Template"})});const result=await waitForJob(job.id,current=>{const percent=Math.round(100*current.progress_current/Math.max(1,current.progress_total));document.querySelector("#reportAiProgressBar").style.width=`${percent}%`;document.querySelector("#reportAiRunStatus").textContent=current.message||current.stage;});renderReportPreflight({artifact:result.report_md_artifact,preflight:result.preflight});document.querySelector("#reportTargetVersion").value=document.querySelector("#reportOptionTargetVersion").value;document.querySelector("#reportAiResult").innerHTML=`<div class="generation-success"><span>Report MD generated from ${state.report.methodBases.size} selected Method MD file(s).</span>${document.querySelector("#reportKeepMd").checked?`<a class="secondary-button" href="${escapeHtml(result.report_md_download_url)}">Download Report MD</a>`:""}</div>`;setReportStep(4,"Step 4: review the generated Report MD and compile the candidate CMBX.");refreshFileLibrary();}catch(error){toast(error.message);reportLog(`Automatic Report generation failed: ${error.message}`);}finally{button.disabled=false;refreshReportConfig();}}
 async function generateReport(){if(!state.report.artifact)return;try{const job=await api("/api/report/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({artifact_id:state.report.artifact.id,asset_name:document.querySelector("#reportFinalAssetName").value||document.querySelector("#reportAssetName").value||"Report_Template",target_cm_version:document.querySelector("#reportTargetVersion").value,family:[...state.report.modules].join(" + "),intent:document.querySelector("#reportIntent").value})});const result=await waitForJob(job.id,j=>reportLog(j.message));document.querySelector("#reportGenerationResult").innerHTML=`<div class="generation-success"><span>Report template CMBX is ready.</span><a class="primary-button" href="${result.download_url}">Download CMBX</a></div>`;}catch(error){toast(error.message);}}
+
+function setSequenceStep(step,message=""){
+  state.sequence.step=step;
+  document.querySelectorAll("[data-sequence-step]").forEach(item=>{const value=Number(item.dataset.sequenceStep);item.classList.toggle("active",value===step);item.classList.toggle("complete",value<step);});
+  document.querySelectorAll("[data-sequence-panel]").forEach(item=>item.classList.toggle("active",Number(item.dataset.sequencePanel)===step));
+  if(message)document.querySelector("#sequenceMessage").textContent=message;
+}
+function sequenceLog(message){const el=document.querySelector("#sequenceLog");el.textContent=`[${new Date().toLocaleTimeString()}] ${message}\n${el.textContent==="Ready."?"":el.textContent}`.trim();}
+function renderSequenceAssets(){
+  const methodRoot=document.querySelector("#sequenceMethodList"),reportRoot=document.querySelector("#sequenceReportList");
+  methodRoot.innerHTML=state.sequence.methods.length?state.sequence.methods.map(item=>`<label class="selection-item"><input type="checkbox" data-sequence-method="${escapeHtml(item.id)}" ${state.sequence.selectedMethods.has(item.id)?"checked":""}><strong>${escapeHtml(item.original_name)}</strong><small>${escapeHtml(item.created_at||"")}</small></label>`).join(""):'<div class="empty-block">No Method MD is available.</div>';
+  reportRoot.innerHTML=state.sequence.reports.length?state.sequence.reports.map(item=>`<label class="selection-item"><input type="radio" name="sequenceReport" data-sequence-report="${escapeHtml(item.id)}" ${state.sequence.report?.id===item.id?"checked":""}><strong>${escapeHtml(item.original_name)}</strong><small>${escapeHtml(item.created_at||"")}</small></label>`).join(""):'<div class="empty-block">No Report MD is available. Generate one shared report from the selected methods first.</div>';
+  document.querySelector("#sequenceAssetStatus").textContent=`${state.sequence.selectedMethods.size} Method MD file(s) · ${state.sequence.report?"1 shared Report MD":"no Report MD"}`;
+}
+function sequenceAssetName(artifact){return artifact?.asset_name||artifact?.original_name?.replace(/\.(md|markdown)$/i,"")||"Unnamed asset";}
+function newSequenceRow(artifact,index=0){return {id:`injection-${Date.now()}-${Math.random().toString(16).slice(2)}`,artifact_id:artifact.id,injection_name:`Injection ${index+1}`};}
+function buildSequenceRows(){
+  const available=new Set(state.sequence.selectedMethods.keys());
+  state.sequence.rows=state.sequence.rows.filter(row=>available.has(row.artifact_id));
+  if(!state.sequence.rows.length)state.sequence.rows=[...state.sequence.selectedMethods.values()].map((artifact,index)=>newSequenceRow(artifact,index));
+  renderSequenceRows();
+}
+function addSequenceInjection(){
+  const methods=[...state.sequence.selectedMethods.values()];
+  if(!methods.length)return toast("Choose at least one Method MD first.");
+  const limit=state.sequence.config?.max_injections||10;
+  if(state.sequence.rows.length>=limit)return toast(`This carrier supports at most ${limit} Injections.`);
+  state.sequence.rows.push(newSequenceRow(methods[0],state.sequence.rows.length));
+  renderSequenceRows();
+}
+function renderSequenceRows(){
+  const root=document.querySelector("#sequenceInjectionRows"),methods=[...state.sequence.selectedMethods.values()];
+  root.innerHTML=state.sequence.rows.length?state.sequence.rows.map((row,index)=>{const artifact=state.sequence.selectedMethods.get(row.artifact_id)||methods[0];return `<tr><td>${index+1}</td><td><input data-sequence-injection-index="${index}" value="${escapeHtml(row.injection_name)}" aria-label="Injection name ${index+1}"></td><td><select data-sequence-row-method-index="${index}" aria-label="Assigned Method ${index+1}">${methods.map(item=>`<option value="${escapeHtml(item.id)}" ${item.id===row.artifact_id?"selected":""}>${escapeHtml(sequenceAssetName(item))}</option>`).join("")}</select></td><td><span class="sequence-source-name" title="${escapeHtml(artifact?.original_name||"")}">${escapeHtml(artifact?.original_name||"")}</span></td><td><button class="row-action" data-sequence-move="up" data-sequence-index="${index}" ${index===0?"disabled":""}>Up</button><button class="row-action" data-sequence-move="down" data-sequence-index="${index}" ${index===state.sequence.rows.length-1?"disabled":""}>Down</button><button class="row-action" data-sequence-remove="${index}">Remove</button></td></tr>`;}).join(""):'<tr><td colspan="5" class="empty">Add an Injection and assign a Method MD.</td></tr>';
+  const reportIdentity=document.querySelector("#sequenceReportIdentity");if(reportIdentity)reportIdentity.textContent=state.sequence.report?sequenceAssetName(state.sequence.report):"Choose a Report MD";
+  const status=document.querySelector("#sequenceInjectionStatus");if(status)status.textContent=`${state.sequence.rows.length} of ${state.sequence.config?.max_injections||10} Injection row(s).`;
+  const add=document.querySelector("#sequenceAddInjection");if(add)add.disabled=!methods.length||state.sequence.rows.length>=(state.sequence.config?.max_injections||10);
+}
+function sequencePayload(){return {target_cm_version:document.querySelector("#sequenceTargetVersion").value,report_md_artifact_id:state.sequence.report?.id||"",injections:state.sequence.rows.map(row=>({method_md_artifact_id:row.artifact_id,injection_name:row.injection_name}))};}
+async function refreshSequenceConfig(){
+  try{state.sequence.config=await api("/api/sequence/config");state.sequence.methods=state.sequence.config.method_md||[];state.sequence.reports=state.sequence.config.report_md||[];const methodIds=new Set(state.sequence.methods.map(item=>item.id));state.sequence.selectedMethods=new Map([...state.sequence.selectedMethods].filter(([id])=>methodIds.has(id)).map(([id])=>[id,state.sequence.methods.find(item=>item.id===id)]));if(state.sequence.report)state.sequence.report=state.sequence.reports.find(item=>item.id===state.sequence.report.id)||null;const target=document.querySelector("#sequenceTargetVersion"),current=target.value;target.innerHTML=(state.sequence.config.target_versions||[]).map(value=>`<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");if((state.sequence.config.target_versions||[]).includes(current))target.value=current;renderSequenceAssets();renderSequenceRows();document.querySelector("#sequenceCarrierStatus").textContent=state.sequence.config.carrier_available?`Controlled TCC carrier available · ${(state.sequence.config.target_versions||[]).join(" / ")}`:"Controlled carrier is unavailable on this host";}catch(error){toast(error.message);}
+}
+async function uploadSequenceMethods(files){
+  const chosen=[...files];if(!chosen.length)return;
+  sequenceLog(`Uploading ${chosen.length} Method MD file(s)...`);
+  for(const file of chosen){
+    const form=new FormData();form.append("file",file);
+    try{const payload=await api("/api/artifacts/md-upload?kind=method_md",{method:"POST",body:form,timeoutMs:180000});state.sequence.selectedMethods.set(payload.artifact.id,payload.artifact);sequenceLog(`Method MD ready: ${payload.artifact.original_name}`);}catch(error){sequenceLog(`Method MD upload failed (${file.name}): ${error.message}`);toast(error.message);}
+  }
+  await refreshSequenceConfig();await refreshFileLibrary();renderSequenceAssets();
+}
+async function uploadSequenceReport(file){
+  if(!file)return;sequenceLog(`Uploading shared Report MD: ${file.name}`);
+  const form=new FormData();form.append("file",file);
+  try{const payload=await api("/api/artifacts/md-upload?kind=report_md",{method:"POST",body:form,timeoutMs:180000});state.sequence.report=payload.artifact;await refreshSequenceConfig();await refreshFileLibrary();renderSequenceAssets();sequenceLog(`Shared Report MD ready: ${payload.artifact.original_name}`);}catch(error){sequenceLog(`Report MD upload failed: ${error.message}`);toast(error.message);}
+}
+function continueSequenceAssets(){if(!state.sequence.selectedMethods.size)return toast("Choose at least one Method MD.");if(!state.sequence.report)return toast("Choose one shared Report MD.");buildSequenceRows();setSequenceStep(2,"Step 2: add Injection rows, edit Injection names, and assign reviewed Methods.");}
+async function preflightSequence(){
+  if(!state.sequence.rows.length)return toast("Add at least one Injection.");
+  try{sequenceLog("Checking Method MD, Report MD, and sequence bindings...");const result=await api("/api/sequence/preflight",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(sequencePayload()),timeoutMs:180000});state.sequence.preflight=result;const items=[...result.methods.map(item=>`<div class="contract-row ${item.ready?"pass":"fail"}"><strong>${escapeHtml(item.injection)}</strong><span>${escapeHtml(item.method)}</span><b>${item.ready?"Ready":"Blocked"}</b>${[...(item.errors||[]),...(item.warnings||[])].map(value=>`<small>${escapeHtml(value)}</small>`).join("")}</div>`),`<div class="contract-row ${result.report.ready?"pass":"fail"}"><strong>Shared report</strong><span>${escapeHtml(result.report.name)}</span><b>${result.report.ready?"Ready":"Blocked"}</b>${[...(result.report.errors||[]),...(result.report.warnings||[])].map(value=>`<small>${escapeHtml(value)}</small>`).join("")}</div>`];document.querySelector("#sequencePreflight").innerHTML=items.join("")+result.warnings.map(value=>`<div class="sequence-warning">${escapeHtml(value)}</div>`).join("");document.querySelector("#generateSequence").disabled=!result.ready;setSequenceStep(3,result.ready?"Step 3: contracts are ready. Generate and runtime-check the candidate Sequence CMBX.":"Step 3: resolve the blocked Method or Report MD contract before generation.");sequenceLog(result.ready?"Preflight passed.":"Preflight blocked.");}catch(error){toast(error.message);sequenceLog(`Preflight failed: ${error.message}`);}
+}
+async function generateSequence(){
+  const button=document.querySelector("#generateSequence");button.disabled=true;document.querySelector("#sequenceProgressBar").style.width="3%";
+  try{const job=await api("/api/sequence/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(sequencePayload()),timeoutMs:180000});const result=await waitForJob(job.id,current=>{const percent=Math.round(100*current.progress_current/Math.max(1,current.progress_total));document.querySelector("#sequenceProgressBar").style.width=`${percent}%`;document.querySelector("#sequenceRunStatus").textContent=current.message||current.stage;sequenceLog(current.message||current.stage);});document.querySelector("#sequenceGenerationResult").innerHTML=`<div class="generation-success"><span>${escapeHtml(result.sequence_name)} · ${result.injections.length} Injection(s) · Processing Method blank</span><a class="primary-button" href="${escapeHtml(result.download_url)}">Download Sequence CMBX</a></div>${(result.warnings||[]).map(value=>`<div class="sequence-warning">${escapeHtml(value)}</div>`).join("")}`;document.querySelector("#sequenceProgressBar").style.width="100%";document.querySelector("#sequenceRunStatus").textContent="Candidate Sequence CMBX is ready.";refreshFileLibrary();}catch(error){toast(error.message);sequenceLog(`Generation failed: ${error.message}`);button.disabled=false;}
+}
 
 async function refreshQualityConfig(){try{state.quality.config=await api("/api/quality/config");const sources=state.quality.config.sources||[];document.querySelector("#qualitySource").innerHTML=sources.map(s=>`<option value="${escapeHtml(s.id)}">${escapeHtml(s.label)}</option>`).join("");if(state.quality.config.default_source)document.querySelector("#qualitySource").value=state.quality.config.default_source;}catch(error){toast(error.message);}}
 async function loadQualityTables(){try{const result=await api("/api/quality/catalog",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({source_id:document.querySelector("#qualitySource").value}),timeoutMs:60000});state.quality.catalog=result;document.querySelector("#qualityTable").innerHTML=result.tables.map(t=>`<option>${escapeHtml(t)}</option>`).join("");toast(`${result.tables.length} table(s) loaded.`);}catch(error){toast(error.message);}}
@@ -1135,6 +1202,9 @@ document.addEventListener("click", event => {
   const useReport=event.target.closest("[data-use-report]")?.dataset.useReport;if(useReport){useManagedMd(useReport,"report");return;}
   const back = event.target.closest("[data-foq-back]")?.dataset.foqBack; if (back) setFoqStep(Number(back));
   const methodBack = event.target.closest("[data-method-back]")?.dataset.methodBack; if (methodBack) setMethodStep(Number(methodBack));
+  const sequenceBack=event.target.closest("[data-sequence-back]")?.dataset.sequenceBack;if(sequenceBack){setSequenceStep(Number(sequenceBack));return;}
+  const sequenceMove=event.target.closest("[data-sequence-move]");if(sequenceMove){const index=Number(sequenceMove.dataset.sequenceIndex),target=sequenceMove.dataset.sequenceMove==="up"?index-1:index+1;if(target>=0&&target<state.sequence.rows.length){[state.sequence.rows[index],state.sequence.rows[target]]=[state.sequence.rows[target],state.sequence.rows[index]];renderSequenceRows();}return;}
+  const sequenceRemove=event.target.closest("[data-sequence-remove]")?.dataset.sequenceRemove;if(sequenceRemove!==undefined){state.sequence.rows.splice(Number(sequenceRemove),1);renderSequenceRows();return;}
   const singleBack=event.target.closest("[data-single-back]")?.dataset.singleBack;if(singleBack){setSingleStep(Number(singleBack));return;}
   if(event.target.closest("#openLeakSensorAnalysis")){openLeakSensorAnalysis();return;}
   if(event.target.closest("#backToSingleCatalog")){closeLeakSensorAnalysis();return;}
@@ -1159,7 +1229,13 @@ document.addEventListener("change",async event=>{
   const formulaKey=event.target.dataset.formulaKey;if(formulaKey){event.target.checked?state.analysis.formula.selected.add(formulaKey):state.analysis.formula.selected.delete(formulaKey);return;}
   const injectionKey=event.target.dataset.formulaInjection;if(injectionKey){event.target.checked?state.analysis.formula.injections.add(injectionKey):state.analysis.formula.injections.delete(injectionKey);return;}
   const reportModule=event.target.dataset.reportModule;if(reportModule){event.target.checked?state.report.modules.add(reportModule):state.report.modules.delete(reportModule);return;}
-  const reportMethod=event.target.dataset.reportMethod;if(reportMethod){state.report.methodBasis=state.report.methods.find(item=>item.id===reportMethod)||null;renderReportMethodChoices();return;}
+  const reportMethod=event.target.dataset.reportMethod;if(reportMethod){const item=state.report.methods.find(row=>row.id===reportMethod);if(event.target.checked&&item)state.report.methodBases.set(reportMethod,item);else state.report.methodBases.delete(reportMethod);renderReportMethodBasis();return;}
+  const sequenceMethod=event.target.dataset.sequenceMethod;if(sequenceMethod){const item=state.sequence.methods.find(row=>row.id===sequenceMethod);if(event.target.checked&&item)state.sequence.selectedMethods.set(sequenceMethod,item);else state.sequence.selectedMethods.delete(sequenceMethod);renderSequenceAssets();return;}
+  const sequenceReport=event.target.dataset.sequenceReport;if(sequenceReport){state.sequence.report=state.sequence.reports.find(row=>row.id===sequenceReport)||null;renderSequenceAssets();renderSequenceRows();return;}
+  const sequenceRowMethod=event.target.dataset.sequenceRowMethodIndex;if(sequenceRowMethod!==undefined&&state.sequence.rows[Number(sequenceRowMethod)]){state.sequence.rows[Number(sequenceRowMethod)].artifact_id=event.target.value;renderSequenceRows();return;}
+});
+document.addEventListener("input",event=>{
+  const injectionIndex=event.target.dataset.sequenceInjectionIndex;if(injectionIndex!==undefined&&state.sequence.rows[Number(injectionIndex)])state.sequence.rows[Number(injectionIndex)].injection_name=event.target.value;
 });
 document.querySelector("#developerLogin").addEventListener("click", developerLogin);
 document.querySelector("#developerPassword").addEventListener("keydown", event => { if (event.key === "Enter") developerLogin(); });
@@ -1245,6 +1321,16 @@ document.querySelector("#autoGenerateReport").addEventListener("click",autoGener
 document.querySelector("#openReportAiSettings").addEventListener("click",()=>{openAiSettings();document.querySelector("#aiSettingsProvider").value="gpt";syncAiSettingsProvider();});
 document.querySelectorAll("[data-report-back]").forEach(button=>button.addEventListener("click",()=>setReportStep(Number(button.dataset.reportBack))));
 document.querySelector("#generateReport").addEventListener("click",generateReport);
+document.querySelector("#sequenceToArrange").addEventListener("click",continueSequenceAssets);
+document.querySelector("#sequenceToReview").addEventListener("click",preflightSequence);
+document.querySelector("#sequenceAddInjection").addEventListener("click",addSequenceInjection);
+document.querySelector("#generateSequence").addEventListener("click",generateSequence);
+document.querySelector("#sequenceRefreshAssets").addEventListener("click",refreshSequenceConfig);
+document.querySelector("#sequenceUploadMethods").addEventListener("click",()=>document.querySelector("#sequenceMethodFiles").click());
+document.querySelector("#sequenceMethodFiles").addEventListener("change",async event=>{await uploadSequenceMethods(event.target.files||[]);event.target.value="";});
+document.querySelector("#sequenceUploadReport").addEventListener("click",()=>document.querySelector("#sequenceReportFile").click());
+document.querySelector("#sequenceReportFile").addEventListener("change",async event=>{await uploadSequenceReport(event.target.files?.[0]);event.target.value="";});
+document.querySelector("#sequenceGenerateReport").addEventListener("click",()=>{state.report.methodBases=new Map(state.sequence.selectedMethods);showView("report");setReportStep(1,"All Sequence Method MD files are selected. Generate one shared Report MD, then return to Sequence Generation.");});
 document.querySelector("#qualityConnect").addEventListener("click",loadQualityTables);
 document.querySelector("#qualityRun").addEventListener("click",runQuality);
 document.querySelector("#qualityMetric").addEventListener("change",runQuality);

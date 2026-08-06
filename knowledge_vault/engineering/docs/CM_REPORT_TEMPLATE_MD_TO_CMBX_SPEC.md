@@ -1,6 +1,6 @@
 # CM Report Template Markdown to Standalone CMBX Specification
 
-**Status:** V1.7 - one universal Report MD contract for CM report CMBX and External Report Engine execution  
+**Status:** V1.8 - one universal Report MD contract for CM report CMBX and External Report Engine execution
 **Authoring goal:** A web model describes a new report in Markdown; CMBX Data Explorer creates the report sheets, cells, CM formulas and FormulaOne formulas and packages them as a standalone report-template CMBX.  
 **Important distinction:** The compiler uses an internal neutral CMBX/FormulaOne carrier only for valid binary serialization. The Markdown does not reuse carrier business sheets, cells, formulas or layout.
 
@@ -28,6 +28,77 @@ Create the method and report MD for the TCC 20 -> 50 -> 20 heat-up/cool-down tes
 The model must resolve RetTime meaning, channels, result formulas and display precision from the supplied KB. Do not require the user to restate those facts. When module evidence distinguishes a production result from a diagnostic value, the production contract takes precedence. Never promote a diagnostic endpoint to the primary result merely because both values are available.
 
 The word "blank" means **business-level blank**. The compiler retains only a neutral binary carrier needed by Chromeleon to deserialize FormulaOne and CpXm data.
+
+### 1.1 Multiple Method MD / Shared Sequence Report Contract
+
+A report-generation request may provide one Method MD or an ordered collection of
+Method MD files. When multiple Method MD files are supplied, they represent separate
+Instrument Methods and normally separate Injection rows in one planned Sequence. The
+required output remains **one shared Report Template MD** unless the user explicitly
+requests separate templates.
+
+Method contracts and Injection instances are different layers. One Method MD may be
+assigned to one, two, or many Injection rows. Reusing the same Method MD does **not**
+require duplicate Method MD inputs and must not block Report or Sequence generation.
+The shared Report Template binds that Method contract once, then evaluates each runtime
+Injection through `each_injection: true`, an explicit supported Injection query, or a
+verified sequence-level row source. Duplicate Injection instances do not create new
+channels, RetTime meanings, variables, or formulas; they create additional runtime
+contexts for the same contract.
+
+Before writing report cells, the web model must build an internal coverage map:
+
+| Binding scope | Required interpretation |
+|---|---|
+| Method MD file | One independently executed Instrument Method contract |
+| Injection | One runtime instance of a Method contract; multiple rows may reuse the same Method MD |
+| `RetTimes.RetTimeN` | Injection-local anchor; the same number in another Method MD is not the same event |
+| Acquired channel | Available only in injections whose Method MD enables that channel |
+| Logged property / Protocol | Available only where the corresponding Method explicitly produces it |
+| Shared Report Template | May contain method-specific sheets plus verified sequence/injection summary sheets |
+
+Authoring rules:
+
+1. Read **every** binding Method MD before designing the report. Do not derive the
+   shared report from only the first file.
+2. Keep the source Method/Injection explicit in sheet titles, labels or source columns
+   whenever two methods reuse the same RetTime number, channel name or variable name
+   with different meanings.
+3. A sheet with `each_injection: true` is evaluated in the current Injection context.
+   Its Direct CM formulas must use evidence produced by the Method bound to that
+   Injection. It must not assume that another Injection's RetTime or raw channel is in
+   the same formula context.
+4. Prefer separate method/test sheets when the selected methods expose different
+   channels, RetTime semantics, windows or acceptance criteria. Reuse a common sheet
+   only when the contracts are genuinely identical.
+5. FormulaOne cell references calculate within the instantiated workbook/sheet. They
+   do not by themselves fetch a value from another Injection. Cross-Injection summaries
+   require a verified native row source (for example an injection-based Peak Summary
+   table), a verified sequence/report variable, or an External Report Engine design.
+6. If the requested cross-Injection result has no supported row source, write
+   `OPEN VERIFICATION REQUIRED` in the report design instead of inventing a workbook
+   reference that appears to work.
+7. Setup, calibration or precondition Methods may legitimately contribute no final
+   metric, but their role and any data consumed by later report sections must remain
+   explicit. Do not silently omit a selected Method MD.
+8. The report must preserve the user-requested method order when presenting
+   Injection-level results unless a documented test order requires otherwise.
+9. Do not infer that one Method MD means one Injection. If Injection count or names are
+   not supplied during report authoring, design an Injection-reusable sheet and leave
+   instance count to Sequence Generation. If exact Injection names are supplied, they
+   may be used only through a supported report query mechanism.
+
+Minimal multi-method design pattern:
+
+```text
+Binding Method MD 1 -> Injection/Test A -> Sheet A -> Direct CM sources from Method 1
+Binding Method MD 2 -> Injection/Test B -> Sheet B -> Direct CM sources from Method 2
+All selected methods -> optional Summary sheet -> only verified cross-Injection source
+```
+
+The compiler packages one Report Template; it does not automatically prove that every
+formula is valid for every Injection. That validity comes from this Method-to-Injection
+coverage contract and must be checked before CMBX generation.
 
 ## 2. V1 Capability Boundary
 

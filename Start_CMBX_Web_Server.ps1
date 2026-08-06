@@ -49,6 +49,20 @@ function Publish-WebEntry([string]$Port) {
 $logRoot = Join-Path $env:CMBX_WEB_STATE_ROOT "logs"
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
 $pidPath = Join-Path $env:CMBX_WEB_STATE_ROOT "cmbx-web.pid"
+$listener = Get-NetTCPConnection -LocalPort ([int]$env:CMBX_WEB_PORT) -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($listener) {
+    $listenerProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)" -ErrorAction SilentlyContinue
+    $listenerCommand = [string]$listenerProcess.CommandLine
+    if ($listenerCommand -match 'run_web_workspace\.py') {
+        $listener.OwningProcess | Set-Content -LiteralPath $pidPath -Encoding ASCII
+        $entry = Publish-WebEntry $env:CMBX_WEB_PORT
+        Write-Host "CMBX Web Workspace is already running (PID $($listener.OwningProcess))."
+        Write-Host "LAN entry: $($entry.HostUrl)" -ForegroundColor Cyan
+        if (-not $NoBrowser) { Start-Process $entry.LocalUrl }
+        exit 0
+    }
+    throw "TCP port $env:CMBX_WEB_PORT is occupied by PID $($listener.OwningProcess). Stop that process or choose another port."
+}
 if (Test-Path -LiteralPath $pidPath) {
     $oldPid = (Get-Content -LiteralPath $pidPath -Raw).Trim()
     if ($oldPid -and (Get-Process -Id $oldPid -ErrorAction SilentlyContinue)) {
@@ -76,6 +90,7 @@ $health = "http://127.0.0.1:$env:CMBX_WEB_PORT/api/health"
 $ready = $false
 for ($attempt = 0; $attempt -lt 30; $attempt++) {
     Start-Sleep -Milliseconds 500
+    if ($process.HasExited) { break }
     try {
         $response = Invoke-WebRequest -UseBasicParsing -Uri $health -TimeoutSec 2
         if ($response.StatusCode -eq 200) { $ready = $true; break }
@@ -83,13 +98,30 @@ for ($attempt = 0; $attempt -lt 30; $attempt++) {
         $status = $_.Exception.Response.StatusCode.value__
         if ($status -eq 401 -or $status -eq 403) { $ready = $true; break }
     }
-    if ($process.HasExited) { break }
+}
+if ($ready) {
+    $activeListener = Get-NetTCPConnection -LocalPort ([int]$env:CMBX_WEB_PORT) -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    $activeProcess = if ($activeListener) {
+        Get-CimInstance Win32_Process -Filter "ProcessId=$($activeListener.OwningProcess)" -ErrorAction SilentlyContinue
+    } else {
+        $null
+    }
+    # A venv python.exe on Windows is a launcher process. The process that
+    # actually owns the Uvicorn socket therefore has a different PID.
+    if (-not $activeListener -or [string]$activeProcess.CommandLine -notmatch 'run_web_workspace\.py') {
+        $ready = $false
+    } else {
+        $activeListener.OwningProcess | Set-Content -LiteralPath $pidPath -Encoding ASCII
+    }
 }
 if (-not $ready) {
+    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
     throw "The server did not become ready. Review $logFile"
 }
 
-Write-Host "CMBX Web Workspace is running (PID $($process.Id))." -ForegroundColor Green
+$serverPid = (Get-Content -LiteralPath $pidPath -Raw).Trim()
+Write-Host "CMBX Web Workspace is running (PID $serverPid)." -ForegroundColor Green
 $entry = Publish-WebEntry $env:CMBX_WEB_PORT
 Write-Host "Local:     $($entry.LocalUrl)"
 Write-Host "LAN entry: $($entry.HostUrl)" -ForegroundColor Cyan

@@ -3560,9 +3560,13 @@ def test_multi_sequence_links_and_folder_report_scope(tmp_path):
   <ChromeleonElement Id="f" Name="Folder" ItemType="Dionex.Chromeleon.Data.SubFolder">
     <ChromeleonElement Id="s1" Name="Seq1" ItemType="Dionex.Chromeleon.Data.Sequence" Filename="Seq1.cmd">
       <ChromeleonElement Id="i1" Name="Injection A" ItemType="Dionex.Chromeleon.Data.Injection" />
+      <ChromeleonElement Id="m1" Name="METHOD_A" ItemType="Dionex.Chromeleon.Data.InstrumentMethod" />
+      <ChromeleonElement Id="p1" Name="PROC_A" ItemType="Dionex.Chromeleon.Data.ProcessingMethod" />
     </ChromeleonElement>
     <ChromeleonElement Id="s2" Name="Seq2" ItemType="Dionex.Chromeleon.Data.Sequence" Filename="Seq2.cmd">
       <ChromeleonElement Id="i2" Name="Injection B" ItemType="Dionex.Chromeleon.Data.Injection" />
+      <ChromeleonElement Id="m2" Name="METHOD_B" ItemType="Dionex.Chromeleon.Data.InstrumentMethod" />
+      <ChromeleonElement Id="p2" Name="PROC_B" ItemType="Dionex.Chromeleon.Data.ProcessingMethod" />
     </ChromeleonElement>
     <ChromeleonElement Id="r1" Name="Shared Report" ItemType="Dionex.Chromeleon.Data.ReportDefinition" Filename="Report1.cmd" />
   </ChromeleonElement>
@@ -3575,7 +3579,20 @@ def test_multi_sequence_links_and_folder_report_scope(tmp_path):
             + b"\x12\x20\x12\x0d\x1a\x0bRelativeUrl*" + bytes([len(method)]) + method.encode()
         )
 
-    report_payload = b"report-prefix-CpXm-report-payload"
+    def varint(value: int) -> bytes:
+        result = bytearray()
+        while True:
+            byte = value & 0x7F
+            value >>= 7
+            result.append(byte | (0x80 if value else 0))
+            if not value:
+                return bytes(result)
+
+    def field(number: int, value: bytes) -> bytes:
+        return varint((number << 3) | 2) + varint(len(value)) + value
+
+    report_cpxm = b"CpXm-report-payload"
+    report_payload = field(19, field(15, field(1, report_cpxm)) + field(28, b"Shared Report")) + field(30, b"trailing metadata")
     with zipfile.ZipFile(cmbx, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("header.xml", header)
         archive.writestr("Seq1.cmd", sequence_cmd("Injection A", "PROC_A", "METHOD_A"))
@@ -3599,6 +3616,8 @@ def test_multi_sequence_links_and_folder_report_scope(tmp_path):
     assert embedded is not None
     assert embedded.sequence_name == "(standalone report template)"
     assert embedded.sequence_entry == "Report1.cmd"
+    assert embedded.cpxm_payload == report_cpxm
+    assert embedded.cpxm_end < len(report_payload)
 
 
 def test_processing_method_inspector_extracts_xml_evidence(tmp_path):

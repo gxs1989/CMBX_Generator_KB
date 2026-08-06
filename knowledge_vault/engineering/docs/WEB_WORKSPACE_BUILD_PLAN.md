@@ -1,5 +1,7 @@
 # CMBX Workspace Web 构建与业务流程设计
 
+> 2026-08-05 部署更新（V1.42）：仓库现已包含 `launcher/` 安装、启动、停止和环境检查入口，离线 Python 3.11 wheelhouse，以及带 FormulaOne SxS/OCX 组件的版本化 Chromeleon runtime。完整 Git checkout 可在另一台内网 Windows 电脑上建立服务器，不再依赖开发电脑已有的 Python 包或本地 Chromeleon 安装。
+
 > 2026-07-31 登录更新：登录页立即显示，不再等待 workspace inventory 或 jobs。当前内网版本统一使用管理员授权的邮箱/密码账户；Windows 登录和首次自助注册默认关闭。账户只能由 Admin 创建、启用、重置密码或禁用。
 
 > 文档状态：Web 架构确认基线 0.2  
@@ -153,6 +155,7 @@ C:\ProgramData\CMBX Web Service\
 |---|---|---|---|
 | Instrument Method Generation | 选择模块、下载 AI 包、上传 Method MD、预览、确认生成 | preflight、CM 风格渲染、CMBX 编译 | 输出是 candidate asset，需在 CM 验证 |
 | Report Template Generation | 上传 Method/Report MD、布局预览、确认生成 | report preflight、模板编译、CMBX 打包 | 仅覆盖已验证对象和公式 |
+| Sequence Package Generation | 选择单 Injection carrier、已生成 Method CMBX 和 Report CMBX，生成候选 sequence 包 | carrier-guided DataContract rewrite、CpXm replacement、binding validation | 第一版保留 carrier Processing Method；必须在 CM/目标配置验证 |
 | External Report Engine | 上传 Report MD、选择多个 CMBX、预览与导出 | 公式计算、动态表、外部报告渲染 | 高级积分/定量仍有限 |
 | Generation History | 查看输入、hash、警告、输出并下载 | 保存不可变任务记录和 artifacts | 不保存明文密钥 |
 
@@ -920,6 +923,28 @@ Automatic AI generation no longer compiles a Method CMBX before the user sees th
 
 - Desktop and guided workspace release: `V1.41`.
 - Web API release: `0.3.0`.
+
+### 2026-08-04 / V1.42 portable server deployment
+
+- A new Windows host can be prepared with `Install_CMBX_Web_Server.bat`; the
+  service no longer relies on whichever global Python happens to be on PATH.
+- `.venv` installs the pinned Web and analysis dependencies from
+  `requirements-server.txt`. A local `deployment/wheelhouse` is used
+  automatically when supplied; otherwise pip uses the configured package index.
+- The approved internal Chromeleon dependency closure is stored as
+  `deployment/runtime/chromeleon-runtime.zip` with a version/hash manifest. The
+  installer deploys it to ProgramData and startup exports
+  `CMBX_CHROMELEON_BIN` before any decoder or FormulaOne module is imported.
+- FOQResultLocations and the validated CM 7.2/7.3 method carriers are versioned
+  deployment assets and copied into the ProgramData workspace during install.
+- Start, stop, firewall, dynamic LAN-address display, health wait, logs, PID
+  tracking and preflight are separate scripts. The current operating model keeps
+  startup manual after Windows boot.
+- Credentials, passwords, DSN secrets and personal/workspace API keys are not
+  portable assets. They must be entered on the new host through the Admin UI.
+- Microsoft ODBC Driver 17/18 remains an OS prerequisite for database workflows;
+  its absence is a preflight warning rather than a blocker for CMBX workflows.
+- Web API release: `0.4.0`; desktop/server release: `V1.42`.
 - Release scope includes authenticated owner-scoped libraries, guided Method/Report generation, independent workflow permissions, live permission refresh, controlled workspace AI credentials, FOQ quick check, quality-history comparison, and chromatogram/formula workflows.
 
 ### 2026-08-04 / FOQ multi-CMBX metric union
@@ -1010,3 +1035,112 @@ paths. The manifest records SHA-256, source path, managed path, size, and duplic
 group. Long Windows paths receive stable managed aliases and are restored to their
 declared path during deployment. Runtime outputs, caches, user uploads, credentials,
 API keys, and Web job artifacts remain excluded.
+
+### 2026-08-06 / Multi-Method Report and Sequence Generation
+
+The Design & Generate branch now treats a test package as one linked contract rather
+than unrelated standalone assets.
+
+**Report Template Generation** accepts a collection of Method MD files. The backend
+prompt labels every binding Method MD separately and asks the model for one shared
+Report MD covering the complete planned Sequence. Report formulas may only use the
+channels, RetTimes, audit properties, and variables exposed by those selected methods.
+The legacy single-Method request field remains accepted for compatibility, but the Web
+UI sends `method_md_artifact_ids` and displays the complete selected collection.
+
+**Sequence Generation** is a new independent Home task protected by the
+`sequence_generate` permission. Its first version is a three-step workflow:
+
+1. Select one or more owned Method MD files and one owned shared Report MD. A shortcut
+   transfers the selected Method collection into Report Template Generation.
+2. Build an Injection plan independently from the selected Method assets. Users can
+   add, remove, and reorder Injection rows, reuse a selected Method in more than one
+   row, assign a different selected Method, and edit only the Injection name. Method
+   names are inherited from Method MD assets, the Report Template name is inherited
+   from its `template_name`, and the Sequence name is generated automatically. CM
+   target is selected from the carrier-backed version list rather than entered as text.
+3. Preflight every MD contract, compile standalone component CMBX files, write the
+   controlled Sequence DataContract, reopen it, validate all visible bindings and
+   source CpXm payloads, then offer the candidate CMBX for download.
+
+Processing Method is intentionally blank in this phase. Therefore generated Sequences
+do not contain IRC insertion rules, integration parameters, or Processing Method
+pass/fail actions. The controlled carrier is currently a TCC CM 7.3 carrier with ten
+available Method slots. Hidden carrier objects are reported, and every output remains
+a candidate requiring import/open/run verification in the target Chromeleon and
+Instrument Configuration.
+
+Core implementation:
+
+- `sequence_package_builder.py`: single- and multi-Injection DataContract writer and
+  structural validator;
+- `assets/sequence_carrier_tcc_10_slots.cmbx`: controlled multi-slot carrier;
+- `web_workspace/app.py`: ownership-protected config, preflight, and queued generation
+  endpoints;
+- `web_workspace/static/index.html`, `app.js`, and `app.css`: guided Web workflow;
+- `docs/SEQUENCE_PACKAGE_GENERATION.md`: evidence, boundaries, and future carrier work.
+
+Sequence Step 1 now reads the signed-in user's Method/Report MD library and also
+accepts direct Method MD (multi-file) and Report MD uploads. Uploaded files are
+registered in the personal library and selected immediately. The `sequence_generate`
+permission authorizes these workflow-local uploads, so users do not need separate
+Method Generation or Report Generation access merely to assemble an existing design.
+
+The universal Report SPEC is upgraded to V1.8 with a binding contract for multiple
+Method MD inputs. Each Method MD is treated as a separate Injection-local runtime
+contract; same-number RetTimes and same-name channels are not merged automatically.
+Shared reports may use method-specific sheets and only verified sequence/injection row
+sources for cross-Injection summaries. The backend AI prompt repeats these constraints
+and labels every selected Method MD independently.
+
+### 2026-08-06 / Short Local Asset Storage
+
+Web compilation no longer runs inside the synchronized SharePoint/OneDrive tree. Long
+user names, project names, original filenames, and nested component-generation folders
+could exceed the Windows path limit or leave a Sequence job pointing at an unavailable
+temporary Method CMBX.
+
+- `%LOCALAPPDATA%\CMBX Web Workspace\assets` is the managed short-path store for
+  uploaded CMBX, Method/Report MD, AI packages, and generated CMBX artifacts.
+- `%LOCALAPPDATA%\CMBX Web Workspace\work` is the short-path compiler workspace used by
+  Method, Report, and Sequence generation.
+- `shared_root` remains available for controlled analysis output and optional archival,
+  but is not used as a compiler input/output path.
+- records created by an older build are copied lazily into `assets` before use.
+
+Managed filenames use an eight-character artifact prefix and a maximum 48-character
+source stem. Original names remain in artifact metadata and download responses. The
+administrator status endpoint exposes both local roots. Deployments may override the
+default with `CMBX_WEB_LOCAL_ROOT`.
+
+The Windows launcher now records the PID that actually owns the configured TCP port.
+The virtual-environment `python.exe` is only a short-lived launcher on this host, so
+its PID is not necessarily the Uvicorn server PID. Startup succeeds only when the new
+listener command line is `run_web_workspace.py`; the real listener PID is then written
+to `cmbx-web.pid`. Startup also detects an existing listener before launching, while
+the stop script checks both the PID file and the configured port. This prevents a
+stale Web process from continuing to serve old path-handling code after an update.
+
+Sequence Report validation now extracts the exact length-delimited CpXm field from a
+standalone Report CMBX. Report object/version metadata following that field is no longer
+mistaken for compressed report content. A single Method MD may be reused by multiple
+Injection rows and one shared Report Template may evaluate those runtime instances;
+duplicate Method MD inputs are neither required nor treated as missing report coverage.
+
+The CM import probes exposed three independent carrier defects. The reduced header once
+listed two Injections while the Sequence DataContract retained the complete FOQ graph;
+the first reducer then pruned field-18 type descriptors and field-19 object values but
+left field-20 object metadata untouched. Sequence generation now applies one keep mask
+to all three parallel arrays and validates their lengths and exact domain-object counts.
+It also rewrites repeated Injection rows individually by their native Method binding and
+packages one shared Instrument Method when the same Method asset is assigned more than
+once. The header Sequence/child URLs are rewritten to the generated Sequence name rather
+than the carrier's original FOQ URL.
+
+Subsequent CM import testing proved that a completed FOQ carrier remains unsafe even
+after object-array pruning because it carries hundreds of completed-run transaction
+records. Sequence Generation now uses the user-created, CM-exported `test1` empty
+Sequence as `assets/sequence_carrier_native_test1.cmbx`. The first controlled carrier
+supports two Injection rows sharing one Instrument Method and one Report Template. The
+Web UI therefore advertises a two-Injection limit until additional native empty carriers
+are exported and runtime-verified.

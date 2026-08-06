@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CMBX Workspace</title>
-  <link rel="stylesheet" href="/static/app.css?v=20260804-leak-analyzer-v8">
+  <link rel="stylesheet" href="/static/app.css?v=20260806-sequence-v3">
 </head>
 <body>
   <div class="login-gate" id="loginGate">
@@ -56,6 +56,7 @@
               <div class="map-line" aria-hidden="true"></div>
               <button class="map-task available" data-view="method" data-module-permission="instrument_method_generation">Instrument Method Generation <span>Available</span></button>
               <button class="map-task available" data-view="report" data-module-permission="report_generate">Report Template Generation <span>Available</span></button>
+              <button class="map-task available" data-view="sequence" data-module-permission="sequence_generate">Sequence Generation <span>Candidate</span></button>
               <button class="map-task planned" data-module-permission="hplc_applications">HPLC Applications &amp; Workflows <span>Planned</span></button>
             </section>
             <section class="map-branch green" data-map-branch="results">
@@ -249,23 +250,23 @@
 
       <section class="view" id="view-report">
         <p class="eyebrow">DESIGN &amp; GENERATE</p><h1>Report Template Generation</h1>
-        <p class="lead">Start from a reviewed Method MD, let the backend AI design its matching Report MD, then review and compile the report-template CMBX.</p>
-        <div class="workflow-steps" id="reportSteps"><div class="step active" data-report-step="1"><b>1</b><span>Choose Method MD</span></div><div class="step" data-report-step="2"><b>2</b><span>Describe report</span></div><div class="step" data-report-step="3"><b>3</b><span>Generate preview</span></div><div class="step" data-report-step="4"><b>4</b><span>Review &amp; compile</span></div></div>
-        <div class="flow-message" id="reportMessage">Step 1: choose one of your reviewed Method MD files.</div>
+        <p class="lead">Start from all Method MD files in a planned sequence, let the backend AI design one shared Report MD, then review and compile the report-template CMBX.</p>
+        <div class="workflow-steps" id="reportSteps"><div class="step active" data-report-step="1"><b>1</b><span>Choose Method MDs</span></div><div class="step" data-report-step="2"><b>2</b><span>Describe report</span></div><div class="step" data-report-step="3"><b>3</b><span>Generate preview</span></div><div class="step" data-report-step="4"><b>4</b><span>Review &amp; compile</span></div></div>
+        <div class="flow-message" id="reportMessage">Step 1: choose every reviewed Method MD used by the planned sequence.</div>
         <section class="workflow-panel active" data-report-panel="1">
-          <div class="panel-heading"><div><h2>1. Choose the Method MD basis</h2><p>The report contract is generated from the channels, RetTimes, audit properties, and variables created by this method.</p></div></div>
-          <div class="panel-heading compact-heading"><span>Choose from My files, or add a local Method MD.</span><label class="secondary-button" for="reportMethodMdFile">Add local MD</label><input id="reportMethodMdFile" type="file" accept=".md,.markdown" hidden></div>
+          <div class="panel-heading"><div><h2>1. Choose the Method MD collection</h2><p>The shared report contract is generated from the channels, RetTimes, audit properties, and variables created by all selected methods.</p></div></div>
+          <div class="panel-heading compact-heading"><span>Choose multiple files from My files, or add a local Method MD.</span><label class="secondary-button" for="reportMethodMdFile">Add local MD</label><input id="reportMethodMdFile" type="file" accept=".md,.markdown" hidden></div>
           <div class="selection-list" id="reportMethodList"><div class="empty-block">Loading your Method MD files...</div></div>
           <div id="reportMethodBasis" class="method-basis-note">No Method MD selected.</div>
-          <div class="panel-footer"><span>Only Method MD files owned by the signed-in user are listed.</span><button class="primary-button" id="reportToDesign" disabled>Continue</button></div>
+          <div class="panel-footer"><span>Selection order is preserved as report evidence context.</span><button class="primary-button" id="reportToDesign" disabled>Continue</button></div>
         </section>
         <section class="workflow-panel" data-report-panel="2">
-          <div class="panel-heading"><div><h2>2. Choose modules and describe the report</h2><p>The report design remains bound to the selected Method MD runtime contract.</p></div></div>
+          <div class="panel-heading"><div><h2>2. Choose modules and describe the report</h2><p>The report design remains bound to the complete selected Method MD runtime contract.</p></div></div>
           <div class="method-prepare-grid"><div><h3>Related modules</h3><div id="reportModuleList" class="module-picker"></div></div><div><label class="field-label">Report requirement<textarea id="reportIntent" rows="8" placeholder="Describe required sheets, Direct CM formulas, cell calculations, tables, and presentation."></textarea></label></div></div>
           <div class="panel-footer"><button class="secondary-button" data-report-back="1">Back</button><span>Include every module that provides channels or audit properties.</span><button class="primary-button" id="reportToOptions">Continue</button></div>
         </section>
         <section class="workflow-panel" data-report-panel="3">
-          <div class="panel-heading"><div><h2>3. Choose output options and generate preview</h2><p>GPT generates Report MD from the Method MD and controlled Report SPEC/KB.</p></div></div>
+          <div class="panel-heading"><div><h2>3. Choose output options and generate preview</h2><p>GPT generates one shared Report MD from all selected Method MD files and controlled Report SPEC/KB.</p></div></div>
           <div class="generation-form"><label>Template name<input id="reportAssetName" placeholder="Report Template"></label><label>Target CM<select id="reportOptionTargetVersion"><option>7.2 compatible</option><option>7.3</option></select></label></div>
           <label class="toggle-row compact-toggle"><input id="reportSmallContext" type="checkbox"><span>Use the under-200-KB evidence package</span></label>
           <label class="toggle-row compact-toggle"><input id="reportKeepMd" type="checkbox"><span>Keep a downloadable Report MD copy</span></label>
@@ -281,6 +282,50 @@
           <div class="panel-footer"><button class="secondary-button" data-report-back="3">Back</button><span id="reportReviewStatus">Waiting for Report MD.</span><button class="primary-button" id="generateReport" disabled>Generate CMBX</button></div>
         </section>
         <section class="progress-log"><h3>Progress log</h3><div id="reportLog">Ready.</div></section>
+      </section>
+
+      <section class="view" id="view-sequence">
+        <p class="eyebrow">DESIGN &amp; GENERATE</p><h1>Sequence Generation</h1>
+        <p class="lead">Assemble reviewed Method MD files into Injection rows, bind one shared Report MD, and generate one candidate Sequence CMBX.</p>
+        <div class="workflow-steps" id="sequenceSteps"><div class="step active" data-sequence-step="1"><b>1</b><span>Choose assets</span></div><div class="step" data-sequence-step="2"><b>2</b><span>Arrange injections</span></div><div class="step" data-sequence-step="3"><b>3</b><span>Review &amp; generate</span></div></div>
+        <div class="flow-message" id="sequenceMessage">Step 1: choose every Method MD and one shared Report MD for this sequence.</div>
+
+        <section class="workflow-panel active" data-sequence-panel="1">
+          <div class="panel-heading"><div><h2>1. Choose sequence assets</h2><p>Selected Method MD files become the assignment pool for Injection rows. One Report MD is shared by the complete sequence.</p></div><button class="secondary-button" id="sequenceRefreshAssets">Refresh files</button></div>
+          <div class="sequence-asset-grid">
+            <div>
+              <div class="sequence-asset-heading"><div><h3>Method MD files</h3><p>Select from My Method MD files or upload one or more files here.</p></div><button class="secondary-button" id="sequenceUploadMethods">Upload Method MD</button><input id="sequenceMethodFiles" type="file" accept=".md,.markdown,text/markdown" multiple hidden></div>
+              <div class="selection-list tall-selection" id="sequenceMethodList"><div class="empty-block">Loading Method MD files...</div></div>
+            </div>
+            <div>
+              <div class="sequence-asset-heading"><div><h3>Shared Report MD</h3><p>Select from My Report MD files or upload the shared report here.</p></div><button class="secondary-button" id="sequenceUploadReport">Upload Report MD</button><input id="sequenceReportFile" type="file" accept=".md,.markdown,text/markdown" hidden></div>
+              <div class="selection-list tall-selection" id="sequenceReportList"><div class="empty-block">Loading Report MD files...</div></div><button class="text-button" id="sequenceGenerateReport">Generate a report from selected methods</button>
+            </div>
+          </div>
+          <div class="evidence-note"><strong>Processing Method</strong><span>Blank by design in this first version.</span><span>No IRC, integration, or Processing Method pass/fail action is added.</span></div>
+          <div class="panel-footer"><span id="sequenceAssetStatus">No assets selected.</span><button class="primary-button" id="sequenceToArrange">Continue</button></div>
+        </section>
+
+        <section class="workflow-panel" data-sequence-panel="2">
+          <div class="panel-heading"><div><h2>2. Arrange Injection rows</h2><p>Add the required Injection rows, give each Injection a name, and assign a reviewed Method MD.</p></div><span class="inline-status" id="sequenceCarrierStatus">Checking controlled carrier...</span></div>
+          <div class="sequence-identity-strip">
+            <div><span>Sequence</span><strong>Named automatically when generated</strong></div>
+            <div><span>Shared Report Template</span><strong id="sequenceReportIdentity">Choose a Report MD</strong></div>
+            <label><span>CM target</span><select id="sequenceTargetVersion"><option>Loading...</option></select></label>
+          </div>
+          <div class="sequence-table-heading"><div><h3>Injection plan</h3><p>Only the Injection name is editable. Method and Report names remain owned by their source assets.</p></div><button class="secondary-button" id="sequenceAddInjection">Add Injection</button></div>
+          <div class="table-wrap sequence-table-wrap"><table class="compact-table sequence-injection-table"><thead><tr><th>#</th><th>Injection name</th><th>Assigned Instrument Method</th><th>Method MD source</th><th>Actions</th></tr></thead><tbody id="sequenceInjectionRows"><tr><td colspan="5" class="empty">Choose Method MD files first.</td></tr></tbody></table></div>
+          <div class="panel-footer"><button class="secondary-button" data-sequence-back="1">Back</button><span id="sequenceInjectionStatus">Add and arrange the Injection rows required by the Sequence.</span><button class="primary-button" id="sequenceToReview">Preflight sequence</button></div>
+        </section>
+
+        <section class="workflow-panel" data-sequence-panel="3">
+          <div class="panel-heading"><div><h2>3. Review contracts and generate</h2><p>Method and Report MD files are checked independently before the Sequence DataContract is written.</p></div></div>
+          <div class="sequence-contracts" id="sequencePreflight"><div class="empty-block">Run sequence preflight from Step 2.</div></div>
+          <div class="run-progress"><div class="progress-track wide"><div class="progress-bar" id="sequenceProgressBar"></div></div><span id="sequenceRunStatus">Ready.</span></div>
+          <div class="generation-result" id="sequenceGenerationResult"></div>
+          <div class="panel-footer"><button class="secondary-button" data-sequence-back="2">Back</button><span>Chromeleon runtime validation is still required for this candidate package.</span><button class="primary-button" id="generateSequence" disabled>Generate Sequence CMBX</button></div>
+        </section>
+        <section class="progress-log"><h3>Progress log</h3><div id="sequenceLog">Ready.</div></section>
       </section>
 
       <section class="view" id="view-raw">
@@ -445,6 +490,6 @@
       <div class="panel-footer"><span id="developerAccountStatus"></span><button class="primary-button" type="button" id="saveDeveloperAccount">Save account</button></div>
     </form>
   </dialog>
-  <script src="/static/app.js?v=20260804-leak-analyzer-v8"></script>
+  <script src="/static/app.js?v=20260806-sequence-v3"></script>
 </body>
 </html>

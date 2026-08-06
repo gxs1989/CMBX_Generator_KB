@@ -23,6 +23,7 @@ def _default_shared_root(state_root: Path) -> Path:
 class WebWorkspaceConfig:
     state_root: Path
     shared_root: Path
+    local_root: Path | None = None
     max_upload_bytes: int = 2 * 1024 * 1024 * 1024
     worker_count: int = 2
     trust_proxy_user: bool = False
@@ -45,9 +46,13 @@ class WebWorkspaceConfig:
         )
         shared_root_value = os.environ.get("CMBX_WEB_SHARED_ROOT", "").strip()
         shared_root = Path(shared_root_value) if shared_root_value else _default_shared_root(state_root)
+        local_root_value = os.environ.get("CMBX_WEB_LOCAL_ROOT", "").strip()
+        local_app_data = Path(os.environ.get("LOCALAPPDATA", "").strip() or state_root)
+        local_root = Path(local_root_value) if local_root_value else local_app_data / "CMBX Web Workspace"
         return cls(
             state_root=state_root,
             shared_root=shared_root,
+            local_root=local_root,
             max_upload_bytes=int(os.environ.get("CMBX_WEB_MAX_UPLOAD_BYTES", 2 * 1024 * 1024 * 1024)),
             worker_count=max(1, int(os.environ.get("CMBX_WEB_WORKERS", "2"))),
             trust_proxy_user=os.environ.get("CMBX_WEB_TRUST_PROXY_USER", "0") == "1",
@@ -90,12 +95,27 @@ class WebWorkspaceConfig:
     def log_root(self) -> Path:
         return self.state_root / "logs"
 
+    @property
+    def local_storage_root(self) -> Path:
+        # Explicit test/config instances remain isolated under their state root.
+        return self.local_root or self.state_root / "local"
+
+    @property
+    def asset_root(self) -> Path:
+        return self.local_storage_root / "assets"
+
+    @property
+    def work_root(self) -> Path:
+        return self.local_storage_root / "work"
+
     def ensure_directories(self) -> None:
         for path in (
             self.database_path.parent,
             self.inventory_root,
             self.temp_root,
             self.log_root,
+            self.asset_root,
+            self.work_root,
             self.shared_root / "01_Inbox",
             self.shared_root / "02_Workspaces",
             self.shared_root / "03_Generated",
