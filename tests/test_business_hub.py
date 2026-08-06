@@ -11,11 +11,12 @@ if str(MODULE_ROOT) not in sys.path:
 from business_hub import BusinessHubApp, BusinessMindMap, CENTER_LIMITATIONS, CENTERS, JOURNEYS, child_command, center_by_id, task_by_id, workflow_by_id
 
 
-def test_business_hub_exposes_three_journeys_and_eight_direct_tasks() -> None:
+def test_business_hub_exposes_three_journeys_and_nine_direct_tasks() -> None:
     assert [workflow.id for workflow in JOURNEYS] == ["design", "analyze", "quality"]
     assert [center.id for center in CENTERS] == [
         "method-generation",
         "report-generation",
+        "sequence-generation",
         "hplc-applications",
         "raw-export",
         "chromatograms",
@@ -26,13 +27,15 @@ def test_business_hub_exposes_three_journeys_and_eight_direct_tasks() -> None:
     assert workflow_by_id("design").title == "Design & Generate"
     assert workflow_by_id("analyze").title == "Chromatograms & Results"
     assert workflow_by_id("quality").title == "Quality Control & Database"
-    assert workflow_by_id("design").center_ids == ("method-generation", "report-generation", "hplc-applications")
+    assert workflow_by_id("design").center_ids == ("method-generation", "report-generation", "sequence-generation", "hplc-applications")
     assert workflow_by_id("analyze").center_ids == ("raw-export", "chromatograms", "direct-formulas")
 
 
 def test_migrated_centers_are_marked_as_native() -> None:
     assert center_by_id("method-generation").action == "method_creation"
     assert center_by_id("report-generation").action == "report_creation"
+    assert center_by_id("sequence-generation").action == "sequence_generation"
+    assert center_by_id("sequence-generation").status == "native"
     assert task_by_id("chromatograms").action == "chromatograms"
     assert task_by_id("direct-formulas").status == "native"
     assert task_by_id("foq-check").action == "foq_check"

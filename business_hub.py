@@ -54,39 +54,45 @@ CENTERS: tuple[BusinessCenter, ...] = (
         "report_creation", "native",
     ),
     BusinessCenter(
-        "hplc-applications", 3, "HPLC Applications & Workflows",
+        "sequence-generation", 3, "Sequence Generation",
+        "Bind one or more Method MDs and one shared Report MD into a multi-Injection Sequence CMBX.",
+        "Method MDs, shared Report MD and the native Sequence carrier", "Candidate Sequence CMBX with bound methods and report",
+        "sequence_generation", "native",
+    ),
+    BusinessCenter(
+        "hplc-applications", 4, "HPLC Applications & Workflows",
         "Discover, import, understand and adapt complete Thermo Scientific HPLC applications.",
         "AppsLab eWorkflow, application documents, local configuration and sample plan",
         "Local application project, compatibility report and derived assets",
         "appslab", "planned",
     ),
     BusinessCenter(
-        "raw-export", 4, "Batch Raw Data Export",
+        "raw-export", 5, "Batch Raw Data Export",
         "Select a function first, then build a multi-CMBX workspace and export matching raw channels.",
         "One or many CMBX files or folders", "Filtered raw-data TSV exports",
         "raw_export", "native",
     ),
     BusinessCenter(
-        "chromatograms", 5, "Chromatograms & Integration",
+        "chromatograms", 6, "Chromatograms & Integration",
         "Build a CMBX workspace, compare channel traces and inspect external integration results.",
         "One or many CMBX files or folders", "Interactive chromatograms and integration results",
         "chromatograms", "native",
     ),
     BusinessCenter(
-        "direct-formulas", 6, "Direct CM Formula Results",
+        "direct-formulas", 7, "Direct CM Formula Results",
         "Build a CMBX workspace and batch-evaluate useful or embedded Direct CM formulas.",
         "One or many CMBX files or folders", "Cross-injection formula result lists",
         "direct_formulas", "native",
     ),
     BusinessCenter(
-        "foq-check", 7, "FOQ Quick Check",
+        "foq-check", 8, "FOQ Quick Check",
         "One-click calculation of mapped FOQ values with SPEC decisions and historical comparison.",
         "Completed FOQ CMBX files, FOQ Location workbook and optional historical database",
         "Comparable metrics, pass/fail, history alerts, charts and report-cell evidence",
         "foq_check", "native",
     ),
     BusinessCenter(
-        "quality-data", 8, "Quality Data & Database",
+        "quality-data", 9, "Quality Data & Database",
         "Read production history, inspect metric distributions and monitor QC control limits.",
         "SQL Server or DSN data source and a quality table",
         "Historical records, summary statistics and QC control charts",
@@ -95,7 +101,7 @@ CENTERS: tuple[BusinessCenter, ...] = (
 )
 
 JOURNEYS: tuple[Journey, ...] = (
-    Journey("design", "Design & Generate", "Create methods, reports and reusable HPLC application assets.", ("method-generation", "report-generation", "hplc-applications")),
+    Journey("design", "Design & Generate", "Create methods, reports, sequences and reusable HPLC application assets.", ("method-generation", "report-generation", "sequence-generation", "hplc-applications")),
     Journey("analyze", "Chromatograms & Results", "Choose an outcome first, then build the CMBX workspace used by that workflow.", ("raw-export", "chromatograms", "direct-formulas")),
     Journey("quality", "Quality Control & Database", "Check FOQ results, compare specifications and track quality history.", ("foq-check", "quality-data")),
 )
@@ -106,6 +112,7 @@ WORKFLOWS = JOURNEYS
 CENTER_LIMITATIONS = {
     "method-generation": "Requires a reviewed Method MD. Final execution still depends on matching Chromeleon instrument configuration.",
     "report-generation": "Compiles supported report structures and formulas. Complex processing-method integration remains a separate workflow.",
+    "sequence-generation": "Each Method MD is a reusable injection contract; the shared Report MD must cover all bound methods.",
     "hplc-applications": "Application discovery is available through AppsLab; the managed local application library is still planned.",
     "raw-export": "Exports collected raw signals only; it does not reinterpret processing-method results.",
     "chromatograms": "External integration is available for review, but it is not yet a complete replacement for every Chromeleon integration event.",
@@ -477,6 +484,7 @@ class BusinessHubApp:
         try:
             if action == "method_creation": self._launch_child("run_method_report_creation.py", "Instrument Method Generation", "--asset", "method")
             elif action == "report_creation": self._launch_child("run_method_report_creation.py", "Report Template Generation", "--asset", "report")
+            elif action == "sequence_generation": self._launch_child("run_sequence_generation.py", "Sequence Generation")
             elif action == "raw_export": self._launch_child("run_read_analyze.py", "Batch Raw Data Export", "--task", "raw")
             elif action == "chromatograms": self._launch_child("run_read_analyze.py", "Chromatograms & Integration", "--task", "plot")
             elif action == "direct_formulas": self._launch_child("run_read_analyze.py", "Direct CM Formula Results", "--task", "formula")
