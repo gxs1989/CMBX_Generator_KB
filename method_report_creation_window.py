@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import threading
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -35,7 +36,7 @@ from web_ai_package import (
 
 
 class MethodReportCreationWindow:
-    STEP_TITLES = ("Choose asset", "Prepare & generate", "Import & preview", "Generate CMBX")
+    STEP_TITLES = ("Choose asset", "Choose mode", "Prepare & generate", "Import & preview", "Generate CMBX")
     MODULES = ("TCC", "RID", "VAS", "VVWD", "Pump")
 
     def __init__(self, root: tk.Tk, initial_asset: str | None = None):
@@ -55,8 +56,14 @@ class MethodReportCreationWindow:
         self.method_basis_md = tk.StringVar()
         self.output_root = tk.StringVar(value=str(DEFAULT_PROJECT_ROOT))
         self.cm_version = tk.StringVar(value="7.2 compatible")
-        self.small_context = tk.BooleanVar(value=False)
+        self.small_context = tk.BooleanVar(value=True)
+        self.keep_md = tk.BooleanVar(value=True)
+        self.md_save_root = tk.StringVar(value=str(DEFAULT_PROJECT_ROOT / "AI_generated"))
+        self.api_progress_var = tk.DoubleVar(value=0.0)
+        self.api_progress_text = tk.StringVar(value="")
         self.module_vars = {name: tk.BooleanVar(value=name == "TCC") for name in self.MODULES}
+        self.generation_mode = ""
+        self.api_started = 0.0
         self.intent = ""
         self.prompt_prepared = False
         self.kb_files: list[Path] = []
@@ -203,7 +210,7 @@ class MethodReportCreationWindow:
         return tuple(name for name, variable in self.module_vars.items() if variable.get())
 
     def show_step(self, step: int) -> None:
-        self.current_step = max(0, min(3, step))
+        self.current_step = max(0, min(4, step))
         for child in self.page_host.winfo_children():
             child.destroy()
         for child in self.stepper.winfo_children():
@@ -211,17 +218,18 @@ class MethodReportCreationWindow:
         self._render_stepper()
         titles = (
             ("What do you want to create?", "Choose one asset. The next step opens immediately."),
-            ("Prepare the web AI materials", "Choose one or more modules and package the relevant SPEC/KB files."),
+            ("How do you want to generate the MD?", "Built-in API generation runs directly here; manual web mode packages evidence for an external model."),
+            ("Prepare and generate the MD", "Choose modules, describe the requirement and run the selected generation mode."),
             ("Import and review the generated MD", "The MD is checked and rendered before CMBX generation."),
             ("Generate the CMBX", "Confirm the name and destination, then create the standalone Chromeleon package."),
         )
         self.title_label.configure(text=titles[self.current_step][0])
         self.subtitle_label.configure(text=titles[self.current_step][1])
         self.step_hint_label.configure(text=f"Step {self.current_step}: {self.STEP_TITLES[self.current_step]}  |  {titles[self.current_step][1]}")
-        (self._page_choose, self._page_define, self._page_import, self._page_generate)[self.current_step]()
+        (self._page_choose, self._page_mode, self._page_define, self._page_import, self._page_generate)[self.current_step]()
         self.back_button.configure(state="disabled" if self.current_step == 0 or self.busy else "normal")
-        self.next_button.configure(text="Generate CMBX" if self.current_step == 3 else "Continue", state="disabled" if self.busy else "normal")
-        if self.current_step == 0:
+        self.next_button.configure(text="Generate CMBX" if self.current_step == 4 else "Continue", state="disabled" if self.busy else "normal")
+        if self.current_step in (0, 1):
             self.next_button.grid_remove()
         else:
             self.next_button.grid()
@@ -238,7 +246,7 @@ class MethodReportCreationWindow:
                 bg=color, fg=number_color, padx=2, pady=5,
             ).pack(side="left")
             tk.Label(self.stepper, text=title, font=self._font(10, "bold" if active else "normal"), bg=self.colors["window"], fg=text_color).pack(side="left", padx=(7, 12))
-            if index < 3:
+            if index < 4:
                 tk.Frame(self.stepper, bg=self.colors["border"], width=28, height=1).pack(side="left", padx=(0, 12))
 
     def _page_frame(self) -> tk.Frame:
@@ -292,10 +300,164 @@ class MethodReportCreationWindow:
         self.generated_path = None
         self.prompt_prepared = False
         self.asset_name.set("New test method" if value == "method" else "New test report")
+        self.generation_mode = ""
+        self.api_progress_var.set(0.0)
+        self.api_progress_text.set("")
         self._log(f"Asset selected: {'Instrument Method' if value == 'method' else 'Report Template'}.")
         self.show_step(1)
 
+    def _page_mode(self) -> None:
+        frame = self._page_frame()
+        cards = tk.Frame(frame, bg=self.colors["window"])
+        cards.grid(row=0, column=0, sticky="nsew")
+        cards.rowconfigure(0, weight=1)
+        cards.columnconfigure(0, weight=1, uniform="mode")
+        cards.columnconfigure(1, weight=1, uniform="mode")
+        self._mode_card(
+            cards, 0, "api", "API automatic generation",
+            "Call GPT or DeepSeek directly with the local SPEC/KB evidence. Shows live progress and can keep a copy of the generated MD.",
+        )
+        self._mode_card(
+            cards, 1, "manual", "Manual Web AI",
+            "Package the SPEC/KB evidence into a ZIP, generate the MD in an external web model, then import it here for review and compilation.",
+        )
+
+    def _mode_card(self, parent: tk.Misc, column: int, value: str, title: str, description: str) -> None:
+        selected = self.generation_mode == value
+        panel = RoundedPanel(
+            parent, fill=self.colors["primary_soft"] if selected else self.colors["panel"],
+            border=self.colors["primary"] if selected else self.colors["border"], radius=14, padding=14,
+            parent_bg=self.colors["window"], height=330,
+        )
+        panel.grid(row=0, column=column, sticky="nsew", padx=(0 if column == 0 else 10, 10 if column == 0 else 0), pady=(8, 45))
+        body = panel.body
+        icon = "A" if value == "api" else "W"
+        icon_label = tk.Label(body, text=icon, font=self._font(18, "bold"), width=3, height=2, bg=self.colors["primary"], fg="#FFFFFF")
+        icon_label.pack(anchor="w", padx=16, pady=(14, 18))
+        title_label = tk.Label(body, text=title, font=self._font(17, "bold"), bg=body["bg"], fg=self.colors["text"])
+        title_label.pack(anchor="w", padx=16)
+        desc_label = tk.Label(body, text=description, font=self._font(11), wraplength=430, justify="left", bg=body["bg"], fg=self.colors["muted"])
+        desc_label.pack(anchor="w", padx=16, pady=(10, 18))
+
+        def choose() -> None:
+            self.generation_mode = value
+            self._log(f"Generation mode selected: {'API automatic' if value == 'api' else 'Manual Web AI'}.")
+            self.show_step(2)
+
+        action = self._button(body, "Choose", choose, width=126)
+        action.pack(anchor="w", padx=16, pady=(0, 16))
+        for widget in (panel, body, icon_label, title_label, desc_label):
+            widget.bind("<Button-1>", lambda _event, fn=choose: fn())
+
+    def _page_define_api(self) -> None:
+        frame = self._page_frame()
+        content = tk.Frame(frame, bg=self.colors["window"])
+        content.grid(row=0, column=0, sticky="nsew")
+        content.columnconfigure(0, weight=2, uniform="api")
+        content.columnconfigure(1, weight=3, uniform="api")
+        content.rowconfigure(0, weight=1)
+
+        left = RoundedPanel(content, fill=self.colors["panel"], border=self.colors["border"], radius=12, padding=12, parent_bg=self.colors["window"])
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=6)
+        form = left.body
+        form.columnconfigure(1, weight=1)
+        row = 0
+        tk.Label(form, text="1. Select modules", font=self._font(14, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(10, 5)); row += 1
+        module_row = tk.Frame(form, bg=form["bg"])
+        module_row.grid(row=row, column=0, columnspan=2, sticky="w", padx=8, pady=(0, 8)); row += 1
+        for index, name in enumerate(self.MODULES):
+            BlueCheckbutton(
+                module_row, name, self.module_vars[name], self._modules_changed,
+                bg=form["bg"], fg=self.colors["text"], active=self.colors["primary"], font=self._font(10),
+            ).grid(row=index // 3, column=index % 3, sticky="w", padx=6, pady=4)
+
+        tk.Label(form, text="2. Requirement", font=self._font(14, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(16, 5)); row += 1
+        self.intent_text = tk.Text(form, height=7, font=self._font(10), wrap="word", relief="flat", bg=self.colors["window"], fg=self.colors["text"], padx=12, pady=10, highlightthickness=1, highlightbackground=self.colors["border"])
+        self.intent_text.grid(row=row, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 8)); row += 1
+        self.intent_text.insert("1.0", self.intent)
+
+        tk.Label(form, text="3. AI provider", font=self._font(14, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(16, 5)); row += 1
+        self.api_setting_label = tk.Label(
+            form,
+            text="",
+            font=self._font(9), bg=form["bg"], fg=self.colors["muted"],
+        )
+        self.api_setting_label.grid(row=row, column=0, sticky="w", padx=12, pady=(0, 4)); row += 1
+        self._refresh_api_setting_label()
+        self._button(form, "AI settings", self._open_ai_settings, neutral=True, width=116).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(0, 8)); row += 1
+
+        tk.Label(form, text="4. Options", font=self._font(14, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(14, 4)); row += 1
+        BlueCheckbutton(
+            form, "Small evidence package (<200 KB per file, recommended for speed)", self.small_context,
+            lambda: None, bg=form["bg"], fg=self.colors["text"], active=self.colors["primary"], font=self._font(9),
+        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=3); row += 1
+        BlueCheckbutton(
+            form, "Keep a copy of the generated MD", self.keep_md,
+            lambda: None, bg=form["bg"], fg=self.colors["text"], active=self.colors["primary"], font=self._font(9),
+        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=3); row += 1
+        tk.Entry(form, textvariable=self.md_save_root, font=self._font(9), relief="flat", highlightthickness=1, highlightbackground=self.colors["border"], bg=self.colors["window"]).grid(row=row, column=0, sticky="ew", padx=(12, 4), pady=(0, 6), ipady=6)
+        self._button(form, "Choose", self._choose_md_save_root, neutral=True, width=92).grid(row=row, column=1, sticky="w", pady=(0, 6)); row += 1
+
+        self.api_generate_button = self._button(form, "Generate via API", self._start_auto_generate, width=190)
+        self.api_generate_button.grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(8, 4)); row += 1
+        progress_row = tk.Frame(form, bg=form["bg"])
+        progress_row.grid(row=row, column=0, columnspan=2, sticky="ew", padx=12, pady=(2, 0)); row += 1
+        progress_row.columnconfigure(0, weight=1)
+        self.api_progress_bar = ttk.Progressbar(progress_row, variable=self.api_progress_var, maximum=100)
+        self.api_progress_bar.grid(row=0, column=0, sticky="ew")
+        self.api_elapsed_label = tk.Label(progress_row, text="", font=self._font(9), bg=form["bg"], fg=self.colors["muted"])
+        self.api_elapsed_label.grid(row=0, column=1, padx=(10, 0))
+        self.api_status_label = tk.Label(form, textvariable=self.api_progress_text, font=self._font(9), bg=form["bg"], fg=self.colors["muted"], anchor="w", justify="left", wraplength=430)
+        self.api_status_label.grid(row=row, column=0, columnspan=2, sticky="ew", padx=12, pady=(3, 8))
+
+        right = RoundedPanel(content, fill=self.colors["panel"], border=self.colors["border"], radius=12, padding=12, parent_bg=self.colors["window"])
+        right.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=6)
+        docs = right.body
+        docs.columnconfigure(0, weight=1)
+        docs.rowconfigure(2, weight=1)
+        tk.Label(docs, text="Evidence sent to the API", font=self._font(13, "bold"), bg=docs["bg"], fg=self.colors["text"]).grid(row=0, column=0, sticky="w", padx=12, pady=(10, 4))
+        self.api_context_label = tk.Label(docs, text="", font=self._font(9), bg=docs["bg"], fg=self.colors["muted"], anchor="w", wraplength=690, justify="left")
+        self.api_context_label.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 8))
+        columns = ("file", "context", "size")
+        self.docs_tree = ttk.Treeview(docs, columns=columns, show="headings", style="Wizard.Treeview", selectmode="browse")
+        self.docs_tree.heading("file", text="File")
+        self.docs_tree.heading("context", text="Module / context")
+        self.docs_tree.heading("size", text="Size")
+        self.docs_tree.column("file", width=300, stretch=True)
+        self.docs_tree.column("context", width=180, stretch=False)
+        self.docs_tree.column("size", width=80, stretch=False, anchor="e")
+        ybar = ttk.Scrollbar(docs, orient="vertical", command=self.docs_tree.yview)
+        self.docs_tree.configure(yscrollcommand=ybar.set)
+        self.docs_tree.grid(row=2, column=0, sticky="nsew", padx=(12, 0), pady=(0, 8))
+        ybar.grid(row=2, column=1, sticky="ns", padx=(0, 12), pady=(0, 8))
+        self.docs_tree.bind("<Double-Button-1>", self._open_selected_kb)
+        self._button(docs, "Open selected", self._open_selected_kb, neutral=True, width=138).grid(row=3, column=0, columnspan=2, sticky="w", padx=12, pady=(0, 10))
+        self._refresh_kb_files()
+
+    def _refresh_api_setting_label(self) -> None:
+        if not hasattr(self, "api_setting_label") or not self.api_setting_label.winfo_exists():
+            return
+        config = load_ai_config()
+        provider = str(config.get("provider") or "gpt").strip().lower()
+        model = str(config.get("model") or "").strip()
+        key_ready = bool(str(config.get("api_key") or "").strip())
+        self.api_setting_label.configure(
+            text=f"{provider} · {model} · {'API key configured' if key_ready else 'API key required'}",
+            fg=self.colors["success"] if key_ready else self.colors["warning"],
+        )
+
+    def _choose_md_save_root(self) -> None:
+        value = filedialog.askdirectory(parent=self.root, title="Select MD save folder", initialdir=self.md_save_root.get())
+        if value:
+            self.md_save_root.set(value)
+
     def _page_define(self) -> None:
+        if self.generation_mode == "api":
+            self._page_define_api()
+        else:
+            self._page_define_manual()
+
+    def _page_define_manual(self) -> None:
         frame = self._page_frame()
         content = tk.Frame(frame, bg=self.colors["window"])
         content.grid(row=0, column=0, sticky="nsew")
@@ -332,8 +494,6 @@ class MethodReportCreationWindow:
         self._button(prompt_actions, "AI settings", self._open_ai_settings, neutral=True, width=116).pack(side="left")
         self.optimize_prompt_button = self._button(prompt_actions, "Optimize", self._start_prompt_optimization, width=116)
         self.optimize_prompt_button.pack(side="left", padx=8)
-        self.auto_generate_button = self._button(prompt_actions, "Generate via API", self._start_auto_generate, width=150)
-        self.auto_generate_button.pack(side="left", padx=8)
         prompt_status = "Optimized prompt is visible and editable; choose Optimize to regenerate it." if self.prompt_prepared else "Prompt is editable and has not been optimized locally."
         self.prompt_status_label = tk.Label(form, text=prompt_status, font=self._font(8), bg=form["bg"], fg=self.colors["success"] if self.prompt_prepared else self.colors["muted"], wraplength=430, justify="left")
         self.prompt_status_label.grid(row=7, column=0, sticky="w", padx=12, pady=(0, 10))
@@ -427,6 +587,9 @@ class MethodReportCreationWindow:
                 parent=self.root,
             )
             return
+        context_bytes = sum(path.stat().st_size for path in kb_files if path.is_file())
+        context_name = "small" if self.small_context.get() else "full"
+        self._log(f"API evidence: {len(kb_files)} file(s), {context_bytes // 1024} KB, {context_name} package")
         settings = AIProviderSettings(
             provider=provider,
             base_url=str(config.get("base_url") or "").strip(),
@@ -434,8 +597,10 @@ class MethodReportCreationWindow:
             api_key=api_key,
         )
         kind = "Method" if self.asset_type.get() == "method" else "Report"
+        self._set_api_progress(3, f"Preparing {kind} evidence...")
         self._set_busy(True, f"Calling {provider} API to generate {kind} Markdown...")
         self._log(f"Automatic {provider} generation started: {', '.join(modules)}")
+        self._start_api_timer()
         threading.Thread(
             target=self._auto_generate_worker,
             args=(modules, requirement, kb_files, settings, basis_path),
@@ -451,6 +616,7 @@ class MethodReportCreationWindow:
         basis_path: Path | None,
     ) -> None:
         try:
+            self._post_progress(8, f"Calling {settings.provider} API ({settings.model})...")
             if self.asset_type.get() == "report":
                 if not basis_path or not basis_path.is_file():
                     raise ValueError("A valid Method MD basis is required for Report generation.")
@@ -458,26 +624,63 @@ class MethodReportCreationWindow:
                 generated = generate_report_markdown(requirement, modules, kb_files, method_markdowns, settings)
             else:
                 generated = generate_method_markdown(requirement, modules, kb_files, settings)
+            self._post_progress(70, "API returned Markdown; saving the MD...")
             out_dir = DEFAULT_PROJECT_ROOT / "AI_generated"
             out_dir.mkdir(parents=True, exist_ok=True)
             stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             kind = "method" if self.asset_type.get() == "method" else "report"
             path = out_dir / f"{kind}_{settings.provider}_{stamp}.md"
             path.write_text(generated, encoding="utf-8")
-            self.root.after(0, lambda result=path: self._finish_auto_generate(result))
+            kept_paths = [path]
+            if self.keep_md.get():
+                save_root = Path(self.md_save_root.get().strip() or str(out_dir))
+                if save_root.resolve() != out_dir.resolve():
+                    save_root.mkdir(parents=True, exist_ok=True)
+                    kept = save_root / path.name
+                    kept.write_text(generated, encoding="utf-8")
+                    kept_paths.append(kept)
+            self._post_progress(85, "Running MD structural preflight...")
+            checked = preflight_asset(self.asset_type.get(), path)
+            self.root.after(0, lambda p=path, k=kept_paths, c=checked: self._finish_auto_generate(p, k, c))
         except Exception as exc:
             self.root.after(0, lambda error=exc: self._task_failed("Automatic generation", error))
 
-    def _finish_auto_generate(self, path: Path) -> None:
+    def _post_progress(self, percent: float, text: str) -> None:
+        self.root.after(0, lambda: self._set_api_progress(percent, text))
+
+    def _set_api_progress(self, percent: float, text: str) -> None:
+        self.api_progress_var.set(percent)
+        self.api_progress_text.set(text)
+        self.status_label.configure(text=text)
+
+    def _start_api_timer(self) -> None:
+        self.api_started = time.monotonic()
+        self._tick_api_timer()
+
+    def _tick_api_timer(self) -> None:
+        if not self.busy:
+            if hasattr(self, "api_elapsed_label") and self.api_elapsed_label.winfo_exists():
+                self.api_elapsed_label.configure(text="")
+            return
+        elapsed = time.monotonic() - self.api_started
+        if hasattr(self, "api_elapsed_label") and self.api_elapsed_label.winfo_exists():
+            self.api_elapsed_label.configure(text=f"{elapsed:.0f} s")
+        self.root.after(1000, self._tick_api_timer)
+
+    def _finish_auto_generate(self, path: Path, kept_paths: list[Path], checked: AssetPreflight) -> None:
         self.source_md.set(str(path))
-        self.preflight = None
+        self.preflight = checked
         self.generated_path = None
-        self._log(f"API-generated MD saved: {path}")
-        self._set_busy(False, "Generated. Review the MD in the next step.")
-        self.show_step(2)
+        elapsed = time.monotonic() - self.api_started
+        self._log(f"API-generated MD saved: {path} ({elapsed:.0f} s total)")
+        for kept in kept_paths[1:]:
+            self._log(f"MD copy saved: {kept}")
+        self._set_api_progress(100, f"Generated in {elapsed:.0f} s. Review the MD in the next step.")
+        self._set_busy(False, f"Generated in {elapsed:.0f} s. Review the MD in the next step.")
+        self.show_step(3)
 
     def _refresh_kb_files(self) -> None:
-        if not hasattr(self, "docs_tree"):
+        if not hasattr(self, "docs_tree") or not self.docs_tree.winfo_exists():
             return
         self.docs_tree.delete(*self.docs_tree.get_children())
         modules = self.selected_modules()
@@ -488,14 +691,22 @@ class MethodReportCreationWindow:
         if self.asset_type.get() == "report" and basis_path and basis_path.is_file():
             self.kb_files = [basis_path, *[path for path in self.kb_files if path.resolve() != basis_path.resolve()]]
         context = "Small <200 KB" if self.small_context.get() else "Full"
+        total_bytes = 0
         for index, path in enumerate(self.kb_files):
             module = "Method basis" if basis_path and path.resolve() == basis_path.resolve() else next((item for item in modules if item in path.parts), "Common")
             size = f"{path.stat().st_size / 1024:.1f} KB" if path.is_file() else "Missing"
+            if path.is_file():
+                total_bytes += path.stat().st_size
             self.docs_tree.insert("", "end", iid=str(index), values=(path.name, f"{module} / {context}", size))
-        if self.small_context.get():
-            self.package_note.configure(text="Extract before upload to a file-limited model.")
-        else:
-            self.package_note.configure(text="")
+        if hasattr(self, "api_context_label") and self.api_context_label.winfo_exists():
+            self.api_context_label.configure(
+                text=f"{len(self.kb_files)} file(s) · {total_bytes / 1024:.0f} KB · {context} package",
+            )
+        if hasattr(self, "package_note") and self.package_note.winfo_exists():
+            if self.small_context.get():
+                self.package_note.configure(text="Extract before upload to a file-limited model.")
+            else:
+                self.package_note.configure(text="")
 
     def _modules_changed(self) -> None:
         self.prompt_prepared = False
@@ -648,6 +859,7 @@ class MethodReportCreationWindow:
             AI_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
             AI_CONFIG_FILE.write_text(json.dumps({key: variable.get().strip() for key, variable in values.items()}, ensure_ascii=False, indent=2), encoding="utf-8")
             self._log(f"AI settings saved to {AI_CONFIG_FILE}.")
+            self._refresh_api_setting_label()
             dialog.destroy()
 
         self._button(dialog, "Save", save, width=120).grid(row=5, column=1, sticky="e", padx=28, pady=20)
@@ -731,17 +943,25 @@ class MethodReportCreationWindow:
         if self.busy:
             return
         self._capture_page()
-        if self.current_step == 1:
-            if not self.selected_modules():
-                messagebox.showwarning("Method & Report Creation", "Select at least one module.", parent=self.root)
-                return
-            self.show_step(2)
-        elif self.current_step == 2:
+        if self.current_step == 2:
+            if self.generation_mode == "api":
+                if not self.source_md.get().strip():
+                    messagebox.showwarning("Method & Report Creation", "Generate the MD with the API first.", parent=self.root)
+                    return
+                if not self.preflight or not self.preflight.ready:
+                    messagebox.showwarning("Method & Report Creation", "Wait for the MD preflight to finish before continuing.", parent=self.root)
+                    return
+            else:
+                if not self.selected_modules():
+                    messagebox.showwarning("Method & Report Creation", "Select at least one module.", parent=self.root)
+                    return
+            self.show_step(3)
+        elif self.current_step == 3:
             if not self.preflight or not self.preflight.ready:
                 messagebox.showwarning("Method & Report Creation", "Import an MD that passes preflight before continuing.", parent=self.root)
                 return
-            self.show_step(3)
-        elif self.current_step == 3:
+            self.show_step(4)
+        elif self.current_step == 4:
             self._start_generation()
 
     def _choose_md(self) -> None:
@@ -752,7 +972,7 @@ class MethodReportCreationWindow:
             self.preflight = None
             self.generated_path = None
             self._log(f"Selected {kind} MD: {value}")
-            self.show_step(2)
+            self.show_step(3)
 
     def _choose_method_basis(self) -> None:
         value = filedialog.askopenfilename(
@@ -839,8 +1059,8 @@ class MethodReportCreationWindow:
         detail = f"{len(result.errors)} error(s), {len(result.warnings)} warning(s)"
         self._log(f"Preflight finished: {detail}.")
         self._set_busy(False, "Preview ready." if result.ready else "MD contains blocking issues.")
-        if self.current_step == 2:
-            self.show_step(2)
+        if self.current_step == 3:
+            self.show_step(3)
 
     def _render_asset_preview(self) -> None:
         for child in self.preview_host.winfo_children():
@@ -975,6 +1195,8 @@ class MethodReportCreationWindow:
         self.next_button.configure(state="disabled" if busy else "normal", cursor="watch" if busy else "hand2")
         if hasattr(self, "optimize_prompt_button") and self.optimize_prompt_button.winfo_exists():
             self.optimize_prompt_button.configure(state="disabled" if busy else "normal")
+        if hasattr(self, "api_generate_button") and self.api_generate_button.winfo_exists():
+            self.api_generate_button.configure(state="disabled" if busy else "normal")
 
     def _task_failed(self, label: str, error: Exception) -> None:
         self._set_busy(False, f"{label} failed: {error}")
