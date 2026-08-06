@@ -368,55 +368,51 @@ class MethodReportCreationWindow:
         form = left.body
         form.columnconfigure(1, weight=1)
         row = 0
-        tk.Label(form, text="1. Select modules", font=self._font(14, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(10, 5)); row += 1
+        tk.Label(form, text="1. Select modules", font=self._font(13, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(8, 3)); row += 1
         module_row = tk.Frame(form, bg=form["bg"])
-        module_row.grid(row=row, column=0, columnspan=2, sticky="w", padx=8, pady=(0, 8)); row += 1
+        module_row.grid(row=row, column=0, columnspan=2, sticky="w", padx=8, pady=(0, 4)); row += 1
         for index, name in enumerate(self.MODULES):
             BlueCheckbutton(
                 module_row, name, self.module_vars[name], self._modules_changed,
-                bg=form["bg"], fg=self.colors["text"], active=self.colors["primary"], font=self._font(10),
-            ).grid(row=index // 3, column=index % 3, sticky="w", padx=6, pady=4)
+                bg=form["bg"], fg=self.colors["text"], active=self.colors["primary"], font=self._font(9),
+            ).grid(row=0, column=index, sticky="w", padx=(0, 10), pady=2)
 
-        tk.Label(form, text="2. Requirement", font=self._font(14, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(16, 5)); row += 1
+        tk.Label(form, text="2. Requirement", font=self._font(13, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(10, 3)); row += 1
         self.intent_text = tk.Text(form, height=5, font=self._font(10), wrap="word", relief="flat", bg=self.colors["window"], fg=self.colors["text"], padx=12, pady=10, highlightthickness=1, highlightbackground=self.colors["border"])
-        self.intent_text.grid(row=row, column=0, columnspan=2, sticky="nsew", padx=12, pady=(0, 8))
-        form.rowconfigure(row, weight=1)
+        self.intent_text.grid(row=row, column=0, columnspan=2, sticky="nsew", padx=12, pady=(0, 6))
+        form.rowconfigure(row, weight=1, minsize=100)
         row += 1
         self.intent_text.insert("1.0", self.intent)
 
-        tk.Label(form, text="3. AI provider", font=self._font(14, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(16, 5)); row += 1
-        self.api_setting_label = tk.Label(
-            form,
-            text="",
-            font=self._font(9), bg=form["bg"], fg=self.colors["muted"],
-        )
-        self.api_setting_label.grid(row=row, column=0, sticky="w", padx=12, pady=(0, 4)); row += 1
+        tk.Label(form, text="3. AI provider", font=self._font(13, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(10, 3)); row += 1
+        self.api_setting_label = tk.Label(form, text="", font=self._font(9), bg=form["bg"], fg=self.colors["muted"], anchor="w")
+        self.api_setting_label.grid(row=row, column=0, sticky="ew", padx=(12, 6), pady=(0, 5))
         self._refresh_api_setting_label()
-        self._button(form, "AI settings", self._open_ai_settings, neutral=True, width=116).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(0, 8)); row += 1
+        self._button(form, "AI settings", self._open_ai_settings, neutral=True, width=116).grid(row=row, column=1, sticky="e", padx=(0, 12), pady=(0, 5)); row += 1
 
-        tk.Label(form, text="4. Options", font=self._font(14, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(14, 4)); row += 1
+        tk.Label(form, text="4. Options", font=self._font(13, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(10, 3)); row += 1
         BlueCheckbutton(
             form, "Small evidence package (<200 KB per file, recommended for speed)", self.small_context,
             self._refresh_kb_files, bg=form["bg"], fg=self.colors["text"], active=self.colors["primary"], font=self._font(9),
-        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=3); row += 1
+        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=2); row += 1
         BlueCheckbutton(
             form, "Keep a copy of the generated MD", self.keep_md,
             lambda: None, bg=form["bg"], fg=self.colors["text"], active=self.colors["primary"], font=self._font(9),
-        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=3); row += 1
-        tk.Entry(form, textvariable=self.md_save_root, font=self._font(9), relief="flat", highlightthickness=1, highlightbackground=self.colors["border"], bg=self.colors["window"]).grid(row=row, column=0, sticky="ew", padx=(12, 4), pady=(0, 6), ipady=6)
-        self._button(form, "Choose", self._choose_md_save_root, neutral=True, width=92).grid(row=row, column=1, sticky="w", pady=(0, 6)); row += 1
+        ).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=2); row += 1
+        tk.Entry(form, textvariable=self.md_save_root, font=self._font(9), relief="flat", highlightthickness=1, highlightbackground=self.colors["border"], bg=self.colors["window"]).grid(row=row, column=0, sticky="ew", padx=(12, 4), pady=(0, 4), ipady=5)
+        self._button(form, "Choose", self._choose_md_save_root, neutral=True, width=92).grid(row=row, column=1, sticky="w", pady=(0, 4)); row += 1
 
         self.api_generate_button = self._button(form, "Generate via API", self._start_auto_generate, width=190)
-        self.api_generate_button.grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(8, 4)); row += 1
+        self.api_generate_button.grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(6, 3)); row += 1
         progress_row = tk.Frame(form, bg=form["bg"])
-        progress_row.grid(row=row, column=0, columnspan=2, sticky="ew", padx=12, pady=(2, 0)); row += 1
+        progress_row.grid(row=row, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 0)); row += 1
         progress_row.columnconfigure(0, weight=1)
         self.api_progress_bar = ttk.Progressbar(progress_row, variable=self.api_progress_var, maximum=100)
         self.api_progress_bar.grid(row=0, column=0, sticky="ew")
         self.api_elapsed_label = tk.Label(progress_row, text="", font=self._font(9), bg=form["bg"], fg=self.colors["muted"])
         self.api_elapsed_label.grid(row=0, column=1, padx=(10, 0))
         self.api_status_label = tk.Label(form, textvariable=self.api_progress_text, font=self._font(9), bg=form["bg"], fg=self.colors["muted"], anchor="w", justify="left", wraplength=430)
-        self.api_status_label.grid(row=row, column=0, columnspan=2, sticky="ew", padx=12, pady=(3, 8))
+        self.api_status_label.grid(row=row, column=0, columnspan=2, sticky="ew", padx=12, pady=(2, 6))
 
         right = RoundedPanel(content, fill=self.colors["panel"], border=self.colors["border"], radius=12, padding=12, parent_bg=self.colors["window"])
         right.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=6)
