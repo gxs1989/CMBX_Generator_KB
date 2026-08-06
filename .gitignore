@@ -35,6 +35,8 @@ dependencies/
 ~$*
 *.tmp
 *.bak
+# Obsidian local workspace settings
+.obsidian/
 .idea/
 .vscode/
 
