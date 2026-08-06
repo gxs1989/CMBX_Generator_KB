@@ -294,6 +294,7 @@ class CmbxExplorerApp:
         self.db_driver_var = tk.StringVar(value=database_defaults.get("driver", "ODBC Driver 17 for SQL Server"))
         self.db_trust_cert_var = tk.BooleanVar(value=bool(database_defaults.get("trust_server_certificate", True)))
         ai_defaults = self._load_ai_config_defaults()
+        self.ai_provider_var = tk.StringVar(value=str(ai_defaults.get("provider", "gpt")))
         self.ai_base_url_var = tk.StringVar(value=str(ai_defaults.get("base_url", "https://api.openai.com/v1")))
         self.ai_model_var = tk.StringVar(value=str(ai_defaults.get("model", "gpt-5.5")))
         self.ai_api_key_var = tk.StringVar(value=str(ai_defaults.get("api_key", "")))
@@ -2293,25 +2294,40 @@ class CmbxExplorerApp:
         return defaults
 
     def _load_ai_config_defaults(self) -> dict[str, object]:
+        provider = "gpt"
+        data: dict[str, object] = {}
+        if DEFAULT_AI_CONFIG_FILE.exists():
+            try:
+                loaded = json.loads(DEFAULT_AI_CONFIG_FILE.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    data = loaded
+            except Exception:
+                data = {}
+        configured = str(data.get("provider") or "gpt").strip().lower()
+        if configured in {"gpt", "deepseek"}:
+            provider = configured
+        provider_base = {"gpt": "https://api.openai.com/v1", "deepseek": "https://api.deepseek.com/v1"}
+        provider_model = {"gpt": "gpt-5.5", "deepseek": "deepseek-chat"}
         defaults: dict[str, object] = {
-            "base_url": "https://api.openai.com/v1",
-            "model": "gpt-5.5",
+            "provider": provider,
+            "base_url": provider_base[provider],
+            "model": provider_model[provider],
             "api_key": "",
         }
-        if not DEFAULT_AI_CONFIG_FILE.exists():
-            return defaults
-        try:
-            data = json.loads(DEFAULT_AI_CONFIG_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            return defaults
-        if isinstance(data, dict):
+        if data:
             defaults.update({key: value for key, value in data.items() if key in defaults})
         return defaults
 
     def _save_ai_config(self) -> None:
+        provider = str(self.ai_provider_var.get() or "gpt").strip().lower()
+        if provider not in {"gpt", "deepseek"}:
+            provider = "gpt"
+        base_fallback = "https://api.deepseek.com/v1" if provider == "deepseek" else "https://api.openai.com/v1"
+        model_fallback = "deepseek-chat" if provider == "deepseek" else "gpt-5.5"
         data = {
-            "base_url": self.ai_base_url_var.get().strip() or "https://api.openai.com/v1",
-            "model": self.ai_model_var.get().strip() or "gpt-5.5",
+            "provider": provider,
+            "base_url": self.ai_base_url_var.get().strip() or base_fallback,
+            "model": self.ai_model_var.get().strip() or model_fallback,
             "api_key": self.ai_api_key_var.get(),
         }
         DEFAULT_AI_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -10572,6 +10588,9 @@ class CmbxExplorerApp:
             defaults = self._load_ai_config_defaults()
         except Exception:
             return
+        current_provider = str(self.ai_provider_var.get() or "").strip().lower()
+        if current_provider not in {"gpt", "deepseek"} and defaults.get("provider"):
+            self.ai_provider_var.set(str(defaults.get("provider")))
         if not self.ai_api_key_var.get().strip() and defaults.get("api_key"):
             self.ai_api_key_var.set(str(defaults.get("api_key") or ""))
         current_model = self.ai_model_var.get().strip()
@@ -11258,21 +11277,43 @@ class CmbxExplorerApp:
         shell.columnconfigure(1, weight=1)
         tk.Label(shell, text="AI Analysis Settings", font=self._font(14, "bold"), bg=self.colors["bg"], fg=self.colors["text"]).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 14))
 
-        tk.Label(shell, text="Base URL", font=self._font(9, "bold"), bg=self.colors["bg"], fg=self.colors["text"]).grid(row=1, column=0, sticky="w", padx=(0, 10), pady=6)
-        self._make_entry(shell, self.ai_base_url_var).grid(row=1, column=1, sticky="ew", pady=6, ipady=4)
+        tk.Label(shell, text="Provider", font=self._font(9, "bold"), bg=self.colors["bg"], fg=self.colors["text"]).grid(row=1, column=0, sticky="w", padx=(0, 10), pady=6)
+        provider_box = ttk.Combobox(
+            shell, textvariable=self.ai_provider_var, values=("gpt", "deepseek"),
+            state="readonly", font=self._font(9), background=self.colors["input_bg"],
+        )
+        provider_box.grid(row=1, column=1, sticky="ew", pady=6, ipady=4)
 
-        tk.Label(shell, text="Model ID", font=self._font(9, "bold"), bg=self.colors["bg"], fg=self.colors["text"]).grid(row=2, column=0, sticky="w", padx=(0, 10), pady=6)
-        self._make_entry(shell, self.ai_model_var).grid(row=2, column=1, sticky="ew", pady=6, ipady=4)
+        def on_provider_change(_event=None) -> None:
+            selected = str(self.ai_provider_var.get() or "gpt").strip().lower()
+            if selected == "deepseek":
+                if not self.ai_base_url_var.get().strip():
+                    self.ai_base_url_var.set("https://api.deepseek.com/v1")
+                if not self.ai_model_var.get().strip():
+                    self.ai_model_var.set("deepseek-chat")
+            elif selected == "gpt":
+                if not self.ai_base_url_var.get().strip():
+                    self.ai_base_url_var.set("https://api.openai.com/v1")
+                if not self.ai_model_var.get().strip():
+                    self.ai_model_var.set("gpt-5.5")
 
-        tk.Label(shell, text="API Key", font=self._font(9, "bold"), bg=self.colors["bg"], fg=self.colors["text"]).grid(row=3, column=0, sticky="w", padx=(0, 10), pady=6)
+        provider_box.bind("<<ComboboxSelected>>", on_provider_change)
+
+        tk.Label(shell, text="Base URL", font=self._font(9, "bold"), bg=self.colors["bg"], fg=self.colors["text"]).grid(row=2, column=0, sticky="w", padx=(0, 10), pady=6)
+        self._make_entry(shell, self.ai_base_url_var).grid(row=2, column=1, sticky="ew", pady=6, ipady=4)
+
+        tk.Label(shell, text="Model ID", font=self._font(9, "bold"), bg=self.colors["bg"], fg=self.colors["text"]).grid(row=3, column=0, sticky="w", padx=(0, 10), pady=6)
+        self._make_entry(shell, self.ai_model_var).grid(row=3, column=1, sticky="ew", pady=6, ipady=4)
+
+        tk.Label(shell, text="API Key", font=self._font(9, "bold"), bg=self.colors["bg"], fg=self.colors["text"]).grid(row=4, column=0, sticky="w", padx=(0, 10), pady=6)
         key_entry = tk.Entry(shell, textvariable=self.ai_api_key_var, show="*", font=self._font(9), bg=self.colors["input_bg"], fg=self.colors["text"], relief="solid", bd=1)
-        key_entry.grid(row=3, column=1, sticky="ew", pady=6, ipady=4)
+        key_entry.grid(row=4, column=1, sticky="ew", pady=6, ipady=4)
 
-        note = "OpenAI-compatible /chat/completions endpoint is expected. Base URL may be https://api.openai.com/v1 or a full /chat/completions endpoint. If a 404 occurs, check both Base URL and Model ID. If key is empty or request fails, local KB routing is used."
-        tk.Label(shell, text=note, wraplength=560, justify="left", font=self._font(8), bg=self.colors["bg"], fg=self.colors["text_secondary"]).grid(row=4, column=0, columnspan=2, sticky="w", pady=(10, 6))
+        note = "OpenAI-compatible /chat/completions endpoint is expected. GPT uses https://api.openai.com/v1 and gpt-5.5; DeepSeek uses https://api.deepseek.com/v1 and deepseek-chat. If a 404 occurs, check both Base URL and Model ID. If key is empty or request fails, local KB routing is used."
+        tk.Label(shell, text=note, wraplength=560, justify="left", font=self._font(8), bg=self.colors["bg"], fg=self.colors["text_secondary"]).grid(row=5, column=0, columnspan=2, sticky="w", pady=(10, 6))
 
         buttons = tk.Frame(shell, bg=self.colors["bg"])
-        buttons.grid(row=5, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        buttons.grid(row=6, column=0, columnspan=2, sticky="e", pady=(12, 0))
 
         def save_and_close() -> None:
             try:

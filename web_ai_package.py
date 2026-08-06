@@ -13,6 +13,11 @@ from generation_project import DEFAULT_WORKSPACE
 AI_CONFIG_FILE = DEFAULT_WORKSPACE / "ai_config.json"
 SMALL_FILE_LIMIT = 200 * 1024
 
+PROVIDER_DEFAULTS = {
+    "gpt": {"label": "GPT", "base_url": "https://api.openai.com/v1", "model": "gpt-5.5"},
+    "deepseek": {"label": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "model": "deepseek-chat"},
+}
+
 
 @dataclass(frozen=True)
 class PromptOptimization:
@@ -22,17 +27,27 @@ class PromptOptimization:
 
 
 def load_ai_config() -> dict[str, str]:
-    defaults = {"base_url": "https://api.openai.com/v1", "model": "gpt-5.5", "api_key": ""}
-    if not AI_CONFIG_FILE.is_file():
-        return defaults
-    try:
-        payload = json.loads(AI_CONFIG_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return defaults
-    if isinstance(payload, dict):
-        for key in defaults:
-            if payload.get(key) is not None:
-                defaults[key] = str(payload[key])
+    provider = "gpt"
+    payload: dict[str, object] = {}
+    if AI_CONFIG_FILE.is_file():
+        try:
+            loaded = json.loads(AI_CONFIG_FILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                payload = loaded
+        except Exception:
+            payload = {}
+    configured = str(payload.get("provider") or "gpt").strip().lower()
+    if configured in PROVIDER_DEFAULTS:
+        provider = configured
+    defaults = {
+        "provider": provider,
+        "base_url": PROVIDER_DEFAULTS[provider]["base_url"],
+        "model": PROVIDER_DEFAULTS[provider]["model"],
+        "api_key": "",
+    }
+    for key in defaults:
+        if payload.get(key) is not None:
+            defaults[key] = str(payload[key])
     return defaults
 
 

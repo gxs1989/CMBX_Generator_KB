@@ -499,20 +499,43 @@ class MethodReportCreationWindow:
         config = load_ai_config()
         dialog = tk.Toplevel(self.root)
         dialog.title("AI settings")
-        dialog.geometry("620x330")
+        dialog.geometry("620x380")
         dialog.transient(self.root)
         dialog.grab_set()
         dialog.configure(bg=self.colors["window"])
         values = {
+            "provider": tk.StringVar(value=str(config.get("provider", "gpt"))),
             "base_url": tk.StringVar(value=config["base_url"]),
             "model": tk.StringVar(value=config["model"]),
             "api_key": tk.StringVar(value=config["api_key"]),
         }
         tk.Label(dialog, text="Prompt optimization API", font=self._font(16, "bold"), bg=self.colors["window"], fg=self.colors["text"]).grid(row=0, column=0, columnspan=2, sticky="w", padx=28, pady=(24, 15))
-        for row, (key, label) in enumerate((("base_url", "Base URL"), ("model", "Model ID"), ("api_key", "API key")), start=1):
-            tk.Label(dialog, text=label, font=self._font(10, "bold"), bg=self.colors["window"], fg=self.colors["text"]).grid(row=row, column=0, sticky="w", padx=(28, 12), pady=7)
+        tk.Label(dialog, text="Provider", font=self._font(10, "bold"), bg=self.colors["window"], fg=self.colors["text"]).grid(row=1, column=0, sticky="w", padx=(28, 12), pady=7)
+        provider_box = ttk.Combobox(
+            dialog, textvariable=values["provider"], values=("gpt", "deepseek"),
+            state="readonly", font=self._font(10),
+        )
+        provider_box.grid(row=1, column=1, sticky="ew", padx=(0, 28), pady=7, ipady=6)
+
+        def on_provider_change(_event=None) -> None:
+            selected = str(values["provider"].get() or "gpt").strip().lower()
+            if selected == "deepseek":
+                if not values["base_url"].get().strip():
+                    values["base_url"].set("https://api.deepseek.com/v1")
+                if not values["model"].get().strip():
+                    values["model"].set("deepseek-chat")
+            elif selected == "gpt":
+                if not values["base_url"].get().strip():
+                    values["base_url"].set("https://api.openai.com/v1")
+                if not values["model"].get().strip():
+                    values["model"].set("gpt-5.5")
+
+        provider_box.bind("<<ComboboxSelected>>", on_provider_change)
+
+        for offset, (key, label) in enumerate((("base_url", "Base URL"), ("model", "Model ID"), ("api_key", "API key")), start=2):
+            tk.Label(dialog, text=label, font=self._font(10, "bold"), bg=self.colors["window"], fg=self.colors["text"]).grid(row=offset, column=0, sticky="w", padx=(28, 12), pady=7)
             entry = tk.Entry(dialog, textvariable=values[key], show="*" if key == "api_key" else "", font=self._font(10), relief="solid", bd=1)
-            entry.grid(row=row, column=1, sticky="ew", padx=(0, 28), pady=7, ipady=6)
+            entry.grid(row=offset, column=1, sticky="ew", padx=(0, 28), pady=7, ipady=6)
         dialog.columnconfigure(1, weight=1)
 
         def save() -> None:
@@ -521,7 +544,7 @@ class MethodReportCreationWindow:
             self._log(f"AI settings saved to {AI_CONFIG_FILE}.")
             dialog.destroy()
 
-        self._button(dialog, "Save", save, width=120).grid(row=4, column=1, sticky="e", padx=28, pady=20)
+        self._button(dialog, "Save", save, width=120).grid(row=5, column=1, sticky="e", padx=28, pady=20)
 
     def _page_import(self) -> None:
         frame = self._page_frame()
