@@ -228,7 +228,13 @@ class MethodReportCreationWindow:
         self.step_hint_label.configure(text=f"Step {self.current_step}: {self.STEP_TITLES[self.current_step]}  |  {titles[self.current_step][1]}")
         (self._page_choose, self._page_mode, self._page_define, self._page_import, self._page_generate)[self.current_step]()
         self.back_button.configure(state="disabled" if self.current_step == 0 or self.busy else "normal")
-        self.next_button.configure(text="Generate CMBX" if self.current_step == 4 else "Continue", state="disabled" if self.busy else "normal")
+        if self.current_step == 2 and self.generation_mode == "api" and not self.source_md.get().strip():
+            self.next_button.configure(text="Generate via API", state="disabled" if self.busy else "normal")
+            self.step_hint_label.configure(
+                text=f"Step 2: {self.STEP_TITLES[2]}  |  Describe the requirement, then click \"Generate via API\" below and wait for the progress to finish.",
+            )
+        else:
+            self.next_button.configure(text="Generate CMBX" if self.current_step == 4 else "Continue", state="disabled" if self.busy else "normal")
         if self.current_step in (0, 1):
             self.next_button.grid_remove()
         else:
@@ -372,8 +378,10 @@ class MethodReportCreationWindow:
             ).grid(row=index // 3, column=index % 3, sticky="w", padx=6, pady=4)
 
         tk.Label(form, text="2. Requirement", font=self._font(14, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(16, 5)); row += 1
-        self.intent_text = tk.Text(form, height=7, font=self._font(10), wrap="word", relief="flat", bg=self.colors["window"], fg=self.colors["text"], padx=12, pady=10, highlightthickness=1, highlightbackground=self.colors["border"])
-        self.intent_text.grid(row=row, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 8)); row += 1
+        self.intent_text = tk.Text(form, height=5, font=self._font(10), wrap="word", relief="flat", bg=self.colors["window"], fg=self.colors["text"], padx=12, pady=10, highlightthickness=1, highlightbackground=self.colors["border"])
+        self.intent_text.grid(row=row, column=0, columnspan=2, sticky="nsew", padx=12, pady=(0, 8))
+        form.rowconfigure(row, weight=1)
+        row += 1
         self.intent_text.insert("1.0", self.intent)
 
         tk.Label(form, text="3. AI provider", font=self._font(14, "bold"), bg=form["bg"], fg=self.colors["text"]).grid(row=row, column=0, columnspan=2, sticky="w", padx=12, pady=(16, 5)); row += 1
@@ -946,7 +954,7 @@ class MethodReportCreationWindow:
         if self.current_step == 2:
             if self.generation_mode == "api":
                 if not self.source_md.get().strip():
-                    messagebox.showwarning("Method & Report Creation", "Generate the MD with the API first.", parent=self.root)
+                    self._start_auto_generate()
                     return
                 if not self.preflight or not self.preflight.ready:
                     messagebox.showwarning("Method & Report Creation", "Wait for the MD preflight to finish before continuing.", parent=self.root)
