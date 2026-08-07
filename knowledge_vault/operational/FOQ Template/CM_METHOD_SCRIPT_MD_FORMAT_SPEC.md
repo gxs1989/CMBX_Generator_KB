@@ -1,6 +1,6 @@
 # CM Method Script MD Generation SPEC
 
-KB_Version: 2.2  
+KB_Version: 2.4  
 Purpose: Single SPEC file for web AI / ChatGPT to generate Markdown method scripts that can be compiled by CMBX Data Explorer into standalone Chromeleon instrument-method CMBX files.  
 Primary consumer: AI authoring prompt + Method Script Generator.  
 Target copy locations:
@@ -136,6 +136,26 @@ Common stages:
 | `Stop Run` | Cleanup, acquisition off, resets |
 | `Post Run` | Post-run equilibration; may contain `AcqOff` if data acquisition extends the method run |
 
+### 5.0 Exact Stage Display Names
+
+Web-AI output must use the exact CM Script Editor display names shown in the
+table above. In particular, always write:
+
+```text
+Instrument Setup
+Inject Preparation
+Start Run
+Stop Run
+Post Run
+```
+
+Do not emit the compact embedded-XML identifiers `InstrumentSetup`,
+`InjectPreparation`, `StartRun`, `StopRun`, or `PostRun` in generated TSV.
+Those compact forms are accepted by the local parser only as legacy input and
+are normalized before preview/compilation. They are not the online authoring
+contract. A numeric-time row whose stage name is misspelled or compact may be
+classified as a Comment by strict consumers.
+
 TSV:
 
 ```tsv
@@ -167,9 +187,14 @@ Do not create a row that has a numeric `Time` and only explanatory prose in
 | Executable command/property row | `5.000<TAB>Variables.GenericBool8<TAB>0<TAB>Deactivate valve loop` |
 | Trigger row | `0.010<TAB>Trigger<TAB>"LowPressureAbort",<TAB>Abort if pressure collapses` |
 
+**A numeric value in `Time` must never appear alone.** The same TSV row must
+also contain a valid stage, Trigger, executable command, or executable
+property. A later row does not inherit a bare numeric time anchor.
+
 Forbidden:
 
 ```tsv
+1.000			Wrong: bare time row; it will be classified as a Comment
 5.000	Stop dynamic stress loop and prepare static measurement state		Wrong: timed prose-only comment
 7.000	Static leak-rate measurement starts		Wrong: timed prose-only comment
 ```
@@ -177,6 +202,8 @@ Forbidden:
 Correct pattern:
 
 ```tsv
+1.000	Variables.GenericFloat1	System.Retention	Initialize the periodic-switch schedule
+	Variables.GenericBool1	1	Arm Ping at the same time step
 5.000	Variables.GenericBool8	0	Stop dynamic stress loop and prepare static measurement state
 7.000	Variables.GenericDouble1	System.Retention	Static leak-rate measurement starts
 ```
@@ -248,6 +275,69 @@ Use exact symbols from source CMBX/KB. Examples of currently known TCC command f
 | TempVars | `TempVars.Ambient_Temp` |
 | Variables | `Variables.GenericDouble1` |
 | System | `System.Retention`, `System.AbortQueue` |
+
+### 7.1 CM String Literal Rules
+
+The MD compiler preserves the Value text; it does not infer a CM data type or
+silently add quotation marks. Therefore every literal string required by CM must
+already be enclosed in straight double quotes in the generated TSV.
+
+| Command/property | Required Value syntax | Incorrect |
+|---|---|---|
+| `Variables.GenericStringN` | Entire string literal in double quotes, for example `"10300,"` | `10300` or `10300,` |
+| Any command ending in `._SendCommand` | Entire command payload in double quotes | Unquoted driver command text |
+| `VirtualChannel` | First positional argument (channel Name) in double quotes | Unquoted channel name |
+| Trigger Name | Literal name in double quotes | Unquoted trigger name |
+
+Strict examples:
+
+```tsv
+Time	Command	Value	Comment
+	Variables.GenericString0	"10300,"	Driver command text stored as a string
+	PumpModule.PumpModule_Service._SendCommand	"Flow1.Blk1.Drv1.PositionMode=200000"	Send service command
+	VirtualChannel	"Volume_Loss_per_Time", Variables.GenericFloat7	Create named virtual channel
+```
+
+For `VirtualChannel`, only the first comma-separated argument is governed by the
+Name rule above. Keep any other string-valued options quoted as required by CM,
+for example `Unit="bar"`.
+
+The structural preflight must reject unquoted values for these three command
+families. Passing row/stage/trigger checks is not sufficient when CM value types
+are invalid.
+
+### 7.2 Pressure Unit Contract
+
+Use `bar` as the default pressure unit for Method MD authoring and pressure
+calculations. This applies to pressure setpoints, limits, Trigger thresholds,
+custom variables, VirtualChannel output, comments that state a pressure value,
+and method/report handoff notes.
+
+| Input or operation | Required handling |
+|---|---|
+| Pressure source already expressed in `bar` | Use the value directly. |
+| Pressure source expressed in `Pa`, `kPa`, `MPa`, or `psi` | Convert the numeric value to `bar` before comparison, arithmetic, logging, or VirtualChannel output. State the conversion in the Comment or design notes. |
+| New pressure VirtualChannel | Set `Unit="bar"` unless verified source evidence explicitly requires another unit. |
+| Explicit non-`bar` source-method contract | Preserve it only when the source method/device contract requires it; identify the exception and conversion boundary. |
+
+Standard conversions:
+
+```text
+1 bar = 100000 Pa = 100 kPa = 0.1 MPa
+1 psi = 0.0689475729 bar
+```
+
+Do not relabel an unconverted signal as `bar`. A unit label and a numeric
+conversion are separate requirements. If the source signal unit cannot be
+verified, mark the pressure calculation `Open Verification Required` instead of
+guessing a scale factor.
+
+Default example:
+
+```tsv
+Time	Command	Value	Comment
+	VirtualChannel	"PumpPressureVirtual", PumpModule.Pump.Pump_Pressure.Signal, Type=Digital, Unit="bar", Evaluate=Yes	Pressure calculations use bar
+```
 
 ## 8. Custom Variables And Method Variables
 
@@ -489,6 +579,48 @@ Do not place free `If / Else / End If` blocks inside a trigger unless a decoded 
 
 Do not express a 30-minute stability hold as ordinary command `Delay 30` unless source method evidence proves that exact meaning. Prefer stage duration or trigger `TrueTime=1800`.
 
+### 12.1 Periodic Trigger Scheduling
+
+For source-grounded TCC valve stress methods, periodic switching is scheduled
+against `System.Retention`, which is in minutes. Use an absolute next-edge
+variable, for example:
+
+```text
+6 s period: Variables.GenericFloat1 = System.Retention+0.1
+3 s period: Variables.GenericFloat1 = System.Retention+0.05
+```
+
+Do not describe ordinary command `Delay 0.1` as a 6-second cycle. Do not use
+Trigger `TrueTime=0.1` as the cycle period. Trigger `TrueTime` and trigger
+`Delay` are seconds; the verified recurring schedule is controlled by the
+`System.Retention` comparison and next-edge assignment. Preserve the complete
+source Ping/Pong state handoff and the source Delay rows around valve movement.
+
+### 12.2 Valve Pressure Virtual-Channel Contract
+
+When the requested report needs one dynamic row per valve switch, logging the
+valve properties is not enough: a native Audit Trail table also shows unrelated
+run entries. Use the verified pressure-integration chain only when the pump and
+Processing Method are part of the test configuration:
+
+```tsv
+Time	Command	Value	Comment
+	VirtualChannel	"PumpPressureVirtual", PumpModule.Pump.Pump_Pressure.Signal, Type=Digital, Unit="bar", Evaluate=Yes	Expose valve pressure transients for integration
+```
+
+Contract:
+
+| Layer | Required evidence |
+|---|---|
+| Instrument configuration | `PumpModule.Pump.Pump_Pressure.Signal` exists and is acquired during valve switching |
+| Instrument Method | Exact virtual-channel name `PumpPressureVirtual`, `Type=Digital`, `Unit="bar"`, `Evaluate=Yes` |
+| Sequence injection | Processing Method is exactly `PressureSpikeEval` unless another method has been independently validated |
+| Report | Integration table is fixed to `PumpPressureVirtual` and uses peak-time plus valve-position audit formulas |
+
+Do not add this virtual channel to a TCC-only method that has no PumpModule
+pressure source. In that configuration, use explicit RetTime/audit formulas or
+mark the dynamic valve-only table `Open Verification Required`.
+
 ## 13. Method Check And Red Cells
 
 Official Help:
@@ -508,6 +640,7 @@ Likely causes for red cells:
 | Nested trigger | Not allowed in CM7 |
 | Duplicate trigger name | Rejected by Method Check |
 | Symbol references in trigger `Delay`, `Hysteresis`, or `AllowImmediateExecution` | Not accepted by CM Help |
+| Unquoted `GenericString`, `_SendCommand`, or `VirtualChannel` Name | CM string value is compiled with the wrong type or shown as an invalid red cell |
 
 ## 14. Compiler Contract For Structural MD -> CMBX
 

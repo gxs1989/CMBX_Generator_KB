@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import zipfile
 import xml.etree.ElementTree as ET
+import uuid
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -174,8 +175,10 @@ def build_multi_sequence_package(request: MultiSequencePackageRequest) -> MultiS
         source_groups.setdefault(source_key, []).append(index)
 
     required_group_sizes = tuple(len(items) for items in source_groups.values())
-    sequence = _multi_carrier_sequence(carrier, required_group_sizes)
-    allocated = _allocate_multi_carrier_bindings(carrier, sequence, required_group_sizes)
+    sequence = _multi_carrier_sequence(
+        carrier,
+        required_injection_count=len(prepared),
+    )
     reports = [item for item in sequence.children if item.kind == "report_template"]
     if not reports:
         raise ValueError("Sequence carrier does not expose a Report Template slot.")
@@ -184,12 +187,31 @@ def build_multi_sequence_package(request: MultiSequencePackageRequest) -> MultiS
     report_name = _clean_name(request.report_name or source_report.name, "Generated Report")
     sequence_name = _clean_name(request.sequence_name, "Generated Sequence")
 
-    selected_by_index: dict[int, tuple[CmbxElement, CmbxElement, CmbxElement | None, str, str, bytes]] = {}
+    command = extract_cmbx_entry(carrier.path, sequence.filename)
+    command, method_slots = _expand_multi_carrier_method_slots(
+        command,
+        sequence,
+        required_method_count=len(source_groups),
+    )
+    allocated = _allocate_multi_carrier_bindings(
+        carrier,
+        sequence,
+        required_group_sizes,
+        method_slots,
+    )
+
+    selected_by_index: dict[
+        int,
+        tuple[CmbxElement, CmbxElement, CmbxElement, CmbxElement | None, str, str, bytes],
+    ] = {}
     for (source_key, source_indexes), (carrier_method, carrier_rows) in zip(source_groups.items(), allocated):
-        for source_index, (carrier_injection, carrier_processing) in zip(source_indexes, carrier_rows):
+        for source_index, (carrier_injection, source_carrier_method, carrier_processing) in zip(
+            source_indexes, carrier_rows
+        ):
             _index, _row, injection_name, method_name, method_cpxm = prepared[source_index]
             selected_by_index[source_index] = (
                 carrier_injection,
+                source_carrier_method,
                 carrier_method,
                 carrier_processing,
                 injection_name,
@@ -198,19 +220,41 @@ def build_multi_sequence_package(request: MultiSequencePackageRequest) -> MultiS
             )
     selected = [selected_by_index[index] for index in range(len(prepared))]
 
-    command = extract_cmbx_entry(carrier.path, sequence.filename)
+    native_injections = [item for item in sequence.children if item.kind == "injection"]
+    selected_injection_ids = {item[0].id for item in selected}
+    native_injection_names = [item.name for item in native_injections]
+    needs_ordinal_selection = bool(native_injection_names) and all(
+        not name for name in native_injection_names
+    )
     command = _prune_multi_carrier_command(
         command,
         injection_names={item[0].name for item in selected},
-        method_names={item[1].name for item in selected},
-        processing_names={item[2].name for item in selected if item[2] is not None} if request.include_processing_methods else set(),
+        injection_ordinals=(
+            {
+                index for index, injection in enumerate(native_injections)
+                if injection.id in selected_injection_ids
+            }
+            if needs_ordinal_selection
+            else None
+        ),
+        method_names={item[2].name for item in selected},
+        processing_names={item[3].name for item in selected if item[3] is not None} if request.include_processing_methods else set(),
         report_name=carrier_report.name,
     )
-    for carrier_injection, carrier_method, carrier_processing, injection_name, method_name, method_cpxm in selected:
+    for (
+        carrier_injection,
+        source_carrier_method,
+        carrier_method,
+        carrier_processing,
+        injection_name,
+        method_name,
+        method_cpxm,
+    ) in selected:
         command = _rewrite_injection_object(
             command,
             carrier_injection_name=carrier_injection.name,
-            carrier_method_name=carrier_method.name,
+            carrier_method_name=source_carrier_method.name,
+            target_carrier_method_name=carrier_method.name,
             injection_name=injection_name,
             remove_processing_name=(
                 carrier_processing.name
@@ -220,7 +264,15 @@ def build_multi_sequence_package(request: MultiSequencePackageRequest) -> MultiS
         )
 
     replaced_methods: set[str] = set()
-    for _carrier_injection, carrier_method, _carrier_processing, _injection_name, method_name, method_cpxm in selected:
+    for (
+        _carrier_injection,
+        _source_carrier_method,
+        carrier_method,
+        _carrier_processing,
+        _injection_name,
+        method_name,
+        method_cpxm,
+    ) in selected:
         if carrier_method.id not in replaced_methods:
             command = _replace_asset_cpxm(command, carrier_method.name, method_cpxm, asset_kind="method")
             command = _rename_object(command, carrier_method.name, method_name)
@@ -246,7 +298,7 @@ def build_multi_sequence_package(request: MultiSequencePackageRequest) -> MultiS
     return validate_multi_sequence_package(
         request.output_cmbx,
         len(selected),
-        tuple(item[5] for index, item in enumerate(selected) if item[1].id not in {prior[1].id for prior in selected[:index]}),
+        tuple(item[6] for index, item in enumerate(selected) if item[2].id not in {prior[2].id for prior in selected[:index]}),
         report_cpxm,
         expect_processing=request.include_processing_methods,
     )
@@ -478,25 +530,27 @@ def _validate_carrier(package) -> _BuildContext:
     return _BuildContext(sequence, injections[0], methods[0], reports[0], processing)
 
 
-def _multi_carrier_sequence(package, required_group_sizes: tuple[int, ...]) -> CmbxElement:
+def _multi_carrier_sequence(
+    package,
+    *,
+    required_injection_count: int,
+) -> CmbxElement:
     candidates = []
     for sequence in package.sequences:
         groups = _multi_carrier_binding_groups(package, sequence)
         reports = [item for item in sequence.children if item.kind == "report_template"]
-        capacities = sorted((len(rows) for _method, rows in groups), reverse=True)
-        needs = sorted(required_group_sizes, reverse=True)
         if (
-            len(capacities) >= len(needs)
-            and all(capacity >= need for capacity, need in zip(capacities, needs))
+            groups
+            and sum(len(rows) for _method, rows in groups) >= required_injection_count
             and reports
             and sequence.filename
         ):
-            candidates.append((sum(capacities), sequence))
+            candidates.append((sum(len(rows) for _method, rows in groups), sequence))
     if not candidates:
-        requested = ", ".join(str(item) for item in required_group_sizes)
         raise ValueError(
-            "No sequence in the carrier exposes Method binding groups with Injection capacities "
-            f"[{requested}] and a Report Template."
+            "No sequence in the carrier exposes at least "
+            f"{required_injection_count} Injection row(s), one Instrument Method template, "
+            "and one Report Template."
         )
     return min(candidates, key=lambda item: item[0])[1]
 
@@ -569,29 +623,203 @@ def _relative_url_target(payload: bytes, name: str) -> bool:
     return encoded in payload and b"RelativeUrl" in payload
 
 
+def _expand_multi_carrier_method_slots(
+    command: bytes,
+    sequence: CmbxElement,
+    *,
+    required_method_count: int,
+) -> tuple[bytes, list[CmbxElement]]:
+    """Clone complete Instrument Method contract triplets when more slots are needed.
+
+    Chromeleon stores each business object in three parallel DataContract arrays:
+    type descriptor (field 18), object body (field 19), and metadata (field 20).
+    A usable Method slot therefore cannot be created by copying only CpXm or a
+    header node. Each clone receives fresh object/type identities and a matching
+    header entry; its CpXm and visible name are replaced later by the normal
+    sequence build pipeline.
+    """
+    native_methods = [item for item in sequence.children if item.kind == "instrument_method"]
+    if not native_methods:
+        raise ValueError("Sequence carrier has no Instrument Method template to clone.")
+    if required_method_count <= len(native_methods):
+        return command, native_methods[:required_method_count]
+
+    fields = _parse_fields(command)
+    type_fields = [item for item in fields if item.number == 18 and item.wire_type == 2]
+    object_fields = [item for item in fields if item.number == 19 and item.wire_type == 2]
+    metadata_fields = [item for item in fields if item.number == 20 and item.wire_type == 2]
+    if not (len(type_fields) == len(object_fields) == len(metadata_fields)):
+        raise ValueError(
+            "Sequence carrier DataContract arrays are not parallel while expanding Method slots."
+        )
+
+    method_triplets: list[tuple[bytes, bytes, bytes, CmbxElement]] = []
+    methods_by_name = {item.name: item for item in native_methods}
+    for type_field, object_field, metadata_field in zip(type_fields, object_fields, metadata_fields):
+        type_payload = command[type_field.value_start : type_field.value_end]
+        if _contract_object_type(type_payload) != "instrument_method":
+            continue
+        object_payload = command[object_field.value_start : object_field.value_end]
+        name = _field_text(object_payload, _parse_fields(object_payload), 28)
+        method = methods_by_name.get(name)
+        if method is None:
+            continue
+        metadata_payload = command[metadata_field.value_start : metadata_field.value_end]
+        method_triplets.append((type_payload, object_payload, metadata_payload, method))
+    if not method_triplets:
+        raise ValueError("Sequence carrier Instrument Method contract triplet was not found.")
+
+    numeric_ids = [int(item.id) for item in sequence.children if str(item.id).isdigit()]
+    next_header_id = max(numeric_ids, default=0) + 1
+    clone_types: list[bytes] = []
+    clone_objects: list[bytes] = []
+    clone_metadata: list[bytes] = []
+    slots = list(native_methods)
+    for slot_index in range(len(native_methods), required_method_count):
+        type_payload, object_payload, metadata_payload, template = method_triplets[
+            (slot_index - len(native_methods)) % len(method_triplets)
+        ]
+        slot_name = f"__CMBX_METHOD_SLOT_{slot_index + 1:02d}__"
+        own_identity = _new_contract_identity()
+        type_payload = _replace_contract_length_fields(
+            type_payload,
+            {
+                5: own_identity,
+                7: _new_contract_identity(),
+                10: _new_contract_identity(),
+            },
+        )
+        object_payload = _replace_contract_length_fields(
+            object_payload,
+            {
+                25: own_identity,
+                28: slot_name.encode("utf-8"),
+                29: _new_contract_identity(),
+            },
+        )
+        clone_types.append(type_payload)
+        clone_objects.append(object_payload)
+        clone_metadata.append(metadata_payload)
+        slots.append(
+            CmbxElement(
+                id=str(next_header_id),
+                name=slot_name,
+                item_type=template.item_type,
+                url=template.url,
+                raw_data_file_id=template.id,
+                parent_id=sequence.id,
+            )
+        )
+        next_header_id += 1
+
+    return (
+        _append_contract_triplets(command, clone_types, clone_objects, clone_metadata),
+        slots,
+    )
+
+
+def _new_contract_identity() -> bytes:
+    raw = uuid.uuid4().bytes_le
+    return b"\x09" + raw[:8] + b"\x11" + raw[8:]
+
+
+def _replace_contract_length_fields(data: bytes, replacements: dict[int, bytes]) -> bytes:
+    rebuilt = bytearray()
+    replaced: set[int] = set()
+    for field in _parse_fields(data):
+        value = replacements.get(field.number)
+        if field.wire_type == 2 and value is not None and field.number not in replaced:
+            rebuilt.extend(_field_bytes(field.number, 2, value))
+            replaced.add(field.number)
+        else:
+            rebuilt.extend(field.raw)
+    missing = set(replacements) - replaced
+    if missing:
+        raise ValueError(f"Method contract clone is missing field(s): {sorted(missing)}.")
+    return bytes(rebuilt)
+
+
+def _append_contract_triplets(
+    command: bytes,
+    type_payloads: list[bytes],
+    object_payloads: list[bytes],
+    metadata_payloads: list[bytes],
+) -> bytes:
+    if not (len(type_payloads) == len(object_payloads) == len(metadata_payloads)):
+        raise ValueError("Cloned Method contract arrays are not parallel.")
+    fields = _parse_fields(command)
+    last = {
+        number: max(
+            index
+            for index, item in enumerate(fields)
+            if item.number == number and item.wire_type == 2
+        )
+        for number in (18, 19, 20)
+    }
+    payloads = {18: type_payloads, 19: object_payloads, 20: metadata_payloads}
+    rebuilt = bytearray()
+    for index, field in enumerate(fields):
+        rebuilt.extend(field.raw)
+        if index == last.get(field.number):
+            for payload in payloads[field.number]:
+                rebuilt.extend(_field_bytes(field.number, 2, payload))
+    return bytes(rebuilt)
+
+
 def _allocate_multi_carrier_bindings(
     package,
     sequence: CmbxElement,
     required_group_sizes: tuple[int, ...],
-) -> list[tuple[CmbxElement, list[tuple[CmbxElement, CmbxElement | None]]]]:
-    """Allocate the smallest unused native Method group that satisfies each request."""
+    method_slots: list[CmbxElement],
+) -> list[
+    tuple[CmbxElement, list[tuple[CmbxElement, CmbxElement, CmbxElement | None]]]
+]:
+    """Allocate native rows independently from their original Method bindings."""
     available = _multi_carrier_binding_groups(package, sequence)
-    allocated: list[tuple[CmbxElement, list[tuple[CmbxElement, CmbxElement | None]]]] = []
-    for required in required_group_sizes:
-        choices = [item for item in available if len(item[1]) >= required]
-        if not choices:
-            raise ValueError(f"Sequence carrier has no unused Method binding group with {required} Injection row(s).")
-        selected = min(choices, key=lambda item: len(item[1]))
-        available.remove(selected)
-        method, rows = selected
-        allocated.append((method, rows[:required]))
+    if len(method_slots) < len(required_group_sizes):
+        raise ValueError(
+            f"Sequence carrier exposes {len(method_slots)} expandable Method slot(s); "
+            f"{len(required_group_sizes)} distinct Method payload(s) were requested."
+        )
+    binding_by_injection_id = {
+        injection.id: (method, processing)
+        for method, rows in available
+        for injection, processing in rows
+    }
+    ordered_rows = [
+        (injection, *binding_by_injection_id[injection.id])
+        for injection in sequence.children
+        if injection.kind == "injection" and injection.id in binding_by_injection_id
+    ]
+    if len(ordered_rows) < sum(required_group_sizes):
+        raise ValueError(
+            f"Sequence carrier exposes {len(ordered_rows)} Injection row(s); "
+            f"{sum(required_group_sizes)} were requested."
+        )
+    allocated: list[
+        tuple[CmbxElement, list[tuple[CmbxElement, CmbxElement, CmbxElement | None]]]
+    ] = []
+    cursor = 0
+    for target_method, required in zip(method_slots, required_group_sizes):
+        allocated.append((target_method, ordered_rows[cursor : cursor + required]))
+        cursor += required
     return allocated
 
 
 def _build_multi_header(
     carrier_path: Path,
     sequence: CmbxElement,
-    selected: list[tuple[CmbxElement, CmbxElement, CmbxElement | None, str, str, bytes]],
+    selected: list[
+        tuple[
+            CmbxElement,
+            CmbxElement,
+            CmbxElement,
+            CmbxElement | None,
+            str,
+            str,
+            bytes,
+        ]
+    ],
     report: CmbxElement,
     *,
     sequence_name: str,
@@ -604,7 +832,7 @@ def _build_multi_header(
     sequence_node = deepcopy(source_nodes[sequence.id])
     keep_ids = {report.id}
     names: dict[str, str] = {report.id: report_name}
-    for injection, method, processing, injection_name, method_name, _payload in selected:
+    for injection, _source_method, method, processing, injection_name, method_name, _payload in selected:
         keep_ids.update((injection.id, method.id))
         names[injection.id] = injection_name
         names[method.id] = method_name
@@ -628,6 +856,21 @@ def _build_multi_header(
                 grandchild_kind = _kind_from_item_type(grandchild.attrib.get("ItemType", ""))
                 if grandchild_kind in {"signal", "audit"}:
                     child.remove(grandchild)
+    appended_method_ids: set[str] = set()
+    for _injection, _source_method, method, _processing, _injection_name, method_name, _payload in selected:
+        if method.id in source_nodes or method.id in appended_method_ids:
+            continue
+        template_id = method.raw_data_file_id
+        template_node = source_nodes.get(template_id)
+        if template_node is None:
+            raise ValueError(
+                f"Cloned Instrument Method slot '{method.id}' has no header template '{template_id}'."
+            )
+        clone_node = deepcopy(template_node)
+        clone_node.set("Id", method.id)
+        _rename_header_node(clone_node, method_name, ".instmeth")
+        sequence_node.append(clone_node)
+        appended_method_ids.add(method.id)
     sequence_node.set("Name", sequence_name)
     sequence_node.set("Size", str(command_size))
     _rename_sequence_header_urls(sequence_node, sequence_name)
@@ -641,6 +884,7 @@ def _rewrite_injection_object(
     *,
     carrier_injection_name: str,
     carrier_method_name: str,
+    target_carrier_method_name: str,
     injection_name: str,
     remove_processing_name: str,
 ) -> bytes:
@@ -678,6 +922,18 @@ def _rewrite_injection_object(
     target_payload = command[
         object_fields[target_index].value_start : object_fields[target_index].value_end
     ]
+    if target_carrier_method_name != carrier_method_name:
+        target_payload, rebound = _rewrite_exact_strings(
+            target_payload,
+            {
+                carrier_method_name.encode("utf-8"): target_carrier_method_name.encode("utf-8")
+            },
+        )
+        if rebound == 0:
+            raise ValueError(
+                f"Could not rebind Injection '{carrier_injection_name}' from Method "
+                f"'{carrier_method_name}' to '{target_carrier_method_name}'."
+            )
     if remove_processing_name:
         target_payload, removed = _strip_relative_url_reference(
             target_payload,
@@ -765,6 +1021,7 @@ def _prune_multi_carrier_command(
     command: bytes,
     *,
     injection_names: set[str],
+    injection_ordinals: set[int] | None = None,
     method_names: set[str],
     processing_names: set[str],
     report_name: str,
@@ -788,6 +1045,7 @@ def _prune_multi_carrier_command(
         )
 
     keep: list[bool] = []
+    injection_ordinal = 0
     for type_field, object_field in zip(type_fields, object_fields):
         type_payload = command[type_field.value_start : type_field.value_end]
         object_payload = command[object_field.value_start : object_field.value_end]
@@ -797,7 +1055,12 @@ def _prune_multi_carrier_command(
         except ValueError:
             object_name = ""
         if object_type == "injection":
-            retain = object_name in injection_names
+            retain = (
+                injection_ordinal in injection_ordinals
+                if injection_ordinals is not None
+                else object_name in injection_names
+            )
+            injection_ordinal += 1
         elif object_type == "instrument_method":
             retain = object_name in method_names
         elif object_type == "processing_method":

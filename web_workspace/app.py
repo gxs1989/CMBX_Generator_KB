@@ -1328,11 +1328,12 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             {**_public_artifact(item), "asset_name": sequence_report_name(item)} for item in store.list_artifacts(DEFAULT_WORKSPACE_ID)
             if item["owner"].lower() == identity["user"].lower() and item["kind"] == "report_md"
         ]
-        carrier = Path(__file__).resolve().parents[1] / "assets" / "sequence_carrier_native_test1.cmbx"
+        carrier = Path(__file__).resolve().parents[1] / "assets" / "sequence_carrier_native_test2.cmbx"
         return {
             "method_md": methods,
             "report_md": reports,
-            "max_injections": 2,
+            "max_injections": 10,
+            "method_slots": 10,
             "processing_method_optional": True,
             "processing_method_default": "",
             "carrier_available": carrier.exists(),
@@ -1353,6 +1354,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         target_version = str(payload.get("target_cm_version") or "7.3 candidate")
         if target_version != "7.3 candidate":
             raise HTTPException(status_code=400, detail=f"No controlled sequence carrier is available for {target_version}")
+        carrier_errors: list[str] = []
         method_records: list[dict[str, Any]] = []
         checks: list[dict[str, Any]] = []
         for index, row in enumerate(rows, 1):
@@ -1377,7 +1379,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
             raise HTTPException(status_code=403, detail="The selected Report MD belongs to another user")
         report_check = preflight_asset("report", artifact_local_path(report))
         resolved_report_name = sequence_report_name(report, report_check)
-        ready = all(item["ready"] for item in checks) and report_check.ready
+        ready = all(item["ready"] for item in checks) and report_check.ready and not carrier_errors
         return {
             "ready": ready,
             "methods": checks,
@@ -1388,6 +1390,13 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
                 "warnings": list(report_check.warnings),
             },
             "processing_method": "blank",
+            "carrier": {
+                "ready": not carrier_errors,
+                "name": "CM-native test2 carrier",
+                "max_injections": 10,
+                "method_slots": 10,
+                "errors": carrier_errors,
+            },
             "target_cm_version": target_version,
             "warnings": [
                 "Processing Method is intentionally blank; IRC and integration actions are not included.",
@@ -1413,7 +1422,7 @@ def create_app(config: WebWorkspaceConfig | None = None) -> FastAPI:
         target_version = str(payload.get("target_cm_version") or "7.3 candidate")
         owner_segment = _safe_segment(identity["user"].replace("\\", "_"), "user")
         output_root = new_local_work_root("sequence")
-        carrier = Path(__file__).resolve().parents[1] / "assets" / "sequence_carrier_native_test1.cmbx"
+        carrier = Path(__file__).resolve().parents[1] / "assets" / "sequence_carrier_native_test2.cmbx"
 
         def run(progress):
             total = len(rows) + 5

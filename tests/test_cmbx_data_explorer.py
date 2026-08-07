@@ -4832,6 +4832,25 @@ def test_method_md_linter_rejects_unquoted_message_text():
     assert [(issue.code, issue.row) for issue in issues] == [("MESSAGE_TEXT_UNQUOTED", "1")]
 
 
+def test_method_md_linter_rejects_unquoted_cm_string_values():
+    issues = lint_method_rows(
+        [
+            {"#": "1", "Kind": "Command", "Time": "", "Command": "Variables.GenericString0", "Value": "10300,"},
+            {"#": "2", "Kind": "Command", "Time": "", "Command": "Variables.GenericString0", "Value": '"10300,"'},
+            {"#": "3", "Kind": "Command", "Time": "", "Command": "PumpModule.PumpModule_Service._SendCommand", "Value": "Flow1.Blk1.Drv1.PositionMode=200000"},
+            {"#": "4", "Kind": "Command", "Time": "", "Command": "PumpModule.PumpModule_Service._SendCommand", "Value": '"Flow1.Blk1.Drv1.PositionMode=200000"'},
+            {"#": "5", "Kind": "Command", "Time": "", "Command": "VirtualChannel", "Value": "Volume_Loss_per_Time, Variables.GenericFloat7"},
+            {"#": "6", "Kind": "Command", "Time": "", "Command": "VirtualChannel", "Value": '"Volume_Loss_per_Time", Variables.GenericFloat7'},
+        ]
+    )
+
+    assert [(issue.code, issue.row) for issue in issues] == [
+        ("GENERIC_STRING_UNQUOTED", "1"),
+        ("SEND_COMMAND_UNQUOTED", "3"),
+        ("VIRTUAL_CHANNEL_NAME_UNQUOTED", "5"),
+    ]
+
+
 def test_method_md_parser_keeps_trigger_explanation_as_comment(tmp_path):
     source = tmp_path / "method.md"
     source.write_text(

@@ -203,6 +203,36 @@ def lint_method_rows(rows: list[Any]) -> list[MethodMdLintIssue]:
                 )
             )
 
+        if re.search(r"(?:^|\.)GenericString\d*$", command, flags=re.I) and value and not _is_quoted_string(value):
+            issues.append(
+                MethodMdLintIssue(
+                    "error",
+                    "GENERIC_STRING_UNQUOTED",
+                    row_id,
+                    'GenericString assignments require a quoted CM string literal. Example: Variables.GenericString0 -> "10300,".',
+                )
+            )
+
+        if command.casefold().endswith("._sendcommand") and value and not _is_quoted_string(value):
+            issues.append(
+                MethodMdLintIssue(
+                    "error",
+                    "SEND_COMMAND_UNQUOTED",
+                    row_id,
+                    'The _SendCommand payload requires a quoted CM string literal. Example: _SendCommand -> "Flow1.Blk1.Drv1.PositionMode=200000".',
+                )
+            )
+
+        if command.casefold() == "virtualchannel" and value and not _virtual_channel_name_is_quoted(value):
+            issues.append(
+                MethodMdLintIssue(
+                    "error",
+                    "VIRTUAL_CHANNEL_NAME_UNQUOTED",
+                    row_id,
+                    'VirtualChannel Name must be a quoted literal in the first argument. Example: "PumpPressureVirtual", Source.Signal, Type=Digital, Unit="bar", Evaluate=Yes.',
+                )
+            )
+
     if inside_trigger:
         issues.append(MethodMdLintIssue("error", "UNCLOSED_TRIGGER", trigger_start_row, "Trigger block is not closed with End Trigger."))
 
@@ -272,6 +302,11 @@ def _looks_float(value: str) -> bool:
 def _is_quoted_string(value: str) -> bool:
     text = str(value or "").strip()
     return len(text) >= 2 and text.startswith('"') and text.endswith('"')
+
+
+def _virtual_channel_name_is_quoted(value: str) -> bool:
+    text = str(value or "").strip()
+    return bool(re.match(r'^"(?:[^"\\]|\\.)*"\s*,', text))
 
 
 def _duration_from_value(value: str) -> float | None:

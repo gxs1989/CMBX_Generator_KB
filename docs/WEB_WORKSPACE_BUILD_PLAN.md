@@ -1066,7 +1066,8 @@ UI sends `method_md_artifact_ids` and displays the complete selected collection.
 Processing Method is intentionally blank in this phase. Therefore generated Sequences
 do not contain IRC insertion rules, integration parameters, or Processing Method
 pass/fail actions. The controlled carrier is currently a TCC CM 7.3 carrier with ten
-available Method slots. Hidden carrier objects are reported, and every output remains
+Injection rows and expandable Method slots up to the same count. Hidden carrier objects
+are reported, and every output remains
 a candidate requiring import/open/run verification in the target Chromeleon and
 Instrument Configuration.
 
@@ -1139,8 +1140,29 @@ than the carrier's original FOQ URL.
 
 Subsequent CM import testing proved that a completed FOQ carrier remains unsafe even
 after object-array pruning because it carries hundreds of completed-run transaction
-records. Sequence Generation now uses the user-created, CM-exported `test1` empty
-Sequence as `assets/sequence_carrier_native_test1.cmbx`. The first controlled carrier
-supports two Injection rows sharing one Instrument Method and one Report Template. The
-Web UI therefore advertises a two-Injection limit until additional native empty carriers
-are exported and runtime-verified.
+records. Sequence Generation first used the user-created, CM-exported `test1` empty
+Sequence as `assets/sequence_carrier_native_test1.cmbx`. The user then supplied `test2`,
+a native ten-Injection carrier with two Instrument Method slots. It is registered as
+`assets/sequence_carrier_native_test2.cmbx`, and the Web UI
+now advertises ten Injection rows. Blank native Injection objects are pruned by ordinal
+identity, fixing the ambiguity that appeared only after expanding beyond the two-row
+carrier. Injection-to-Method references are then rebound independently of the carrier's
+original 8 + 2 layout. When more than two distinct Method assets are selected, the writer
+clones a complete native Instrument Method DataContract triplet, gives it fresh internal
+identities, adds the corresponding header node, and then replaces its name and CpXm body.
+The ten Injection rows can consequently reference one through ten distinct Methods.
+
+### 2026-08-06 / CM String-Literal Preflight
+
+Method MD authoring and preflight now enforce CM string typing where the XML compiler
+cannot infer it. `Variables.GenericStringN` values and `._SendCommand` payloads must be
+complete double-quoted literals, while the first `VirtualChannel` argument (Name) must
+also be quoted. Violations are blocking preflight errors rather than candidates that
+appear valid in the Web preview and later fail in the Chromeleon Method Editor. The
+canonical Method SPEC is V2.3 and the same rules are rebuilt into full and compact Web
+AI knowledge packages.
+
+The same Method SPEC is subsequently V2.4. Pressure values and calculations now
+default to `bar` across setpoints, limits, Trigger thresholds, variables, virtual
+channels, and report handoff notes. Non-bar source signals require an explicit numeric
+conversion and provenance; changing only the displayed unit is forbidden.

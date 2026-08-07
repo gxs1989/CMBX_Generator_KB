@@ -2,10 +2,10 @@
   "schema_version": 1,
   "programdata_kb": "{programdata_kb}",
   "repo_root": "{repo}",
-  "entry_count": 333,
+  "entry_count": 334,
   "layers": {
     "operational": 219,
-    "engineering": 108,
+    "engineering": 109,
     "skill": 6
   },
   "entries": [
@@ -429,17 +429,17 @@
       "layer": "operational",
       "managed_path": "operational/FOQ Template/CM Compiler Rules.MD",
       "source_path": "{programdata_kb}/FOQ Template/CM Compiler Rules.MD",
-      "sha256": "77ed968709db93223b7976508ce113b780b964f4bcf50b028387c572ebf3fc7a",
-      "size": 2864,
+      "sha256": "6c38548b738f4c68efa9691b6d7949584219675ffe6ce6af29e72cae9be2fddb",
+      "size": 2737,
       "duplicate_group": "DUP-046"
     },
     {
       "layer": "operational",
       "managed_path": "operational/FOQ Template/CM_METHOD_SCRIPT_MD_FORMAT_SPEC.md",
       "source_path": "{programdata_kb}/FOQ Template/CM_METHOD_SCRIPT_MD_FORMAT_SPEC.md",
-      "sha256": "56f7ff60aab710a5200dbeb7ba07f49beaa8ce235d016fd813fb0153d83e3581",
-      "size": 25460,
-      "duplicate_group": ""
+      "sha256": "8fcefeb2c694a2cdd83a8341f35f0d89d733039b061f8806f09f971359cce23b",
+      "size": 31639,
+      "duplicate_group": "DUP-047"
     },
     {
       "layer": "operational",
@@ -447,7 +447,7 @@
       "source_path": "{programdata_kb}/FOQ Template/MD_TO_STANDALONE_METHOD_CMBX_PACKAGING.md",
       "sha256": "5a96b3a65289e84782abb1ce10306ac99d17cc96ac75c365867886ec1bb29fae",
       "size": 27129,
-      "duplicate_group": "DUP-047"
+      "duplicate_group": "DUP-048"
     },
     {
       "layer": "operational",
@@ -463,7 +463,7 @@
       "source_path": "{programdata_kb}/KB_INDEX.md",
       "sha256": "ac28883c1d4478fddff35741ed458f24c47930b9bedb39a7b86a4be6075afd63",
       "size": 16820,
-      "duplicate_group": "DUP-048"
+      "duplicate_group": ""
     },
     {
       "layer": "operational",
@@ -631,7 +631,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/01_Build_Sources/RID/Method/01_Spec/S003.md",
       "sha256": "77ed968709db93223b7976508ce113b780b964f4bcf50b028387c572ebf3fc7a",
       "size": 2864,
-      "duplicate_group": "DUP-046"
+      "duplicate_group": "DUP-063"
     },
     {
       "layer": "operational",
@@ -679,7 +679,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/01_Build_Sources/TCC/Method/01_Spec/S003.md",
       "sha256": "77ed968709db93223b7976508ce113b780b964f4bcf50b028387c572ebf3fc7a",
       "size": 2864,
-      "duplicate_group": "DUP-046"
+      "duplicate_group": "DUP-063"
     },
     {
       "layer": "operational",
@@ -871,7 +871,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/01_Build_Sources/TCC/Method/03_Summary/K004.md",
       "sha256": "42fe1843c51e2cbfed60fbf9565012a09d94d28fe572610b8dea0c3a5d0f6b61",
       "size": 3311,
-      "duplicate_group": "DUP-063"
+      "duplicate_group": "DUP-064"
     },
     {
       "layer": "operational",
@@ -919,7 +919,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/01_Build_Sources/VAS/Method/01_Spec/S003.md",
       "sha256": "77ed968709db93223b7976508ce113b780b964f4bcf50b028387c572ebf3fc7a",
       "size": 2864,
-      "duplicate_group": "DUP-046"
+      "duplicate_group": "DUP-063"
     },
     {
       "layer": "operational",
@@ -1111,7 +1111,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/Report/01_REPORT_SPEC.md",
       "sha256": "ec3335e1302c27492563f759e705da710dfa20953ad4dffeb167e02f6bf7aa7c",
       "size": 165888,
-      "duplicate_group": "DUP-064"
+      "duplicate_group": "DUP-065"
     },
     {
       "layer": "operational",
@@ -1119,7 +1119,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/Report/Pump/02_REPORT_ORIGINAL_TEMPLATES.md",
       "sha256": "95b629518fa04a8fcabfcd42a829757090d8c88cf33b2e5a50545375961ed261",
       "size": 37374,
-      "duplicate_group": "DUP-065"
+      "duplicate_group": "DUP-066"
     },
     {
       "layer": "operational",
@@ -1127,7 +1127,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/Report/Pump/03_REPORT_SUMMARIES.md",
       "sha256": "bf131aa01313afdc6d227679bfe8d99f92fc95ecad1bc0b55d9aa9b77fc64562",
       "size": 424,
-      "duplicate_group": "DUP-066"
+      "duplicate_group": "DUP-067"
     },
     {
       "layer": "operational",
@@ -1135,7 +1135,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/Report/TCC/02_REPORT_ORIGINAL_TEMPLATES.md",
       "sha256": "4ffd3f9921aa96d700358e5483e52843dcc56bc21f20c99bbebbbc2da3c0f50d",
       "size": 96987,
-      "duplicate_group": "DUP-067"
+      "duplicate_group": "DUP-068"
     },
     {
       "layer": "operational",
@@ -1143,7 +1143,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/Report/TCC/03_REPORT_SUMMARIES.md",
       "sha256": "c7842ced95fd0c9b5447be8bb7994238e3fd51e4efa643895d9d2be4caf60643",
       "size": 45464,
-      "duplicate_group": "DUP-068"
+      "duplicate_group": "DUP-069"
     },
     {
       "layer": "operational",
@@ -1151,7 +1151,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/Report/VAS/02_REPORT_ORIGINAL_TEMPLATES.md",
       "sha256": "a001dbb8fb9128bf2438d58cffd41c4f07a900b332c8d6153713927ed6902ac2",
       "size": 23511,
-      "duplicate_group": "DUP-069"
+      "duplicate_group": "DUP-070"
     },
     {
       "layer": "operational",
@@ -1159,7 +1159,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/Report/VAS/03_REPORT_SUMMARIES.md",
       "sha256": "e5ba32140f6a901ca47aa5f7515a67ee09d538b0785a019868b754f73148dc9b",
       "size": 422,
-      "duplicate_group": "DUP-070"
+      "duplicate_group": "DUP-071"
     },
     {
       "layer": "operational",
@@ -1167,7 +1167,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/Report/VVWD/02_REPORT_ORIGINAL_TEMPLATES.md",
       "sha256": "b014007416e884f72b1c254ac47a407af9bc7800b8af35e27f5781e0d64f9d03",
       "size": 104569,
-      "duplicate_group": "DUP-071"
+      "duplicate_group": "DUP-072"
     },
     {
       "layer": "operational",
@@ -1175,15 +1175,15 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/Report/VVWD/03_REPORT_SUMMARIES.md",
       "sha256": "f66af70e316fb786f31da4251fc22c4c58d047150036d5c01e0f5f566612b1df",
       "size": 424,
-      "duplicate_group": "DUP-072"
+      "duplicate_group": "DUP-073"
     },
     {
       "layer": "operational",
       "managed_path": "operational/KB_Online_GPT/02_Full_Context/RID/Method/01_METHOD_SPEC.md",
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/RID/Method/01_METHOD_SPEC.md",
-      "sha256": "514919bd22ee463b74552c981e01646c1e9c4dd32990ab748938634460222873",
-      "size": 45257,
-      "duplicate_group": "DUP-073"
+      "sha256": "b0ea73efa71a7c67f072f6a542006f6712a18b799a0c6f17ce640ed68b7f82ed",
+      "size": 49490,
+      "duplicate_group": "DUP-074"
     },
     {
       "layer": "operational",
@@ -1191,7 +1191,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/RID/Method/02_METHOD_ORIGINAL_SCRIPTS.md",
       "sha256": "4ac17d1db2e0a2efb8555dd195977b02d0052c8cbf8aa093b0df270166ca0071",
       "size": 18708,
-      "duplicate_group": "DUP-074"
+      "duplicate_group": "DUP-075"
     },
     {
       "layer": "operational",
@@ -1205,9 +1205,9 @@
       "layer": "operational",
       "managed_path": "operational/KB_Online_GPT/02_Full_Context/TCC/Method/01_METHOD_SPEC.md",
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/TCC/Method/01_METHOD_SPEC.md",
-      "sha256": "39e570c9e553f1361aa86c61500baa761c8178fc5a72370fa77344db5984ad97",
-      "size": 46492,
-      "duplicate_group": ""
+      "sha256": "b0ea73efa71a7c67f072f6a542006f6712a18b799a0c6f17ce640ed68b7f82ed",
+      "size": 49490,
+      "duplicate_group": "DUP-074"
     },
     {
       "layer": "operational",
@@ -1229,9 +1229,9 @@
       "layer": "operational",
       "managed_path": "operational/KB_Online_GPT/02_Full_Context/VAS/Method/01_METHOD_SPEC.md",
       "source_path": "{programdata_kb}/KB_Online_GPT/02_Full_Context/VAS/Method/01_METHOD_SPEC.md",
-      "sha256": "15f5f2bb2c90a43350c92dbb6c42a86cb5df4001c10d5e9f40ede556722546e0",
-      "size": 43957,
-      "duplicate_group": "DUP-075"
+      "sha256": "b0ea73efa71a7c67f072f6a542006f6712a18b799a0c6f17ce640ed68b7f82ed",
+      "size": 49490,
+      "duplicate_group": "DUP-074"
     },
     {
       "layer": "operational",
@@ -1255,7 +1255,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/Report/01_REPORT_SPEC.md",
       "sha256": "ec3335e1302c27492563f759e705da710dfa20953ad4dffeb167e02f6bf7aa7c",
       "size": 165888,
-      "duplicate_group": "DUP-064"
+      "duplicate_group": "DUP-065"
     },
     {
       "layer": "operational",
@@ -1263,7 +1263,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/Report/Pump/02_REPORT_ORIGINAL_TEMPLATES.md",
       "sha256": "95b629518fa04a8fcabfcd42a829757090d8c88cf33b2e5a50545375961ed261",
       "size": 37374,
-      "duplicate_group": "DUP-065"
+      "duplicate_group": "DUP-066"
     },
     {
       "layer": "operational",
@@ -1271,7 +1271,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/Report/Pump/03_REPORT_SUMMARIES.md",
       "sha256": "bf131aa01313afdc6d227679bfe8d99f92fc95ecad1bc0b55d9aa9b77fc64562",
       "size": 424,
-      "duplicate_group": "DUP-066"
+      "duplicate_group": "DUP-067"
     },
     {
       "layer": "operational",
@@ -1279,7 +1279,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/Report/TCC/02_REPORT_ORIGINAL_TEMPLATES.md",
       "sha256": "4ffd3f9921aa96d700358e5483e52843dcc56bc21f20c99bbebbbc2da3c0f50d",
       "size": 96987,
-      "duplicate_group": "DUP-067"
+      "duplicate_group": "DUP-068"
     },
     {
       "layer": "operational",
@@ -1287,7 +1287,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/Report/TCC/03_REPORT_SUMMARIES.md",
       "sha256": "c7842ced95fd0c9b5447be8bb7994238e3fd51e4efa643895d9d2be4caf60643",
       "size": 45464,
-      "duplicate_group": "DUP-068"
+      "duplicate_group": "DUP-069"
     },
     {
       "layer": "operational",
@@ -1295,7 +1295,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/Report/VAS/02_REPORT_ORIGINAL_TEMPLATES.md",
       "sha256": "a001dbb8fb9128bf2438d58cffd41c4f07a900b332c8d6153713927ed6902ac2",
       "size": 23511,
-      "duplicate_group": "DUP-069"
+      "duplicate_group": "DUP-070"
     },
     {
       "layer": "operational",
@@ -1303,7 +1303,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/Report/VAS/03_REPORT_SUMMARIES.md",
       "sha256": "e5ba32140f6a901ca47aa5f7515a67ee09d538b0785a019868b754f73148dc9b",
       "size": 422,
-      "duplicate_group": "DUP-070"
+      "duplicate_group": "DUP-071"
     },
     {
       "layer": "operational",
@@ -1311,7 +1311,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/Report/VVWD/02_REPORT_ORIGINAL_TEMPLATES.md",
       "sha256": "b014007416e884f72b1c254ac47a407af9bc7800b8af35e27f5781e0d64f9d03",
       "size": 104569,
-      "duplicate_group": "DUP-071"
+      "duplicate_group": "DUP-072"
     },
     {
       "layer": "operational",
@@ -1319,15 +1319,15 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/Report/VVWD/03_REPORT_SUMMARIES.md",
       "sha256": "f66af70e316fb786f31da4251fc22c4c58d047150036d5c01e0f5f566612b1df",
       "size": 424,
-      "duplicate_group": "DUP-072"
+      "duplicate_group": "DUP-073"
     },
     {
       "layer": "operational",
       "managed_path": "operational/KB_Online_GPT/03_Small_Context/RID/Method/01_METHOD_SPEC.md",
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/RID/Method/01_METHOD_SPEC.md",
-      "sha256": "514919bd22ee463b74552c981e01646c1e9c4dd32990ab748938634460222873",
-      "size": 45257,
-      "duplicate_group": "DUP-073"
+      "sha256": "b0ea73efa71a7c67f072f6a542006f6712a18b799a0c6f17ce640ed68b7f82ed",
+      "size": 49490,
+      "duplicate_group": "DUP-074"
     },
     {
       "layer": "operational",
@@ -1335,7 +1335,7 @@
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/RID/Method/02_METHOD_ORIGINAL_SCRIPTS.md",
       "sha256": "4ac17d1db2e0a2efb8555dd195977b02d0052c8cbf8aa093b0df270166ca0071",
       "size": 18708,
-      "duplicate_group": "DUP-074"
+      "duplicate_group": "DUP-075"
     },
     {
       "layer": "operational",
@@ -1349,9 +1349,9 @@
       "layer": "operational",
       "managed_path": "operational/KB_Online_GPT/03_Small_Context/TCC/Method/01_METHOD_SPEC.md",
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/TCC/Method/01_METHOD_SPEC.md",
-      "sha256": "12062fb05e4c407ca2a0061076307c925d680303b8c674e276e631b7facd146a",
-      "size": 45253,
-      "duplicate_group": ""
+      "sha256": "b0ea73efa71a7c67f072f6a542006f6712a18b799a0c6f17ce640ed68b7f82ed",
+      "size": 49490,
+      "duplicate_group": "DUP-074"
     },
     {
       "layer": "operational",
@@ -1373,9 +1373,9 @@
       "layer": "operational",
       "managed_path": "operational/KB_Online_GPT/03_Small_Context/VAS/Method/01_METHOD_SPEC.md",
       "source_path": "{programdata_kb}/KB_Online_GPT/03_Small_Context/VAS/Method/01_METHOD_SPEC.md",
-      "sha256": "15f5f2bb2c90a43350c92dbb6c42a86cb5df4001c10d5e9f40ede556722546e0",
-      "size": 43957,
-      "duplicate_group": "DUP-075"
+      "sha256": "b0ea73efa71a7c67f072f6a542006f6712a18b799a0c6f17ce640ed68b7f82ed",
+      "size": 49490,
+      "duplicate_group": "DUP-074"
     },
     {
       "layer": "operational",
@@ -1557,17 +1557,17 @@
       "layer": "operational",
       "managed_path": "operational/Method Script Generator/Generator Spec/CM Compiler Rules.MD",
       "source_path": "{programdata_kb}/Method Script Generator/Generator Spec/CM Compiler Rules.MD",
-      "sha256": "77ed968709db93223b7976508ce113b780b964f4bcf50b028387c572ebf3fc7a",
-      "size": 2864,
+      "sha256": "6c38548b738f4c68efa9691b6d7949584219675ffe6ce6af29e72cae9be2fddb",
+      "size": 2737,
       "duplicate_group": "DUP-046"
     },
     {
       "layer": "operational",
       "managed_path": "operational/Method Script Generator/Generator Spec/CM_METHOD_SCRIPT_MD_FORMAT_SPEC.md",
       "source_path": "{programdata_kb}/Method Script Generator/Generator Spec/CM_METHOD_SCRIPT_MD_FORMAT_SPEC.md",
-      "sha256": "78fd24875395effb8a033a6281db99dd4a34a753e23b9ce4b89838a2e6739179",
-      "size": 28571,
-      "duplicate_group": "DUP-062"
+      "sha256": "8fcefeb2c694a2cdd83a8341f35f0d89d733039b061f8806f09f971359cce23b",
+      "size": 31639,
+      "duplicate_group": "DUP-047"
     },
     {
       "layer": "operational",
@@ -1751,7 +1751,7 @@
       "source_path": "{programdata_kb}/Method Script Generator/TCC/TCC_STRESS_TRIGGER_METHOD_CONTRACT.md",
       "sha256": "42fe1843c51e2cbfed60fbf9565012a09d94d28fe572610b8dea0c3a5d0f6b61",
       "size": 3311,
-      "duplicate_group": "DUP-063"
+      "duplicate_group": "DUP-064"
     },
     {
       "layer": "operational",
@@ -1909,9 +1909,9 @@
       "layer": "engineering",
       "managed_path": "engineering/docs/CM_METHOD_SCRIPT_MD_FORMAT_SPEC.md",
       "source_path": "{repo}/docs/CM_METHOD_SCRIPT_MD_FORMAT_SPEC.md",
-      "sha256": "78fd24875395effb8a033a6281db99dd4a34a753e23b9ce4b89838a2e6739179",
-      "size": 28571,
-      "duplicate_group": "DUP-062"
+      "sha256": "8fcefeb2c694a2cdd83a8341f35f0d89d733039b061f8806f09f971359cce23b",
+      "size": 31639,
+      "duplicate_group": "DUP-047"
     },
     {
       "layer": "engineering",
@@ -2093,9 +2093,9 @@
       "layer": "engineering",
       "managed_path": "engineering/docs/KB_INDEX.md",
       "source_path": "{repo}/docs/KB_INDEX.md",
-      "sha256": "ac28883c1d4478fddff35741ed458f24c47930b9bedb39a7b86a4be6075afd63",
-      "size": 16820,
-      "duplicate_group": "DUP-048"
+      "sha256": "638a015e5491a4d6ea34d2d7af7c68162a2a0e4560db1ba33b6bfe74be6cce90",
+      "size": 16896,
+      "duplicate_group": ""
     },
     {
       "layer": "engineering",
@@ -2103,7 +2103,7 @@
       "source_path": "{repo}/docs/MD_TO_STANDALONE_METHOD_CMBX_PACKAGING.md",
       "sha256": "5a96b3a65289e84782abb1ce10306ac99d17cc96ac75c365867886ec1bb29fae",
       "size": 27129,
-      "duplicate_group": "DUP-047"
+      "duplicate_group": "DUP-048"
     },
     {
       "layer": "engineering",
@@ -2167,6 +2167,14 @@
       "source_path": "{repo}/docs/SEQUENCE_CMD_REVERSE_ENGINEERING.md",
       "sha256": "7ba499cf9561f0c001ff161b3e47a023f704439e839ec5569e074890d5bb0d03",
       "size": 10029,
+      "duplicate_group": ""
+    },
+    {
+      "layer": "engineering",
+      "managed_path": "engineering/docs/SEQUENCE_PACKAGE_GENERATION.md",
+      "source_path": "{repo}/docs/SEQUENCE_PACKAGE_GENERATION.md",
+      "sha256": "963a4addf9d1630ea958ae173168e15da3dbed0831de2fc0f14d8bd532cb85fe",
+      "size": 8485,
       "duplicate_group": ""
     },
     {
@@ -2463,7 +2471,7 @@
       "source_path": "{repo}/docs/TCC_STRESS_TRIGGER_METHOD_CONTRACT.md",
       "sha256": "42fe1843c51e2cbfed60fbf9565012a09d94d28fe572610b8dea0c3a5d0f6b61",
       "size": 3311,
-      "duplicate_group": "DUP-063"
+      "duplicate_group": "DUP-064"
     },
     {
       "layer": "engineering",
@@ -2525,8 +2533,8 @@
       "layer": "engineering",
       "managed_path": "engineering/docs/WEB_WORKSPACE_BUILD_PLAN.md",
       "source_path": "{repo}/docs/WEB_WORKSPACE_BUILD_PLAN.md",
-      "sha256": "4d025238f806ddf8f122d1dabf99918d458d25576e27e2ec508957ae3144ad7d",
-      "size": 72507,
+      "sha256": "efc27848493b43c9a88e33079348ca242cec31b4889345fd99c8664e2a0ea52e",
+      "size": 74012,
       "duplicate_group": ""
     },
     {

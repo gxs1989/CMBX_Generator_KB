@@ -1,6 +1,6 @@
 # CM Method Script MD Generation SPEC
 
-KB_Version: 2.2  
+KB_Version: 2.4  
 Purpose: Single SPEC file for web AI / ChatGPT to generate Markdown method scripts that can be compiled by CMBX Data Explorer into standalone Chromeleon instrument-method CMBX files.  
 Primary consumer: AI authoring prompt + Method Script Generator.  
 Target copy locations:
@@ -276,6 +276,69 @@ Use exact symbols from source CMBX/KB. Examples of currently known TCC command f
 | Variables | `Variables.GenericDouble1` |
 | System | `System.Retention`, `System.AbortQueue` |
 
+### 7.1 CM String Literal Rules
+
+The MD compiler preserves the Value text; it does not infer a CM data type or
+silently add quotation marks. Therefore every literal string required by CM must
+already be enclosed in straight double quotes in the generated TSV.
+
+| Command/property | Required Value syntax | Incorrect |
+|---|---|---|
+| `Variables.GenericStringN` | Entire string literal in double quotes, for example `"10300,"` | `10300` or `10300,` |
+| Any command ending in `._SendCommand` | Entire command payload in double quotes | Unquoted driver command text |
+| `VirtualChannel` | First positional argument (channel Name) in double quotes | Unquoted channel name |
+| Trigger Name | Literal name in double quotes | Unquoted trigger name |
+
+Strict examples:
+
+```tsv
+Time	Command	Value	Comment
+	Variables.GenericString0	"10300,"	Driver command text stored as a string
+	PumpModule.PumpModule_Service._SendCommand	"Flow1.Blk1.Drv1.PositionMode=200000"	Send service command
+	VirtualChannel	"Volume_Loss_per_Time", Variables.GenericFloat7	Create named virtual channel
+```
+
+For `VirtualChannel`, only the first comma-separated argument is governed by the
+Name rule above. Keep any other string-valued options quoted as required by CM,
+for example `Unit="bar"`.
+
+The structural preflight must reject unquoted values for these three command
+families. Passing row/stage/trigger checks is not sufficient when CM value types
+are invalid.
+
+### 7.2 Pressure Unit Contract
+
+Use `bar` as the default pressure unit for Method MD authoring and pressure
+calculations. This applies to pressure setpoints, limits, Trigger thresholds,
+custom variables, VirtualChannel output, comments that state a pressure value,
+and method/report handoff notes.
+
+| Input or operation | Required handling |
+|---|---|
+| Pressure source already expressed in `bar` | Use the value directly. |
+| Pressure source expressed in `Pa`, `kPa`, `MPa`, or `psi` | Convert the numeric value to `bar` before comparison, arithmetic, logging, or VirtualChannel output. State the conversion in the Comment or design notes. |
+| New pressure VirtualChannel | Set `Unit="bar"` unless verified source evidence explicitly requires another unit. |
+| Explicit non-`bar` source-method contract | Preserve it only when the source method/device contract requires it; identify the exception and conversion boundary. |
+
+Standard conversions:
+
+```text
+1 bar = 100000 Pa = 100 kPa = 0.1 MPa
+1 psi = 0.0689475729 bar
+```
+
+Do not relabel an unconverted signal as `bar`. A unit label and a numeric
+conversion are separate requirements. If the source signal unit cannot be
+verified, mark the pressure calculation `Open Verification Required` instead of
+guessing a scale factor.
+
+Default example:
+
+```tsv
+Time	Command	Value	Comment
+	VirtualChannel	"PumpPressureVirtual", PumpModule.Pump.Pump_Pressure.Signal, Type=Digital, Unit="bar", Evaluate=Yes	Pressure calculations use bar
+```
+
 ## 8. Custom Variables And Method Variables
 
 Official CM Help distinguishes custom variables from ordinary device/method
@@ -542,7 +605,7 @@ Processing Method are part of the test configuration:
 
 ```tsv
 Time	Command	Value	Comment
-	VirtualChannel	PumpPressureVirtual, PumpModule.Pump.Pump_Pressure.Signal, Type=Digital, Unit="bar", Evaluate=Yes	Expose valve pressure transients for integration
+	VirtualChannel	"PumpPressureVirtual", PumpModule.Pump.Pump_Pressure.Signal, Type=Digital, Unit="bar", Evaluate=Yes	Expose valve pressure transients for integration
 ```
 
 Contract:
@@ -577,6 +640,7 @@ Likely causes for red cells:
 | Nested trigger | Not allowed in CM7 |
 | Duplicate trigger name | Rejected by Method Check |
 | Symbol references in trigger `Delay`, `Hysteresis`, or `AllowImmediateExecution` | Not accepted by CM Help |
+| Unquoted `GenericString`, `_SendCommand`, or `VirtualChannel` Name | CM string value is compiled with the wrong type or shown as an invalid red cell |
 
 ## 14. Compiler Contract For Structural MD -> CMBX
 

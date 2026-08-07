@@ -90,7 +90,7 @@ def test_health_and_static_home(tmp_path: Path) -> None:
         assert 'id="sequenceName"' not in page.text
         assert 'id="sequenceReportName"' not in page.text
         assert "3:2" in page.text
-        script = client.get("/static/app.js?v=20260806-sequence-v3")
+        script = client.get("/static/app.js?v=20260806-sequence-v4")
         assert script.status_code == 200
         assert "copyLeakChart" in script.text
         assert "ClipboardItem" in script.text
@@ -100,7 +100,8 @@ def test_health_and_static_home(tmp_path: Path) -> None:
         sequence_config = client.get("/api/sequence/config")
         assert sequence_config.status_code == 200
         assert sequence_config.json()["processing_method_default"] == ""
-        assert sequence_config.json()["max_injections"] == 2
+        assert sequence_config.json()["max_injections"] == 10
+        assert sequence_config.json()["method_slots"] == 10
         assert sequence_config.json()["target_versions"] == ["7.3 candidate"]
 
 

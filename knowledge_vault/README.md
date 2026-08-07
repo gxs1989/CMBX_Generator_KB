@@ -8,7 +8,7 @@ inventory while preserving the paths required by the running application.
 | Layer | Files | Editing contract |
 |---|---:|---|
 | `operational` | 219 | Snapshot of `C:\ProgramData\CMBX Data Explorer Workspace\KB`. Obsidian edits are collected back into this layer. |
-| `engineering` | 108 | Read-only mirror of Git-tracked project Markdown. Edit the original repository file. |
+| `engineering` | 109 | Read-only mirror of Git-tracked project Markdown. Edit the original repository file. |
 | `skills` | 6 | Read-only mirror of relevant Codex skills. Edit the installed skill source. |
 
 Exact-content duplicates are retained where runtime compatibility requires their

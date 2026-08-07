@@ -64,6 +64,44 @@ def test_single_asset_preflight_rejects_unknown_branch(tmp_path: Path) -> None:
         raise AssertionError("Unknown asset branch should fail")
 
 
+def test_single_asset_preflight_type_checks_cm_string_literals(tmp_path: Path) -> None:
+    invalid = tmp_path / "invalid_strings.md"
+    invalid.write_text(
+        "# Invalid CM strings\n\n```tsv\n"
+        "Time\tCommand\tValue\tComment\n"
+        "{Initial Time}\tInstrument Setup\t\t\n"
+        "\tVariables.GenericString0\t10300,\t\n"
+        "\tPumpModule.PumpModule_Service._SendCommand\tFlow1.Blk1.Drv1.PositionMode=200000\t\n"
+        "\tVirtualChannel\tVolume_Loss_per_Time, Variables.GenericFloat7\t\n"
+        "1.000\tEnd\t\t\n```\n",
+        encoding="utf-8",
+    )
+
+    checked = preflight_asset("method", invalid)
+
+    assert not checked.ready
+    assert any("GENERIC_STRING_UNQUOTED" in item for item in checked.errors)
+    assert any("SEND_COMMAND_UNQUOTED" in item for item in checked.errors)
+    assert any("VIRTUAL_CHANNEL_NAME_UNQUOTED" in item for item in checked.errors)
+
+    valid = tmp_path / "valid_strings.md"
+    valid.write_text(
+        "# Valid CM strings\n\n```tsv\n"
+        "Time\tCommand\tValue\tComment\n"
+        "{Initial Time}\tInstrument Setup\t\t\n"
+        "\tVariables.GenericString0\t\"10300,\"\t\n"
+        "\tPumpModule.PumpModule_Service._SendCommand\t\"Flow1.Blk1.Drv1.PositionMode=200000\"\t\n"
+        "\tVirtualChannel\t\"Volume_Loss_per_Time\", Variables.GenericFloat7\t\n"
+        "1.000\tEnd\t\t\n```\n",
+        encoding="utf-8",
+    )
+
+    checked = preflight_asset("method", valid)
+
+    assert checked.ready
+    assert not checked.errors
+
+
 def test_recommended_files_support_multiple_modules_and_deduplicate_common_report_spec(monkeypatch, tmp_path: Path) -> None:
     import generation_project
 
